@@ -9,1068 +9,491 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" href="icon-192.png">
   <style>
-    :root{--p:#1E2A5E;--pl:#2B3D7B;--pd:#121A3D;--acc:#e74c3c;--ok:#27ae60;--okl:#2ecc71;--warn:#FFD700;--bg:#F0F2F7;--card:#fff;--txt:#1E2A5E;--dim:#6B7280;--bdr:#D1D5E0;--sh:0 2px 12px rgba(30,42,94,.08);--r:14px;--gold:#FFD700;--navy:#1E2A5E}
+    :root{--p:#1E2A5E;--pl:#2B3D7B;--pd:#121A3D;--acc:#e74c3c;--ok:#27ae60;--okl:#2ecc71;--warn:#f39c12;--bg:#F0F2F7;--card:#fff;--txt:#1E2A5E;--dim:#6B7280;--bdr:#D1D5E0;--sh:0 2px 12px rgba(30,42,94,.08);--r:14px;--gold:#FFD700;--navy:#1E2A5E;--blue:#3B82F6;--bord:var(--bdr)}
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;-webkit-font-smoothing:antialiased}
 
-    .nav{background:linear-gradient(135deg,var(--navy),var(--pd));color:#fff;padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;box-shadow:0 2px 10px rgba(30,42,94,.25);border-bottom:3px solid var(--gold)}
-    .nav .logo{font-size:1.05rem;font-weight:700;display:flex;align-items:center;gap:10px}
-    .nav .logo-i{width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#fff;display:flex;align-items:center;justify-content:center}
+    .nav{background:linear-gradient(135deg,var(--navy),var(--pd));color:#fff;padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 10px rgba(30,42,94,.25);border-bottom:3px solid var(--gold)}
+    .nav .logo{font-size:1rem;font-weight:700;display:flex;align-items:center;gap:10px}
+    .nav .logo-i{width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#fff;display:flex;align-items:center;justify-content:center}
     .nav .logo-i img{width:100%;height:100%;object-fit:cover}
     .nav .ui{display:flex;align-items:center;gap:8px}
-    .nav .badge{background:rgba(255,215,0,.25);color:var(--gold);padding:2px 8px;border-radius:12px;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
-    .btn-lo{background:rgba(255,255,255,.12);border:1px solid rgba(255,215,0,.4);color:#fff;padding:5px 12px;border-radius:8px;cursor:pointer;font-size:.8rem;font-family:inherit}
-    .btn-lo:hover{background:rgba(255,215,0,.2)}
+    .nav .role-badge{background:rgba(255,215,0,.2);color:var(--gold);padding:2px 8px;border-radius:12px;font-size:.65rem;text-transform:uppercase;letter-spacing:.5px;font-weight:700}
 
-    .wrap{max-width:900px;margin:0 auto;padding:16px 12px 80px}
-    .bnav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--bdr);display:flex;z-index:99;box-shadow:0 -2px 10px rgba(0,0,0,.06)}
-    .bnav button{flex:1;padding:8px 4px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:.68rem;color:var(--dim);display:flex;flex-direction:column;align-items:center;gap:3px;position:relative}
-    .bnav button.act{color:var(--navy);font-weight:600;border-top:2px solid var(--gold)}
-    .bnav button .bi{font-size:1.3rem}
-    .bnav button .badge{background:var(--acc);color:#fff;font-size:.5rem;padding:2px 6px;border-radius:10px;position:absolute;top:0;right:4px}
+    .wrap{max-width:900px;margin:0 auto;padding:16px 12px 85px}
+    .bnav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--bdr);display:flex;z-index:99;box-shadow:0 -2px 10px rgba(0,0,0,.06);padding-bottom:env(safe-area-inset-bottom)}
+    .bnav button{flex:1;padding:8px 4px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:.65rem;color:var(--dim);display:flex;flex-direction:column;align-items:center;gap:2px;position:relative;transition:color .2s}
+    .bnav button.act{color:var(--navy);font-weight:700}
+    .bnav button.act::before{content:'';position:absolute;top:-1px;left:20%;right:20%;height:3px;background:var(--gold);border-radius:0 0 3px 3px}
+    .bnav button .bi{font-size:1.2rem}
+    .bnav button .badge{background:var(--acc);color:#fff;font-size:.55rem;padding:1px 5px;border-radius:10px;position:absolute;top:2px;right:20%;min-width:16px;text-align:center;font-weight:700}
 
-    .cd{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:20px;margin-bottom:16px}
-    .cd h3{font-size:1rem;margin-bottom:14px;color:var(--navy);display:flex;align-items:center;gap:8px}
-    .fg{margin-bottom:16px;text-align:left}
-    .fg label{display:block;font-size:.8rem;font-weight:600;margin-bottom:5px}
-    .fg input,.fg select,.fg textarea{width:100%;padding:10px 12px;border:2px solid var(--bdr);border-radius:10px;font-size:.9rem;font-family:inherit;background:#fff;-webkit-appearance:none}
-    .fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--pl)}
-    .fg textarea{resize:vertical;min-height:70px}
+    .cd{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:18px;margin-bottom:14px;animation:fadeUp .3s ease-out}
+    .cd h3{font-size:.95rem;margin-bottom:12px;color:var(--navy);display:flex;align-items:center;gap:8px}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+    .fg{margin-bottom:14px;text-align:left}
+    .fg label{display:block;font-size:.78rem;font-weight:600;margin-bottom:4px;color:var(--navy)}
+    .fg input,.fg select,.fg textarea{width:100%;padding:10px 12px;border:2px solid var(--bdr);border-radius:10px;font-size:.88rem;font-family:inherit;background:#fff;-webkit-appearance:none;transition:border-color .2s}
+    .fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--pl);box-shadow:0 0 0 3px rgba(43,61,123,.1)}
+    .fg textarea{resize:vertical;min-height:60px}
     .fg select{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238795a1' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center/12px;padding-right:32px}
 
-    .btn{padding:11px 20px;border:none;border-radius:10px;font-size:.9rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;justify-content:center;font-family:inherit;transition:all .15s;width:100%}
+    .btn{padding:11px 20px;border:none;border-radius:10px;font-size:.88rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;justify-content:center;font-family:inherit;transition:all .15s ease;width:100%}
+    .btn:active{transform:scale(.97)}
     .btn-p{background:var(--navy);color:#fff}.btn-p:hover{background:var(--pl)}
     .btn-ok{background:var(--ok);color:#fff}.btn-ok:hover{background:var(--okl)}
     .btn-d{background:var(--acc);color:#fff}
     .btn-o{background:transparent;border:2px solid var(--navy);color:var(--navy)}.btn-o:hover{background:var(--navy);color:#fff}
     .btn-g{background:var(--bg);color:var(--txt);border:1px solid var(--bdr)}
-    .btn-s{padding:6px 12px;font-size:.78rem;width:auto}
+    .btn-s{padding:6px 12px;font-size:.76rem;width:auto}
 
-    .sb{padding:3px 10px;border-radius:14px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+    .sb{padding:3px 10px;border-radius:14px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
     .s-pending{background:#fef3cd;color:#856404}
     .s-booked{background:#d4edda;color:#155724}
     .s-contacting{background:#cce5ff;color:#004085}
     .s-nocrt{background:#f8d7da;color:#721c24}
+    .s-cancelled{background:#e2e3e5;color:#495057}
 
-    .li{padding:14px;border:1px solid var(--bdr);border-radius:12px;margin-bottom:10px}
-    .li:hover{border-color:var(--pl);background:#f8fbff}
-    .li .nm{font-weight:600;font-size:.95rem}
-    .li .dt{font-size:.78rem;color:var(--dim);margin-top:2px;line-height:1.4}
+    .li{padding:14px;border:1px solid var(--bdr);border-radius:12px;margin-bottom:8px;cursor:pointer;transition:all .15s}
+    .li:hover{border-color:var(--pl);background:#f8fbff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(30,42,94,.06)}
+    .li .nm{font-weight:600;font-size:.92rem}
+    .li .dt{font-size:.76rem;color:var(--dim);margin-top:2px;line-height:1.4}
     .li-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
 
-    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:18px}
-    .st{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px;text-align:center}
-    .st .n{font-size:1.8rem;font-weight:800;color:var(--navy)}
-    .st .l{font-size:.72rem;color:var(--dim);margin-top:2px}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:14px}
+    .st{background:var(--card);border-radius:12px;box-shadow:var(--sh);padding:14px 10px;text-align:center;transition:transform .15s}
+    .st:hover{transform:translateY(-2px)}
+    .st .n{font-size:1.6rem;font-weight:800;color:var(--navy)}
+    .st .l{font-size:.68rem;color:var(--dim);margin-top:2px;line-height:1.2}
+    .st.alert .n{color:var(--acc)}
+    .st.ok .n{color:var(--ok)}
 
-    .nf{padding:10px 14px;border-left:4px solid var(--p);background:#f8fbff;border-radius:0 8px 8px 0;margin-bottom:8px;font-size:.85rem}
+    .nf{padding:10px 14px;border-left:4px solid var(--p);background:#f8fbff;border-radius:0 10px 10px 0;margin-bottom:8px;font-size:.83rem;transition:background .2s}
     .nf.urg{border-left-color:var(--acc);background:#fff5f5}
     .nf.suc{border-left-color:var(--ok);background:#f0fff4}
-    .nf.err{border-left-color:var(--acc);background:#fff5f5;color:var(--acc)}
-    .nf .tm{font-size:.7rem;color:var(--dim);margin-top:3px}
+    .nf .tm{font-size:.68rem;color:var(--dim);margin-top:3px}
 
-    .pi{display:flex;align-items:center;padding:10px 14px;border:1px solid var(--bdr);border-radius:10px;margin-bottom:6px;background:#fff;gap:10px}
-    .pi .rk{width:28px;height:28px;background:var(--navy);color:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;flex-shrink:0}
-    .pi .ci{flex:1;min-width:0}
-    .pi .cn{font-weight:600;font-size:.88rem}
-    .pi .cs{font-size:.75rem;color:var(--dim)}
-    .ob{display:flex;flex-direction:column;gap:1px}
-    .ob button{background:var(--bg);border:1px solid var(--bdr);border-radius:3px;cursor:pointer;padding:1px 5px;font-size:.65rem;line-height:1.3}
-    .ob button:hover{background:var(--p);color:#fff}
-
-    .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px}
-    .cal .ch{text-align:center;font-size:.7rem;font-weight:700;color:var(--dim);padding:6px 0}
-    .cal .dy{text-align:center;padding:8px 2px;border-radius:8px;font-size:.8rem;cursor:default;min-height:40px;position:relative}
-    .cal .dy.today{background:var(--navy);color:var(--gold);font-weight:700}
+    .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:14px}
+    .cal .ch{text-align:center;font-size:.65rem;font-weight:700;color:var(--dim);padding:4px 0}
+    .cal .dy{text-align:center;padding:6px 2px;border-radius:8px;font-size:.78rem;cursor:default;min-height:36px;position:relative;transition:background .15s}
+    .cal .dy.today{background:var(--navy);color:var(--gold);font-weight:700;border-radius:50%}
     .cal .dy.has-abs{background:#ffeaea;border:2px solid var(--acc);font-weight:600;cursor:pointer}
+    .cal .dy.has-abs:hover{background:#ffdddd}
     .cal .dy.other{color:var(--bdr)}
-    .cal .dy .dot{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:5px;height:5px;background:var(--acc);border-radius:50%}
+    .cal .dy .dot{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;background:var(--acc);border-radius:50%}
 
-    .bk{border:2px solid var(--ok);border-radius:var(--r);padding:18px;background:#f0fff4;margin-bottom:12px}
-    .bk h4{color:var(--ok);margin-bottom:8px;font-size:1rem}
-    .bk .dr{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(39,174,96,.12);font-size:.85rem}
-    .bk .dr:last-child{border-bottom:none}
+    .qa{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:14px}
+    .qa button{background:var(--card);border:2px solid var(--bdr);border-radius:var(--r);padding:16px 10px;cursor:pointer;text-align:center;font-family:inherit;transition:all .15s}
+    .qa button:hover{border-color:var(--pl);transform:translateY(-2px);box-shadow:var(--sh)}
+    .qa button:active{transform:scale(.97)}
+    .qa .qi{font-size:1.4rem;margin-bottom:4px}
+    .qa .ql{font-weight:600;font-size:.82rem}
+    .qa .qd{font-size:.68rem;color:var(--dim);margin-top:2px}
 
-    .qa{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px}
-    .qa button{background:var(--card);border:2px solid var(--bdr);border-radius:var(--r);padding:18px 12px;cursor:pointer;text-align:center;font-family:inherit}
-    .qa button:hover{border-color:var(--pl);transform:translateY(-1px);box-shadow:var(--sh)}
-    .qa .qi{font-size:1.6rem;margin-bottom:6px}
-    .qa .ql{font-weight:600;font-size:.85rem}
-    .qa .qd{font-size:.72rem;color:var(--dim);margin-top:3px}
+    .mo{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;justify-content:center;align-items:flex-end;z-index:200;animation:fadeIn .2s}
+    .mo .mc{background:#fff;border-radius:20px 20px 0 0;padding:20px 18px 32px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;animation:slideUp .3s ease-out}
+    @media(min-width:600px){.mo{align-items:center;padding:20px}.mo .mc{border-radius:var(--r);max-height:90vh}}
+    .mo .handle{width:40px;height:4px;background:var(--bdr);border-radius:4px;margin:0 auto 14px}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 
-    .mo{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;justify-content:center;align-items:flex-end;z-index:200}
-    .mo .mc{background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto}
-    @media(min-width:600px){.mo{align-items:center;padding:20px}.mo .mc{border-radius:var(--r)}}
-    .mo .handle{width:40px;height:4px;background:var(--bdr);border-radius:4px;margin:0 auto 16px}
+    .report-table{width:100%;border-collapse:collapse;font-size:.82rem}
+    .report-table th{background:var(--navy);color:#fff;padding:8px 10px;text-align:left;font-weight:600;font-size:.75rem}
+    .report-table td{padding:8px 10px;border-bottom:1px solid var(--bdr)}
+    .report-table tr:nth-child(even){background:#f8f9fc}
+    .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+    .dot-booked{background:var(--ok)}.dot-contacting{background:var(--blue)}.dot-pending{background:var(--warn)}.dot-nocrt{background:var(--acc)}
 
-    .conf{text-align:center;padding:20px 10px}
-    .conf .ck{width:60px;height:60px;background:var(--ok);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.8rem;color:#fff}
-    .conf h2{color:var(--ok);margin-bottom:8px;font-size:1.2rem}
-    .conf p{color:var(--dim);margin-bottom:4px;font-size:.88rem}
+    .toast-container{position:fixed;top:64px;right:12px;z-index:300;display:flex;flex-direction:column;gap:8px;max-width:340px}
+    .toast{padding:12px 16px;border-radius:10px;color:#fff;font-size:.83rem;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,.15);animation:toastIn .3s ease-out;display:flex;align-items:center;gap:8px;cursor:pointer}
+    .toast.success{background:var(--ok)}.toast.error{background:var(--acc)}.toast.info{background:var(--navy)}
+    .toast.hiding{animation:toastOut .3s ease-in forwards}
+    @keyframes toastIn{from{opacity:0;transform:translateX(100%)}to{opacity:1;transform:translateX(0)}}
+    @keyframes toastOut{to{opacity:0;transform:translateX(100%)}}
 
-    .empty{text-align:center;padding:30px 16px;color:var(--dim)}
-    .empty .ei{font-size:2.5rem;margin-bottom:10px;opacity:.4}
-    .empty p{font-size:.85rem}
+    .demo-banner{background:linear-gradient(135deg,var(--gold),#FFC107);color:var(--navy);padding:8px 16px;font-size:.78rem;font-weight:600;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+    .demo-banner:hover{background:linear-gradient(135deg,#FFC107,var(--gold))}
+    .demo-banner .pulse-dot{width:8px;height:8px;background:var(--ok);border-radius:50%;animation:pulse 1.5s infinite}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
 
-    .tog{display:flex;gap:3px;background:var(--bg);border-radius:10px;padding:3px;margin-bottom:16px}
-    .tog button{flex:1;padding:8px 6px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:.8rem;font-family:inherit;background:transparent;color:var(--dim)}
-    .tog button.act{background:var(--navy);color:#fff}
+    .timeline{position:relative;padding-left:24px}
+    .timeline::before{content:'';position:absolute;left:8px;top:4px;bottom:4px;width:2px;background:var(--bdr)}
+    .timeline-item{position:relative;margin-bottom:14px;font-size:.82rem}
+    .timeline-item::before{content:'';position:absolute;left:-20px;top:4px;width:12px;height:12px;border-radius:50%;border:2px solid var(--bdr);background:#fff}
+    .timeline-item.done::before{background:var(--ok);border-color:var(--ok)}
+    .timeline-item.active::before{background:var(--blue);border-color:var(--blue);animation:pulse 1.5s infinite}
+    .timeline-item.alert::before{background:var(--acc);border-color:var(--acc)}
+    .tl-title{font-weight:600;color:var(--navy)}
+    .tl-time{font-size:.7rem;color:var(--dim);margin-top:1px}
+    .tl-desc{color:var(--dim);margin-top:2px}
 
-    .chk{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem}
-    .chk input{width:18px;height:18px;accent-color:var(--pl)}
+    .log-item{padding:10px 12px;border-bottom:1px solid var(--bdr);font-size:.8rem;display:flex;gap:10px;align-items:flex-start}
+    .log-item:last-child{border-bottom:none}
+    .log-icon{font-size:1rem;flex-shrink:0;margin-top:2px}
+    .log-body{flex:1;min-width:0}
+    .log-to{font-weight:600;color:var(--navy)}
+    .log-msg{color:var(--dim);font-size:.75rem;margin-top:2px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+    .log-time{font-size:.68rem;color:var(--bdr);margin-top:2px}
+    .log-status{font-size:.65rem;padding:2px 6px;border-radius:8px;font-weight:600}
+    .log-status.sim{background:#e8f4fd;color:#0369a1}
+    .log-status.sent{background:#d4edda;color:#155724}
+    .log-status.fail{background:#f8d7da;color:#721c24}
 
-    .ag{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px}
-    .ag button{padding:8px;border:2px solid var(--bdr);border-radius:8px;font-size:.75rem;cursor:pointer;font-family:inherit;background:#fff}
-    .ag button.avail{border-color:var(--ok);background:#f0fff4;color:var(--ok);font-weight:600}
-    .ag button.unavail{border-color:var(--acc);background:#ffeaea;color:var(--acc);font-weight:600}
+    .tog{display:flex;gap:3px;background:var(--bg);border-radius:10px;padding:3px;margin-bottom:14px}
+    .tog button{flex:1;padding:7px 6px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:.78rem;font-family:inherit;background:transparent;color:var(--dim);transition:all .15s}
+    .tog button.act{background:var(--navy);color:#fff;box-shadow:0 2px 6px rgba(30,42,94,.15)}
 
-    .flex{display:flex;gap:12px}
-    .flex>*{flex:1}
+    .half-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
+    .half-opts button{padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:.8rem;font-weight:600;font-family:inherit;cursor:pointer;background:#fff;transition:all .15s}
+    .half-opts button.act{border-color:var(--navy);background:var(--navy);color:#fff}
 
-    .pulse{animation:pulse 2s infinite}
-    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-    @keyframes si{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-    .ai{animation:si .25s ease-out}
-    .loading{text-align:center;padding:40px;color:var(--dim)}
+    @media print{
+      .nav,.bnav,.demo-banner,.toast-container,.no-print{display:none!important}
+      .wrap{padding:0!important;max-width:100%!important}
+      .cd{box-shadow:none!important;border:1px solid #ddd!important;page-break-inside:avoid}
+      body{background:#fff!important}
+    }
 
+    .empty{text-align:center;padding:24px 16px;color:var(--dim)}
+    .empty .ei{font-size:2.2rem;margin-bottom:8px;opacity:.4}
+    .empty p{font-size:.83rem}
+    .loading{text-align:center;padding:40px;color:var(--dim);font-size:.85rem}
     .hidden{display:none}
-
-    .half-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
-    .half-opts button{padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:.8rem;font-weight:600;font-family:inherit;cursor:pointer;background:#fff}
-    .half-opts button.act{border-color:var(--pl);background:var(--p);color:#fff}
-
-    @media(max-width:400px){.wrap{padding:10px 8px 80px}.cd{padding:14px}.st .n{font-size:1.4rem}}
+    .flex{display:flex;gap:10px}.flex>*{flex:1}
+    .text-sm{font-size:.8rem}.text-dim{color:var(--dim)}
+    .mt-1{margin-top:8px}.mt-2{margin-top:16px}.mb-1{margin-bottom:8px}.mb-2{margin-bottom:16px}
+    .divider{height:1px;background:var(--bdr);margin:16px 0}
+    .link{color:var(--blue);text-decoration:none;cursor:pointer;font-weight:600;font-size:.82rem}.link:hover{text-decoration:underline}
+    @media(max-width:400px){.wrap{padding:10px 8px 85px}.cd{padding:14px}.st .n{font-size:1.3rem}}
   </style>
 </head>
 <body>
-  <nav class="nav">
+  <div class="demo-banner" id="demoBanner" onclick="app.showDemoGuide()">
+    <span class="pulse-dot"></span>
+    DEMO MODE — Tap for walkthrough guide
+  </div>
+
+  <nav class="nav" id="topNav" style="display:none">
     <div class="logo">
       <div class="logo-i"><img src="logo-circle.png" alt="WPS"></div>
       <span>WPS Staff Hub</span>
     </div>
     <div class="ui">
-      <span id="userDisplay" style="font-size:0.85rem;font-weight:500"></span>
-      <button class="btn-lo" onclick="app.logout()">Logout</button>
+      <span id="userDisplay" style="font-size:.82rem;font-weight:500"></span>
+      <span id="roleBadge" class="role-badge"></span>
     </div>
   </nav>
 
+  <div class="toast-container" id="toasts"></div>
   <div class="wrap" id="content"></div>
 
-  <nav class="bnav">
-    <button id="navDash" class="act" onclick="app.showView('dashboard')">
-      <div class="bi">📊</div>
-      <div>Dashboard</div>
+  <nav class="bnav" id="bottomNav" style="display:none">
+    <button id="navDashboard" class="act" onclick="app.showView('dashboard')">
+      <div class="bi">📊</div><div>Dashboard</div>
     </button>
-    <button id="navAbs" onclick="app.showView('absences')">
-      <div class="bi">📝</div>
-      <div>Cover</div>
+    <button id="navAbsences" onclick="app.showView('absences')">
+      <div class="bi">📋</div><div>Cover</div>
     </button>
     <button id="navNew" onclick="app.showView('new')">
-      <div class="bi">➕</div>
-      <div>New</div>
+      <div class="bi">➕</div><div>New</div>
     </button>
-    <button id="navNotif" onclick="app.showView('notifications')">
-      <div class="bi">🔔</div>
-      <div>Notify</div>
-      <span class="badge" id="notifBadge" style="display:none;"></span>
+    <button id="navNotifications" onclick="app.showView('notifications')">
+      <div class="bi">🔔</div><div>Alerts</div>
+      <span class="badge" id="notifBadge" style="display:none"></span>
     </button>
     <button id="navSettings" onclick="app.showView('settings')">
-      <div class="bi">⚙️</div>
-      <div>More</div>
+      <div class="bi">⚙️</div><div>More</div>
     </button>
   </nav>
 
   <script>
-    const API_BASE = '/api';
-    let state = {
-      token: null,
-      user: null,
-      currentView: 'dashboard',
-      allUsers: [],
-      allCRTs: [],
-      absences: [],
-      notifications: [],
-      stats: {},
-      preferences: {},
-      lastPollTime: new Date().toISOString(),
-      crtsUnavailable: {},
-      userSettings: null
+    const API='/api';
+    let state={token:null,user:null,currentView:'dashboard',allUsers:[],allCRTs:[],absences:[],notifications:[],stats:{},userSettings:null,lastPollTime:new Date().toISOString(),_currentPrefArea:null,_currentPrefs:[],smsLogs:[],emailLogs:[],absenceFilter:'all',_logTab:'sms'};
+
+    function toast(msg,type='info',dur=4000){const c=document.getElementById('toasts');const icons={success:'✓',error:'✕',info:'ℹ'};const el=document.createElement('div');el.className='toast '+type;el.innerHTML='<span>'+(icons[type]||'ℹ')+'</span> '+msg;el.onclick=()=>{el.classList.add('hiding');setTimeout(()=>el.remove(),300)};c.appendChild(el);setTimeout(()=>{el.classList.add('hiding');setTimeout(()=>el.remove(),300)},dur)}
+
+    const app={
+      async init(){
+        const token=localStorage.getItem('wps_token');
+        if(token){state.token=token;try{state.user=JSON.parse(localStorage.getItem('wps_user'))}catch(e){}
+          if(state.user){this.showApp();await this.loadInitialData();this.startPolling();this.showView('dashboard');return}}
+        this.showLoginView()},
+
+      showApp(){document.getElementById('topNav').style.display='flex';document.getElementById('bottomNav').style.display='flex'},
+      hideApp(){document.getElementById('topNav').style.display='none';document.getElementById('bottomNav').style.display='none'},
+
+      async fetchAPI(method,endpoint,body=null){
+        const opts={method,headers:{'Content-Type':'application/json'}};
+        if(state.token)opts.headers['Authorization']='Bearer '+state.token;
+        if(body)opts.body=JSON.stringify(body);
+        const res=await fetch(API+endpoint,opts);
+        if(res.status===401){this.logout();throw new Error('Session expired')}
+        if(!res.ok){const t=await res.text();throw new Error(t||'HTTP '+res.status)}
+        return res.json()},
+
+      async loadInitialData(){
+        try{
+          const[users,crts,absences,stats,notif]=await Promise.all([
+            this.fetchAPI('GET','/users'),this.fetchAPI('GET','/crts'),
+            this.fetchAPI('GET','/absences?limit=50'),this.fetchAPI('GET','/stats'),
+            this.fetchAPI('GET','/notifications?role='+state.user.role+'&limit=30')]);
+          state.allUsers=users||[];state.allCRTs=crts||[];state.absences=absences||[];state.stats=stats||{};state.notifications=notif||[];
+          try{state.userSettings=await this.fetchAPI('GET','/settings')}catch(e){}
+          this.updateNotifBadge();this.render()
+        }catch(err){console.error('Init error:',err)}},
+
+      startPolling(){
+        if(this._poll)clearInterval(this._poll);
+        this._poll=setInterval(async()=>{try{
+          const pt=new Date().toISOString();
+          const[abs,stats,notif]=await Promise.all([
+            this.fetchAPI('GET','/absences?limit=50'),this.fetchAPI('GET','/stats'),
+            this.fetchAPI('GET','/notifications?role='+state.user.role+'&limit=10&since='+state.lastPollTime)]);
+          state.absences=abs||[];state.stats=stats||{};
+          if(notif&&notif.length>0){notif.forEach(n=>{const t=n.type==='success'?'success':n.type==='urgent'?'error':'info';toast(n.message,t)});state.notifications=[...notif,...state.notifications].slice(0,50)}
+          state.lastPollTime=pt;this.updateNotifBadge();this.render()
+        }catch(e){}},5000)},
+
+      updateNotifBadge(){const b=document.getElementById('notifBadge');if(!b)return;const c=state.notifications.length;if(c>0){b.textContent=c>9?'9+':c;b.style.display='block'}else b.style.display='none'},
+
+      showView(v){state.currentView=v;document.querySelectorAll('.bnav button').forEach(b=>b.classList.remove('act'));const btn=document.getElementById('nav'+v.charAt(0).toUpperCase()+v.slice(1));if(btn)btn.classList.add('act');this.render()},
+
+      render(){
+        const content=document.getElementById('content');if(!state.user){content.innerHTML='';return}
+        document.getElementById('userDisplay').textContent=state.user.name;
+        document.getElementById('roleBadge').textContent=state.user.role;
+        const views={dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs()};
+        content.innerHTML=(views[state.currentView]||views.dashboard)();
+        if(state.currentView==='settings'&&(state.user.role==='leader'||state.user.role==='admin'))this.populateAreaDropdown();
+        if(state.currentView==='new')this.setupAbsenceForm()},
+
+      // ===== DASHBOARD =====
+      renderDashboard(){
+        if(state.user.role==='crt')return this.renderCRTDashboard();
+        if(state.user.role==='staff')return this.renderStaffDashboard();
+        return this.renderLeaderDashboard()},
+
+      renderLeaderDashboard(){
+        const s=state.stats;const todayStr=new Date().toISOString().split('T')[0];
+        const todayAbs=state.absences.filter(a=>a.date_start<=todayStr&&a.date_end>=todayStr);
+        const contacting=todayAbs.filter(a=>a.status==='contacting');
+        const needAction=todayAbs.filter(a=>a.status==='pending'||a.status==='nocrt');
+        const booked=todayAbs.filter(a=>a.status==='booked');
+        const upcoming=state.absences.filter(a=>a.date_start>todayStr).slice(0,5);
+
+        let h='<div class="stats"><div class="st '+(s.absentToday>0?'alert':'')+'"><div class="n">'+(s.absentToday||0)+'</div><div class="l">Away Today</div></div><div class="st ok"><div class="n">'+(s.crtsBooked||0)+'</div><div class="l">CRTs Booked</div></div><div class="st '+(s.needAction>0?'alert':'')+'"><div class="n">'+(s.needAction||0)+'</div><div class="l">Need Action</div></div><div class="st"><div class="n">'+(s.totalTerm||0)+'</div><div class="l">This Term</div></div></div>';
+
+        h+='<div class="qa"><button onclick="app.showView(\'new\')"><div class="qi">🆕</div><div class="ql">Report Absence</div><div class="qd">Lodge new</div></button><button onclick="app.showView(\'report\')"><div class="qi">📄</div><div class="ql">Cover Report</div><div class="qd">Today\'s sheet</div></button><button onclick="app.showView(\'logs\')"><div class="qi">📨</div><div class="ql">Activity Log</div><div class="qd">SMS & Email</div></button></div>';
+
+        if(contacting.length>0){h+='<div class="cd" style="border-left:4px solid var(--blue)"><h3 style="color:var(--blue)">⏳ Contacting CRTs...</h3>';
+          contacting.forEach(a=>{h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div><div class="nm">'+a.staff_name+'</div><div class="dt">'+a.area+' — '+a.reason+'</div></div><span class="sb s-contacting" style="animation:pulse 1.5s infinite">⟳ Contacting</span></div>'+(a.crt_name?'<div class="dt mt-1">Contacting: <strong>'+a.crt_name+'</strong></div>':'')+'</div>'});h+='</div>'}
+
+        if(needAction.length>0){h+='<div class="cd" style="border-left:4px solid var(--acc)"><h3 style="color:var(--acc)">🚨 Needs Attention</h3>';
+          needAction.forEach(a=>{h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div><div class="nm">'+a.staff_name+'</div><div class="dt">'+a.area+' — '+a.reason+'</div></div><span class="sb '+(a.status==='nocrt'?'s-nocrt':'s-pending')+'">'+(a.status==='nocrt'?'⚠ No CRT':'Pending')+'</span></div></div>'});h+='</div>'}
+
+        if(booked.length>0){h+='<div class="cd"><h3>✅ Today\'s Cover — Sorted</h3>';
+          booked.forEach(a=>{h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div style="flex:1"><div class="nm">'+a.staff_name+'</div><div class="dt">'+a.area+' — '+a.reason+(a.half_day&&a.half_day!=='full'?' ('+a.half_day.toUpperCase()+')':'')+'</div><div class="dt" style="color:var(--ok);font-weight:600">✓ '+a.crt_name+'</div></div><span class="sb s-booked">Booked</span></div></div>'});h+='</div>'}
+
+        h+='<div class="cd"><h3>📅 This Month</h3>'+this.renderCalendar()+'</div>';
+
+        if(upcoming.length>0){h+='<div class="cd"><h3>🔮 Coming Up</h3>';
+          upcoming.forEach(a=>{const sc={pending:'s-pending',booked:'s-booked',contacting:'s-contacting',nocrt:'s-nocrt'}[a.status]||'s-pending';
+            h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div style="flex:1"><div class="nm">'+a.staff_name+'</div><div class="dt">'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+' · '+a.area+'</div><div class="dt">'+a.reason+'</div>'+(a.crt_name?'<div class="dt" style="color:var(--ok)">CRT: '+a.crt_name+'</div>':'')+'</div><span class="sb '+sc+'">'+a.status+'</span></div></div>'});h+='</div>'}
+        return h},
+
+      renderStaffDashboard(){
+        const mine=state.absences.filter(a=>a.staff_id===state.user.id);
+        let h='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><p class="text-sm text-dim mb-2">Use this app to report when you\'ll be away. The system will automatically find a CRT to cover your classes.</p><button class="btn btn-p" onclick="app.showView(\'new\')">➕ Report Absence / Need Cover</button></div>';
+        if(mine.length>0){h+='<div class="cd"><h3>📋 Your Absences</h3>';
+          mine.forEach(a=>{const sc={pending:'s-pending',booked:'s-booked',contacting:'s-contacting',nocrt:'s-nocrt',cancelled:'s-cancelled'}[a.status]||'s-pending';
+            h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div style="flex:1"><div class="nm">'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+'</div><div class="dt">'+a.reason+(a.half_day&&a.half_day!=='full'?' ('+a.half_day.toUpperCase()+')':'')+'</div>'+(a.crt_name?'<div class="dt" style="color:var(--ok)">CRT: '+a.crt_name+'</div>':'')+'</div><span class="sb '+sc+'">'+a.status+'</span></div></div>'});
+          h+='</div>'}else h+='<div class="cd"><div class="empty"><div class="ei">✓</div><p>No absences on record. All good!</p></div></div>';
+        return h},
+
+      renderCRTDashboard(){
+        const my=state.absences.filter(a=>a.assigned_crt_id===state.user.id);
+        const pending=my.filter(a=>a.status==='contacting');const confirmed=my.filter(a=>a.status==='booked');
+        let h='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><div class="stats"><div class="st ok"><div class="n">'+confirmed.length+'</div><div class="l">Confirmed</div></div><div class="st '+(pending.length>0?'alert':'')+'"><div class="n">'+pending.length+'</div><div class="l">Pending</div></div></div></div>';
+        if(pending.length>0){h+='<div class="cd" style="border-left:4px solid var(--warn)"><h3>⏳ Pending Requests</h3>';
+          pending.forEach(a=>{h+='<div class="li"><div class="nm">'+a.staff_name+' — '+a.area+'</div><div class="dt">'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+'</div><div class="dt">'+a.reason+(a.classes?' · Classes: '+a.classes:'')+'</div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-ok btn-s" style="flex:1" onclick="app.confirmAbsence('+a.id+')">✓ Accept</button><button class="btn btn-d btn-s" style="flex:1" onclick="app.declineAbsence('+a.id+')">✕ Decline</button></div></div>'});h+='</div>'}
+        if(confirmed.length>0){h+='<div class="cd"><h3>✅ Your Confirmed Bookings</h3>';
+          confirmed.forEach(a=>{h+='<div class="li"><div class="li-row"><div style="flex:1"><div class="nm">'+a.staff_name+' — '+a.area+'</div><div class="dt">'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+'</div><div class="dt">'+a.reason+(a.classes?' · Classes: '+a.classes:'')+'</div></div><span class="sb s-booked">Booked</span></div></div>'});h+='</div>'}
+        return h},
+
+      // ===== CALENDAR =====
+      renderCalendar(){
+        const today=new Date();const yr=today.getFullYear(),mo=today.getMonth();
+        const first=new Date(yr,mo,1),last=new Date(yr,mo+1,0);
+        const start=new Date(first);start.setDate(start.getDate()-first.getDay());
+        const absMap={};
+        state.absences.forEach(a=>{const ds=this.parseDate(a.date_start),de=this.parseDate(a.date_end||a.date_start);for(let d=new Date(ds);d<=de;d.setDate(d.getDate()+1)){const k=d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate();absMap[k]=(absMap[k]||0)+1}});
+        let h='<div class="cal">';['S','M','T','W','T','F','S'].forEach(d=>h+='<div class="ch">'+d+'</div>');
+        let c=new Date(start);
+        while(c<=last||c.getDay()!==0){const k=c.getFullYear()+'-'+c.getMonth()+'-'+c.getDate();const isT=c.toDateString()===today.toDateString();const isCur=c.getMonth()===mo;const cnt=absMap[k]||0;
+          let cls='dy';if(isT)cls+=' today';if(!isCur)cls+=' other';if(cnt>0&&isCur)cls+=' has-abs';
+          h+='<div class="'+cls+'">'+c.getDate()+(cnt>0&&isCur?'<div class="dot"></div>':'')+'</div>';
+          c.setDate(c.getDate()+1);if(c>last&&c.getDay()===0)break}
+        return h+'</div>'},
+
+      // ===== COVER LIST =====
+      renderAbsences(){
+        const isL=state.user.role==='leader'||state.user.role==='admin';
+        const list=isL?state.absences:state.absences.filter(a=>a.staff_id===state.user.id||a.assigned_crt_id===state.user.id);
+        let h='<div class="cd"><h3>📋 '+(isL?'All Cover Requests':'Your Cover Requests')+'</h3>';
+        if(isL)h+='<div class="tog"><button class="'+(state.absenceFilter==='all'?'act':'')+'" onclick="state.absenceFilter=\'all\';app.render()">All</button><button class="'+(state.absenceFilter==='today'?'act':'')+'" onclick="state.absenceFilter=\'today\';app.render()">Today</button><button class="'+(state.absenceFilter==='upcoming'?'act':'')+'" onclick="state.absenceFilter=\'upcoming\';app.render()">Upcoming</button><button class="'+(state.absenceFilter==='action'?'act':'')+'" onclick="state.absenceFilter=\'action\';app.render()">Action</button></div>';
+        let f=list;const ts=new Date().toISOString().split('T')[0];
+        if(state.absenceFilter==='today')f=list.filter(a=>a.date_start<=ts&&a.date_end>=ts);
+        if(state.absenceFilter==='upcoming')f=list.filter(a=>a.date_start>ts);
+        if(state.absenceFilter==='action')f=list.filter(a=>a.status==='pending'||a.status==='nocrt'||a.status==='contacting');
+        if(f.length===0)h+='<div class="empty"><div class="ei">📭</div><p>No cover requests found</p></div>';
+        else f.forEach(a=>{const sc={pending:'s-pending',booked:'s-booked',contacting:'s-contacting',nocrt:'s-nocrt',cancelled:'s-cancelled'}[a.status]||'s-pending';
+          h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div style="flex:1"><div class="nm">'+a.staff_name+'</div><div class="dt">'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+(a.half_day&&a.half_day!=='full'?' ('+a.half_day.toUpperCase()+')':'')+'</div><div class="dt">'+a.area+' — '+a.reason+'</div>'+(a.crt_name?'<div class="dt" style="color:var(--ok)">CRT: '+a.crt_name+'</div>':'')+'</div><span class="sb '+sc+'">'+a.status+'</span></div></div>'});
+        return h+'</div>'},
+
+      // ===== ABSENCE DETAIL MODAL =====
+      showAbsenceDetail(id){
+        const a=state.absences.find(x=>x.id===id);if(!a)return;
+        const sc={pending:'s-pending',booked:'s-booked',contacting:'s-contacting',nocrt:'s-nocrt',cancelled:'s-cancelled'}[a.status]||'s-pending';
+        const isL=state.user.role==='leader'||state.user.role==='admin';
+        const canCancel=a.status!=='cancelled'&&(a.staff_id===state.user.id||isL);
+        let tl='<div class="timeline"><div class="timeline-item done"><div class="tl-title">Absence Submitted</div><div class="tl-time">'+(a.submitted_at?new Date(a.submitted_at).toLocaleString():'')+'</div><div class="tl-desc">'+a.staff_name+' — '+a.reason+'</div></div>';
+        if(a.status==='pending')tl+='<div class="timeline-item active"><div class="tl-title">Awaiting CRT Assignment</div><div class="tl-desc">System will auto-book</div></div>';
+        else if(a.status==='contacting')tl+='<div class="timeline-item done"><div class="tl-title">CRT Found</div></div><div class="timeline-item active"><div class="tl-title">Contacting '+(a.crt_name||'CRT')+'...</div><div class="tl-desc">Waiting for confirmation</div></div>';
+        else if(a.status==='booked')tl+='<div class="timeline-item done"><div class="tl-title">CRT Assigned</div></div><div class="timeline-item done"><div class="tl-title">'+a.crt_name+' Confirmed ✓</div><div class="tl-desc">Cover is sorted!</div></div>';
+        else if(a.status==='nocrt')tl+='<div class="timeline-item alert"><div class="tl-title">No CRT Available</div><div class="tl-desc">Manual booking required</div></div>';
+        else if(a.status==='cancelled')tl+='<div class="timeline-item alert"><div class="tl-title">Cancelled</div></div>';
+        tl+='</div>';
+
+        const m=document.createElement('div');m.className='mo';m.onclick=e=>{if(e.target===m)m.remove()};
+        m.innerHTML='<div class="mc"><div class="handle"></div><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px"><div><h3 style="font-size:1.05rem;color:var(--navy);margin-bottom:2px">'+a.staff_name+'</h3><p class="text-sm text-dim">'+a.area+'</p></div><span class="sb '+sc+'">'+a.status+'</span></div><div class="divider"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;font-size:.83rem"><div><span class="text-dim">Date:</span><br><strong>'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+'</strong></div><div><span class="text-dim">Duration:</span><br><strong>'+(a.half_day==='am'?'AM Only':a.half_day==='pm'?'PM Only':'Full Day')+'</strong></div><div><span class="text-dim">Reason:</span><br><strong>'+a.reason+'</strong></div><div><span class="text-dim">Classes:</span><br><strong>'+(a.classes||'—')+'</strong></div></div>'+(a.notes?'<div style="background:var(--bg);padding:10px;border-radius:8px;font-size:.82rem;margin-bottom:14px"><strong>Notes:</strong> '+a.notes+'</div>':'')+(a.crt_name?'<div style="background:#f0fff4;padding:10px;border-radius:8px;font-size:.82rem;margin-bottom:14px;border:1px solid rgba(39,174,96,.2)"><strong>CRT:</strong> '+a.crt_name+'</div>':'')+'<div class="divider"></div><h4 style="font-size:.85rem;margin-bottom:10px;color:var(--navy)">Progress</h4>'+tl+'<div style="display:flex;gap:8px;margin-top:16px">'+(isL&&(a.status==='nocrt'||a.status==='pending')?'<button class="btn btn-p btn-s" style="flex:1" onclick="app.showOverrideModal('+a.id+');this.closest(\'.mo\').remove()">🔄 Override</button>':'')+(canCancel?'<button class="btn btn-d btn-s" style="flex:1" onclick="app.cancelAbsence('+a.id+');this.closest(\'.mo\').remove()">Cancel</button>':'')+'<button class="btn btn-g btn-s" style="flex:1" onclick="this.closest(\'.mo\').remove()">Close</button></div></div>';
+        document.body.appendChild(m)},
+
+      showOverrideModal(absId){
+        const m=document.createElement('div');m.className='mo';m.onclick=e=>{if(e.target===m)m.remove()};
+        const crts=state.allCRTs.filter(c=>c.active!==0);
+        m.innerHTML='<div class="mc"><div class="handle"></div><h3 style="margin-bottom:14px;color:var(--navy)">🔄 Manual CRT Override</h3><p class="text-sm text-dim mb-2">Select a CRT to assign:</p>'+crts.map(c=>'<div class="li" onclick="app.overrideBooking('+absId+','+c.id+');this.closest(\'.mo\').remove()"><div class="nm">'+c.name+'</div><div class="dt">'+(c.specialties||[]).join(', ')+'</div></div>').join('')+'<button class="btn btn-g mt-2" onclick="this.closest(\'.mo\').remove()">Cancel</button></div>';
+        document.body.appendChild(m)},
+
+      async overrideBooking(absId,crtId){try{await this.fetchAPI('PUT','/absences/'+absId+'/override',{crtId});toast('CRT override sent','success');await this.loadInitialData()}catch(e){toast('Override failed: '+e.message,'error')}},
+
+      // ===== NEW ABSENCE =====
+      renderNewAbsence(){
+        const reasons=['Personal Leave – Sick (Without Certificate)','Personal Leave – Sick (With Certificate)',"Carer's Leave",'Family Violence Leave','Long Service Leave','Annual Leave','Study Leave (Paid/Unpaid)','Defence Force Leave','Disaster Relief Leave','Jury Service','Religious Leave','Cultural / Ceremonial Leave','Leave Without Pay','Sport Carnival / Event','Excursion / Camp','Professional Development','Meeting / Conference','School Event','Curriculum Day','Other (see notes)'];
+        const isL=state.user.role==='leader'||state.user.role==='admin';
+        let staffOpts='';
+        if(isL)staffOpts='<div class="fg"><label>Staff Member</label><select id="absStaff"><option value="">Myself ('+state.user.name+')</option>'+state.allUsers.filter(u=>u.role==='staff'||u.role==='leader').map(u=>'<option value="'+u.id+'">'+u.name+' — '+(u.area||'')+'</option>').join('')+'</select></div>';
+        return '<div class="cd"><h3>📝 Report Absence / Need Cover</h3><p class="text-sm text-dim mb-2">Fill in the details. The system will auto-find and contact a CRT.</p><form id="absenceForm">'+staffOpts+'<div class="flex"><div class="fg"><label>Start Date</label><input type="date" id="dateStart" required></div><div class="fg"><label>End Date</label><input type="date" id="dateEnd"></div></div><div class="fg"><label>Duration</label><div class="half-opts"><button type="button" class="act" data-half="full" onclick="app.selectHalf(this)">Full Day</button><button type="button" data-half="am" onclick="app.selectHalf(this)">AM Only</button><button type="button" data-half="pm" onclick="app.selectHalf(this)">PM Only</button></div></div><div class="fg"><label>Reason</label><select id="reason" required><option value="">-- Select reason --</option><optgroup label="Leave (Edupay)">'+reasons.slice(0,13).map(r=>'<option value="'+r+'">'+r+'</option>').join('')+'</optgroup><optgroup label="School Activity">'+reasons.slice(13,19).map(r=>'<option value="'+r+'">'+r+'</option>').join('')+'</optgroup><optgroup label="Other">'+reasons.slice(19).map(r=>'<option value="'+r+'">'+r+'</option>').join('')+'</optgroup></select></div><div class="fg"><label>Classes / Areas Affected</label><input type="text" id="classes" placeholder="e.g. Prep G, All PE classes"></div><div class="fg"><label>Notes (optional)</label><textarea id="notes" placeholder="Any additional info..."></textarea></div><button type="submit" class="btn btn-p" id="submitBtn">📤 Submit Absence</button></form><div id="absenceStatus" style="margin-top:12px"></div></div>'},
+
+      setupAbsenceForm(){
+        const form=document.getElementById('absenceForm');if(!form)return;
+        document.getElementById('dateStart').value=new Date().toISOString().split('T')[0];
+        form.onsubmit=async(e)=>{e.preventDefault();const btn=document.getElementById('submitBtn');btn.disabled=true;btn.textContent='⏳ Submitting...';
+          try{await this.fetchAPI('POST','/absences',{dateStart:document.getElementById('dateStart').value,dateEnd:document.getElementById('dateEnd').value||document.getElementById('dateStart').value,reason:document.getElementById('reason').value,classes:document.getElementById('classes').value,notes:document.getElementById('notes').value,halfDay:(document.querySelector('.half-opts button.act')||{}).dataset?.half||'full'});
+            toast('Absence submitted! CRT booking in progress...','success');document.getElementById('absenceStatus').innerHTML='<div style="text-align:center;padding:20px;background:#f0fff4;border-radius:12px;border:2px solid var(--ok)"><div style="font-size:2rem;margin-bottom:8px">✅</div><div style="font-weight:700;color:var(--ok);font-size:1rem;margin-bottom:4px">Submitted Successfully!</div><div class="text-sm text-dim">Finding a CRT now. You\'ll be notified when confirmed.</div></div>';form.style.display='none';
+            setTimeout(()=>{this.loadInitialData();this.showView('dashboard')},3000)
+          }catch(err){btn.disabled=false;btn.textContent='📤 Submit Absence';toast('Error: '+err.message,'error')}}},
+
+      selectHalf(btn){btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('act'));btn.classList.add('act')},
+
+      // ===== DAILY COVER REPORT =====
+      renderCoverReport(){
+        const today=new Date();const ts=today.toISOString().split('T')[0];
+        const todayAbs=state.absences.filter(a=>a.date_start<=ts&&a.date_end>=ts);
+        const dayName=today.toLocaleDateString('en-AU',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+        let h='<div class="cd"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div><h3 style="margin-bottom:2px">📄 Daily Cover Report</h3><p class="text-sm text-dim">'+dayName+'</p></div><button class="btn btn-o btn-s no-print" onclick="window.print()">🖨 Print</button></div>';
+        if(todayAbs.length===0)h+='<div class="empty"><div class="ei">🎉</div><p>No staff away today!</p></div>';
+        else{h+='<table class="report-table"><thead><tr><th>Staff</th><th>Area</th><th>Reason</th><th>Duration</th><th>CRT</th><th>Status</th></tr></thead><tbody>';
+          todayAbs.forEach(a=>{h+='<tr><td><strong>'+a.staff_name+'</strong></td><td>'+a.area+'</td><td>'+a.reason+'</td><td>'+(a.half_day==='am'?'AM':a.half_day==='pm'?'PM':'Full')+'</td><td>'+(a.crt_name||'—')+'</td><td><span class="status-dot dot-'+a.status+'"></span>'+a.status+'</td></tr>'});
+          h+='</tbody></table>';
+          const bk=todayAbs.filter(a=>a.status==='booked').length;const pd=todayAbs.length-bk;
+          h+='<div style="margin-top:14px;display:flex;gap:12px;font-size:.82rem"><div style="padding:8px 14px;background:#d4edda;border-radius:8px;font-weight:600;color:#155724">✓ '+bk+' Covered</div>'+(pd>0?'<div style="padding:8px 14px;background:#fef3cd;border-radius:8px;font-weight:600;color:#856404">⏳ '+pd+' Pending</div>':'')+'</div>'}
+        return h+'</div><button class="btn btn-g no-print" onclick="app.showView(\'dashboard\')">← Back to Dashboard</button>'},
+
+      // ===== ACTIVITY LOGS =====
+      renderActivityLogs(){
+        let h='<div class="cd"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h3 style="margin-bottom:0">📨 Activity Log</h3><button class="btn btn-o btn-s" onclick="app.refreshLogs()">↻ Refresh</button></div><div class="tog mb-1"><button class="'+(state._logTab!=='email'?'act':'')+'" onclick="state._logTab=\'sms\';app.render()">📱 SMS</button><button class="'+(state._logTab==='email'?'act':'')+'" onclick="state._logTab=\'email\';app.render()">📧 Email</button></div>';
+        const logs=state._logTab==='email'?state.emailLogs:state.smsLogs;
+        if(logs.length===0)h+='<div class="empty"><div class="ei">📭</div><p>No logs yet. <span class="link" onclick="app.refreshLogs()">Load logs</span></p></div>';
+        else logs.forEach(l=>{const isSMS=state._logTab!=='email';const to=isSMS?l.to_phone:l.to_email;const msg=isSMS?l.message:l.subject;const sc=(l.status||'').includes('simulated')?'sim':(l.status||'').includes('sent')?'sent':'fail';
+          h+='<div class="log-item"><div class="log-icon">'+(isSMS?'📱':'📧')+'</div><div class="log-body"><div class="log-to">'+to+'</div><div class="log-msg">'+msg+'</div><div class="log-time">'+(l.created_at?new Date(l.created_at).toLocaleString():'')+'</div></div><span class="log-status '+sc+'">'+(l.status||'unknown')+'</span></div>'});
+        return h+'</div><button class="btn btn-g no-print" onclick="app.showView(\'dashboard\')">← Back to Dashboard</button>'},
+
+      async refreshLogs(){try{const[sms,email]=await Promise.all([this.fetchAPI('GET','/logs/sms'),this.fetchAPI('GET','/logs/email')]);state.smsLogs=sms||[];state.emailLogs=email||[];this.render();toast('Logs refreshed','info')}catch(e){toast('Failed to load logs','error')}},
+
+      // ===== NOTIFICATIONS =====
+      renderNotifications(){
+        let h='<div class="cd"><h3>🔔 Notifications</h3>';
+        if(state.notifications.length===0)h+='<div class="empty"><div class="ei">📭</div><p>No notifications yet</p></div>';
+        else state.notifications.forEach(n=>{const cls=n.type==='urgent'?'urg':n.type==='success'?'suc':'';const icon=n.type==='urgent'?'🚨':n.type==='success'?'✅':'ℹ️';
+          h+='<div class="nf '+cls+'"><span>'+icon+'</span> '+n.message+'<div class="tm">'+(n.created_at?new Date(n.created_at).toLocaleString():'')+'</div></div>'});
+        return h+'</div>'},
+
+      // ===== SETTINGS =====
+      renderSettings(){
+        const s=state.userSettings||{};const notifOn=s.notifications_enabled!==0;const smsOn=s.notify_sms!==0;const emailOn=s.notify_email!==0;const appOn=s.notify_app!==0;const qStart=s.quiet_start||'21:00';const qEnd=s.quiet_end||'06:00';
+        const isL=state.user.role==='leader'||state.user.role==='admin';
+        let h='<div class="cd"><h3>⚙️ Settings</h3><div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:16px"><div style="width:44px;height:44px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--gold);font-weight:700;font-size:1.1rem">'+state.user.name.charAt(0)+'</div><div><div style="font-weight:600;font-size:.95rem">'+state.user.name+'</div><div class="text-sm text-dim">'+(state.user.area||state.user.role)+' · '+state.user.role+'</div></div></div>';
+
+        if(isL){
+          h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:8px;font-size:.88rem">📋 CRT Preference Order</h4><p class="text-sm text-dim mb-1">When staff are absent, CRTs are contacted in this order. Tap arrows to reorder.</p><select id="prefArea" onchange="app.loadAreaPrefs(this.value)" style="width:100%;padding:10px;border:1px solid var(--bdr);border-radius:8px;font-size:.88rem;background:var(--bg);color:var(--txt);margin-bottom:8px"><option value="">Select area...</option></select><div id="prefList"></div></div><div class="divider"></div>';
+
+          h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:10px;font-size:.88rem">🔔 Notification Preferences</h4><div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px"><div><div style="font-weight:600;font-size:.9rem">Notifications</div><div class="text-sm text-dim">Receive alerts for absences & bookings</div></div><label style="position:relative;width:50px;height:28px;display:inline-block;cursor:pointer"><input type="checkbox" '+(notifOn?'checked':'')+' onchange="app.updateSetting(\'notifications_enabled\',this.checked?1:0)" style="opacity:0;width:0;height:0;position:absolute"><span style="position:absolute;top:0;left:0;right:0;bottom:0;background:'+(notifOn?'var(--ok)':'#ccc')+';transition:.3s;border-radius:28px"></span><span style="position:absolute;height:22px;width:22px;left:'+(notifOn?'25px':'3px')+';bottom:3px;background:white;transition:.3s;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span></label></div>';
+          if(notifOn){h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px"><div style="font-weight:600;font-size:.85rem;margin-bottom:8px">Notify me via</div><div style="display:flex;gap:6px"><button class="btn '+(smsOn?'btn-p':'btn-o')+' btn-s" style="flex:1" onclick="app.updateSetting(\'notify_sms\','+(smsOn?0:1)+')">📱 SMS '+(smsOn?'✓':'')+'</button><button class="btn '+(emailOn?'btn-p':'btn-o')+' btn-s" style="flex:1" onclick="app.updateSetting(\'notify_email\','+(emailOn?0:1)+')">📧 Email '+(emailOn?'✓':'')+'</button><button class="btn '+(appOn?'btn-p':'btn-o')+' btn-s" style="flex:1" onclick="app.updateSetting(\'notify_app\','+(appOn?0:1)+')">🔔 App '+(appOn?'✓':'')+'</button></div></div><div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px"><div style="font-weight:600;font-size:.85rem;margin-bottom:4px">🌙 Quiet Hours</div><div class="text-sm text-dim mb-1">No notifications during these times</div><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><label class="text-sm text-dim">From</label><input type="time" value="'+qStart+'" onchange="app.updateSetting(\'quiet_start\',this.value)" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:.88rem;background:#fff"></div><div style="padding-top:16px;color:var(--dim)">to</div><div style="flex:1"><label class="text-sm text-dim">Until</label><input type="time" value="'+qEnd+'" onchange="app.updateSetting(\'quiet_end\',this.value)" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:.88rem;background:#fff"></div></div></div>'}
+          h+='</div>'}
+
+        if(state.user.role==='crt')h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:8px;font-size:.88rem">Your Details</h4><div style="padding:12px;background:var(--bg);border-radius:10px"><div class="text-sm mb-1"><strong>Phone:</strong> '+(state.user.phone||'Not set')+'</div><div class="text-sm"><strong>Email:</strong> '+(state.user.email||'Not set')+'</div></div></div>';
+
+        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v1.0</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div><button class="btn btn-d" onclick="app.logout()">🚪 Sign Out</button></div>';
+        return h},
+
+      async updateSetting(k,v){try{const b={};b[k]=v;state.userSettings=await this.fetchAPI('PUT','/settings',b);toast('Setting updated','success');this.render()}catch(e){toast('Error: '+e.message,'error')}},
+
+      async populateAreaDropdown(){const sel=document.getElementById('prefArea');if(!sel||sel.options.length>1)return;try{const p=await this.fetchAPI('GET','/preferences');Object.keys(p).sort().forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;sel.appendChild(o)});if(state.user.area&&p[state.user.area]){sel.value=state.user.area;this.loadAreaPrefs(state.user.area)}}catch(e){}},
+
+      async loadAreaPrefs(area){if(!area){const el=document.getElementById('prefList');if(el)el.innerHTML='';return}try{const p=await this.fetchAPI('GET','/preferences');state._currentPrefArea=area;state._currentPrefs=p[area]||[];this.renderPrefList()}catch(e){}},
+
+      renderPrefList(){const prefs=state._currentPrefs||[];const el=document.getElementById('prefList');if(!el)return;
+        if(prefs.length===0){el.innerHTML='<p class="text-sm text-dim">No CRTs assigned.</p>';return}
+        el.innerHTML=prefs.map((p,i)=>'<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#fff;border:1px solid var(--bdr);border-radius:10px;margin-bottom:6px"><span style="font-weight:800;color:var(--navy);font-size:1.05rem;min-width:22px;text-align:center">'+(i+1)+'</span><div style="flex:1"><div style="font-weight:600;font-size:.88rem">'+p.crt_name+'</div><div style="font-size:.72rem;color:var(--dim)">'+(p.specialties||[]).join(', ')+'</div></div><div style="display:flex;gap:3px">'+(i>0?'<button onclick="app.movePref('+i+',-1)" style="background:var(--navy);color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:.9rem;cursor:pointer">▲</button>':'<div style="width:30px"></div>')+(i<prefs.length-1?'<button onclick="app.movePref('+i+',1)" style="background:var(--navy);color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:.9rem;cursor:pointer">▼</button>':'<div style="width:30px"></div>')+'</div></div>').join('')},
+
+      async movePref(idx,dir){const prefs=state._currentPrefs;const ni=idx+dir;if(ni<0||ni>=prefs.length)return;[prefs[idx],prefs[ni]]=[prefs[ni],prefs[idx]];this.renderPrefList();try{await this.fetchAPI('PUT','/preferences/'+encodeURIComponent(state._currentPrefArea),{crtIds:prefs.map(p=>p.crt_id)});toast('Preference order saved','success')}catch(e){}},
+
+      // ===== DEMO GUIDE =====
+      showDemoGuide(){
+        const m=document.createElement('div');m.className='mo';m.onclick=e=>{if(e.target===m)m.remove()};
+        m.innerHTML='<div class="mc" style="max-width:450px"><div class="handle"></div><div style="text-align:center;margin-bottom:16px"><img src="logo-circle.png" style="width:60px;height:60px;margin-bottom:8px"><h2 style="color:var(--navy);font-size:1.1rem">WPS Staff Hub Demo</h2><p class="text-sm text-dim">Walkthrough Guide</p></div><div style="font-size:.85rem"><div style="padding:12px;background:#f8fbff;border-radius:10px;margin-bottom:10px;border-left:4px solid var(--navy)"><strong>1. Dashboard</strong><br>See who\'s away, CRT status, and upcoming absences at a glance.</div><div style="padding:12px;background:#f8fbff;border-radius:10px;margin-bottom:10px;border-left:4px solid var(--blue)"><strong>2. Try It Live</strong><br>Tap <strong>New → Report Absence</strong>. Pick a staff member and reason — watch the system auto-find a CRT within seconds.</div><div style="padding:12px;background:#f8fbff;border-radius:10px;margin-bottom:10px;border-left:4px solid var(--ok)"><strong>3. Cover Report</strong><br>Tap <strong>Cover Report</strong> on the dashboard. See today\'s full cover sheet — printable for the staffroom.</div><div style="padding:12px;background:#f8fbff;border-radius:10px;margin-bottom:10px;border-left:4px solid var(--gold)"><strong>4. Activity Log</strong><br>See every SMS and email the system sent — full transparency.</div><div style="padding:12px;background:#f8fbff;border-radius:10px;margin-bottom:10px;border-left:4px solid var(--warn)"><strong>5. Settings</strong><br>Set CRT preference order per area, notification prefs, and quiet hours.</div><div style="padding:12px;background:#fff5f5;border-radius:10px;margin-bottom:10px;border-left:4px solid var(--acc)"><strong>Demo Logins</strong><br>Leader PIN: <strong>0000</strong><br>Staff PIN: <strong>1234</strong><br>CRTs: no PIN needed</div></div><button class="btn btn-p mt-2" onclick="this.closest(\'.mo\').remove()">Got it! 👍</button></div>';
+        document.body.appendChild(m)},
+
+      // ===== ACTIONS =====
+      async confirmAbsence(id){try{await this.fetchAPI('PUT','/absences/'+id+'/confirm');toast('Booking confirmed!','success');await this.loadInitialData()}catch(e){toast('Error: '+e.message,'error')}},
+      async declineAbsence(id){try{await this.fetchAPI('PUT','/absences/'+id+'/decline');toast('Declined — finding next CRT','info');await this.loadInitialData()}catch(e){toast('Error: '+e.message,'error')}},
+      async cancelAbsence(id){if(!confirm('Cancel this absence?'))return;try{await this.fetchAPI('PUT','/absences/'+id+'/cancel');toast('Absence cancelled','info');await this.loadInitialData()}catch(e){toast('Error: '+e.message,'error')}},
+
+      formatDate(str){if(!str)return'';const d=this.parseDate(str);return d.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})},
+      parseDate(str){const p=str.split('-');return p.length===3?new Date(p[0],parseInt(p[1])-1,p[2]):new Date(str)},
+      isToday(str){return str===new Date().toISOString().split('T')[0]},
+
+      // ===== LOGIN =====
+      showLoginView(){this.hideApp();
+        Promise.all([fetch(API+'/users').then(r=>r.json()).catch(()=>[]),fetch(API+'/crts').then(r=>r.json()).catch(()=>[])]).then(([u,c])=>{state.allUsers=u||[];state.allCRTs=c||[];this._renderLogin()}).catch(()=>this._renderLogin())},
+
+      _renderLogin(){
+        const leaders=state.allUsers.filter(u=>u.role==='leader'||u.role==='admin');
+        const staff=state.allUsers.filter(u=>u.role==='staff');
+        document.getElementById('content').innerHTML='<div style="padding:16px;max-width:400px;margin:0 auto"><div style="text-align:center;margin:30px 0 20px"><img src="logo-circle.png" alt="WPS" style="width:80px;height:80px;margin-bottom:10px"><h1 style="color:var(--navy);font-size:1.3rem;margin:0">Williamstown Primary</h1><p style="color:var(--gold);font-weight:700;font-size:.9rem;margin-top:4px">Staff Hub</p></div><div class="cd" style="border-top:3px solid var(--gold)"><div class="tog mb-2"><button class="act" onclick="app.switchLoginTab(\'leader\',this)">Leader</button><button onclick="app.switchLoginTab(\'staff\',this)">Staff</button><button onclick="app.switchLoginTab(\'crt\',this)">CRT</button></div><div id="loginLeader"><div class="fg"><label>Select Leader</label><select id="leaderSelect"><option value="">-- Choose --</option>'+leaders.map(u=>'<option value="'+u.id+'">'+u.name+(u.area?' — '+u.area:'')+'</option>').join('')+'</select></div><div class="fg"><label>PIN</label><input type="password" id="leaderPin" placeholder="Enter PIN" inputmode="numeric" maxlength="6"></div><button class="btn btn-p" onclick="app.doLogin(\'leader\')">Sign In</button></div><div id="loginStaff" style="display:none"><div class="fg"><label>Select Staff Member</label><select id="staffSelect"><option value="">-- Choose --</option>'+staff.map(u=>'<option value="'+u.id+'">'+u.name+(u.area?' — '+u.area:'')+'</option>').join('')+'</select></div><div class="fg"><label>PIN</label><input type="password" id="staffPin" placeholder="Enter PIN" inputmode="numeric" maxlength="6"></div><button class="btn btn-p" onclick="app.doLogin(\'staff\')">Sign In</button></div><div id="loginCrt" style="display:none"><div class="fg"><label>Select CRT</label><select id="crtSelect"><option value="">-- Choose --</option>'+state.allCRTs.map(c=>'<option value="'+c.id+'">'+c.name+'</option>').join('')+'</select></div><button class="btn btn-p" onclick="app.doLogin(\'crt\')">Sign In</button></div><div id="loginError" style="margin-top:14px"></div></div><p style="text-align:center;font-size:.72rem;color:var(--dim);margin-top:16px">WPS Staff Hub © 2026</p></div>'},
+
+      switchLoginTab(tab,btn){document.querySelectorAll('.tog button').forEach(b=>b.classList.remove('act'));btn.classList.add('act');['Leader','Staff','Crt'].forEach(t=>{document.getElementById('login'+t).style.display=t.toLowerCase()===tab?'block':'none'})},
+
+      async doLogin(type){
+        const err=document.getElementById('loginError');let userId,pin,endpoint,body;
+        if(type==='leader'){userId=document.getElementById('leaderSelect').value;pin=document.getElementById('leaderPin').value;if(!userId){err.innerHTML='<div class="nf urg">Please select a leader</div>';return}endpoint='/login';body={userId:parseInt(userId),pin}}
+        else if(type==='staff'){userId=document.getElementById('staffSelect').value;pin=document.getElementById('staffPin').value;if(!userId){err.innerHTML='<div class="nf urg">Please select a staff member</div>';return}endpoint='/login';body={userId:parseInt(userId),pin}}
+        else{userId=document.getElementById('crtSelect').value;if(!userId){err.innerHTML='<div class="nf urg">Please select a CRT</div>';return}endpoint='/login/crt';body={crtId:parseInt(userId)}}
+        try{err.innerHTML='<div class="loading">Signing in...</div>';const result=await this.fetchAPI('POST',endpoint,body);state.token=result.token;state.user=result.user;localStorage.setItem('wps_token',state.token);localStorage.setItem('wps_user',JSON.stringify(state.user));this.showApp();await this.loadInitialData();this.startPolling();this.showView('dashboard');toast('Welcome, '+state.user.name.split(' ')[0]+'!','success')}catch(e){err.innerHTML='<div class="nf urg">Login failed: '+e.message+'</div>'}},
+
+      logout(){localStorage.removeItem('wps_token');localStorage.removeItem('wps_user');state.token=null;state.user=null;if(this._poll)clearInterval(this._poll);this.showLoginView()}
     };
-
-    const app = {
-      async init() {
-        const token = localStorage.getItem('token');
-        if (token) {
-          state.token = token;
-          state.user = JSON.parse(localStorage.getItem('user'));
-          await this.loadInitialData();
-          this.startPolling();
-          this.showView('dashboard');
-        } else {
-          this.showLoginView();
-        }
-      },
-
-      async loadInitialData() {
-        try {
-          const requests = [
-            this.fetchAPI('GET', '/users'),
-            this.fetchAPI('GET', '/crts'),
-            this.fetchAPI('GET', '/absences?limit=50'),
-            this.fetchAPI('GET', '/stats'),
-            this.fetchAPI('GET', `/notifications?role=${state.user.role}&limit=20`)
-          ];
-
-          const [users, crts, absences, stats, notif] = await Promise.all(requests);
-          state.allUsers = users || [];
-          state.allCRTs = crts || [];
-          state.absences = absences || [];
-          state.stats = stats || {};
-          state.notifications = notif || [];
-          // Fetch notification settings
-          try { state.userSettings = await this.fetchAPI('GET', '/settings'); } catch(e) { state.userSettings = null; }
-          this.updateNotifBadge();
-          this.render();
-        } catch (err) {
-          console.error('Init error:', err);
-        }
-      },
-
-      startPolling() {
-        setInterval(async () => {
-          try {
-            const pollTime = new Date().toISOString();
-            const [absences, stats, notif] = await Promise.all([
-              this.fetchAPI('GET', '/absences?limit=50'),
-              this.fetchAPI('GET', '/stats'),
-              this.fetchAPI('GET', `/notifications?role=${state.user.role}&limit=20&since=${state.lastPollTime}`)
-            ]);
-
-            state.absences = absences || [];
-            state.stats = stats || {};
-            if (notif && notif.length > 0) {
-              state.notifications = [...notif, ...state.notifications].slice(0, 50);
-            }
-            state.lastPollTime = pollTime;
-            this.updateNotifBadge();
-            this.render();
-          } catch (err) {
-            console.error('Poll error:', err);
-          }
-        }, 5000);
-      },
-
-      updateNotifBadge() {
-        const unreadCount = state.notifications.filter(n => !n.read).length;
-        const badge = document.getElementById('notifBadge');
-        if (unreadCount > 0) {
-          badge.textContent = unreadCount;
-          badge.style.display = 'block';
-        } else {
-          badge.style.display = 'none';
-        }
-      },
-
-      async fetchAPI(method, endpoint, body = null) {
-        const options = {
-          method,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        };
-        if (state.token) {
-          options.headers['Authorization'] = `Bearer ${state.token}`;
-        }
-        if (body) {
-          options.body = JSON.stringify(body);
-        }
-        const res = await fetch(API_BASE + endpoint, options);
-        if (res.status === 401) {
-          this.logout();
-          throw new Error('Unauthorized');
-        }
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || `HTTP ${res.status}`);
-        }
-        return await res.json();
-      },
-
-      showView(view) {
-        state.currentView = view;
-        document.querySelectorAll('.bnav button').forEach(b => b.classList.remove('act'));
-        const viewName = 'nav' + view.charAt(0).toUpperCase() + view.slice(1);
-        document.getElementById(viewName)?.classList.add('act');
-        this.render();
-      },
-
-      render() {
-        const content = document.getElementById('content');
-        const user = state.user;
-        if (!user) {
-          content.innerHTML = '';
-          return;
-        }
-        document.getElementById('userDisplay').textContent = user.name;
-
-        let html = '';
-        switch (state.currentView) {
-          case 'dashboard':
-            html = this.renderDashboard();
-            break;
-          case 'absences':
-            html = this.renderAbsences();
-            break;
-          case 'new':
-            html = this.renderNewAbsence();
-            break;
-          case 'notifications':
-            html = this.renderNotifications();
-            break;
-          case 'settings':
-            html = this.renderSettings();
-            break;
-        }
-        content.innerHTML = html;
-        // Populate area dropdown for CRT preferences
-        if (state.currentView === 'settings' && (state.user.role === 'leader' || state.user.role === 'admin')) {
-          this.populateAreaDropdown();
-        }
-      },
-
-      async populateAreaDropdown() {
-        const sel = document.getElementById('prefArea');
-        if (!sel || sel.options.length > 1) return;
-        try {
-          const allPrefs = await this.fetchAPI('GET', '/preferences');
-          const areas = Object.keys(allPrefs).sort();
-          areas.forEach(a => {
-            const opt = document.createElement('option');
-            opt.value = a;
-            opt.textContent = a;
-            sel.appendChild(opt);
-          });
-          // Auto-select the leader's own area
-          if (state.user.area && areas.includes(state.user.area)) {
-            sel.value = state.user.area;
-            this.loadAreaPrefs(state.user.area);
-          }
-        } catch (err) { console.error('Load areas error:', err); }
-      },
-
-      renderDashboard() {
-        const user = state.user;
-        let html = '';
-
-        if (user.role === 'leader') {
-          html = this.renderLeaderDashboard();
-        } else if (user.role === 'crt') {
-          html = this.renderCRTDashboard();
-        } else {
-          html = this.renderStaffDashboard();
-        }
-        return html;
-      },
-
-      renderLeaderDashboard() {
-        const stats = state.stats;
-        let html = `
-          <div class="cd">
-            <h3>📊 Today's Overview</h3>
-            <div class="stats">
-              <div class="st">
-                <div class="n">${stats.absentToday || 0}</div>
-                <div class="l">Away Today</div>
-              </div>
-              <div class="st">
-                <div class="n">${stats.crtsBooked || 0}</div>
-                <div class="l">CRTs Booked</div>
-              </div>
-              <div class="st">
-                <div class="n">${stats.needAction || 0}</div>
-                <div class="l">Need Action</div>
-              </div>
-            </div>
-          </div>
-          <div class="cd">
-            <h3>📅 Calendar View</h3>
-            ${this.renderCalendar()}
-          </div>
-          <div class="cd">
-            <h3>👥 Staff Away Today</h3>
-            ${this.renderAbsencesList()}
-          </div>
-        `;
-        return html;
-      },
-
-      renderStaffDashboard() {
-        const stats = state.stats;
-        let html = `
-          <div class="cd">
-            <h3>📊 Your Status</h3>
-            <div class="stats">
-              <div class="st">
-                <div class="n">${state.absences.filter(a => a.staff_id === state.user.id).length}</div>
-                <div class="l">Your Cover Requests</div>
-              </div>
-            </div>
-          </div>
-          <div class="cd">
-            <h3>🔄 Recent Activity</h3>
-            ${this.renderAbsencesList()}
-          </div>
-        `;
-        return html;
-      },
-
-      renderCRTDashboard() {
-        const stats = state.stats;
-        const pending = state.absences.filter(a => a.status === 'pending' && a.crt_id === state.user.id);
-        let html = `
-          <div class="cd">
-            <h3>📊 Your Bookings</h3>
-            <div class="stats">
-              <div class="st">
-                <div class="n">${state.absences.filter(a => a.status === 'booked' && a.crt_id === state.user.id).length}</div>
-                <div class="l">Confirmed</div>
-              </div>
-              <div class="st">
-                <div class="n">${pending.length || 0}</div>
-                <div class="l">Pending</div>
-              </div>
-            </div>
-          </div>
-          <div class="cd">
-            <h3>⏳ Pending Requests</h3>
-            ${pending.length > 0 ? pending.map(abs => `
-              <div class="li">
-                <div class="nm">${abs.staff_name}</div>
-                <div class="dt">${this.formatDate(abs.date_start)} ${abs.date_end && abs.date_end !== abs.date_start ? '- ' + this.formatDate(abs.date_end) : ''}</div>
-                ${abs.half_day ? `<div class="dt">Half-day: ${abs.half_day.toUpperCase()}</div>` : ''}
-                <div class="dt">${abs.reason}</div>
-                <div style="margin-top:10px;display:flex;gap:8px">
-                  <button class="btn btn-ok btn-s" onclick="app.confirmAbsence(${abs.id})">Confirm</button>
-                  <button class="btn btn-d btn-s" onclick="app.declineAbsence(${abs.id})">Decline</button>
-                </div>
-              </div>
-            `).join('') : '<div class="empty"><div class="ei">✓</div><p>No pending requests</p></div>'}
-          </div>
-        `;
-        return html;
-      },
-
-      renderCalendar() {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = today.getMonth();
-        const firstDay = new Date(year, month, 1);
-        const lastDay = new Date(year, month + 1, 0);
-        const startDate = new Date(firstDay);
-        startDate.setDate(startDate.getDate() - firstDay.getDay());
-
-        const monthAbsences = {};
-        state.absences.forEach(abs => {
-          const d = this.parseDate(abs.date_start);
-          const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-          monthAbsences[key] = abs;
-        });
-
-        let html = '<div class="cal">';
-        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        days.forEach(d => {
-          html += `<div class="ch">${d}</div>`;
-        });
-
-        let current = new Date(startDate);
-        while (current <= lastDay) {
-          const key = `${current.getFullYear()}-${current.getMonth()}-${current.getDate()}`;
-          const isToday = current.toDateString() === today.toDateString();
-          const isCurrentMonth = current.getMonth() === month;
-          const hasAbsence = monthAbsences[key];
-
-          let cls = 'dy';
-          if (isToday) cls += ' today';
-          if (!isCurrentMonth) cls += ' other';
-          if (hasAbsence) cls += ' has-abs';
-
-          html += `<div class="${cls}">${current.getDate()}${hasAbsence ? '<div class="dot"></div>' : ''}</div>`;
-          current.setDate(current.getDate() + 1);
-        }
-        html += '</div>';
-        return html;
-      },
-
-      renderAbsencesList() {
-        if (state.absences.length === 0) {
-          return '<div class="empty"><div class="ei">📭</div><p>No absences</p></div>';
-        }
-        return state.absences.slice(0, 10).map(abs => {
-          const statusClass = {
-            'pending': 's-pending',
-            'booked': 's-booked',
-            'contacting': 's-contacting',
-            'nocrt': 's-nocrt',
-            'cancelled': 's-nocrt'
-          }[abs.status] || 's-pending';
-          return `
-            <div class="li">
-              <div class="li-row">
-                <div class="nm">${abs.staff_name || abs.name}</div>
-                <span class="sb ${statusClass}">${abs.status}</span>
-              </div>
-              <div class="dt">${this.formatDate(abs.date_start)} ${abs.date_end && abs.date_end !== abs.date_start ? '- ' + this.formatDate(abs.date_end) : ''}</div>
-              ${abs.half_day ? `<div class="dt">Half-day: ${abs.half_day.toUpperCase()}</div>` : ''}
-              <div class="dt">${abs.reason}</div>
-              ${abs.crt_name ? `<div class="dt">CRT: ${abs.crt_name}</div>` : ''}
-            </div>
-          `;
-        }).join('');
-      },
-
-      renderAbsences() {
-        const user = state.user;
-        const userAbsences = state.absences.filter(a => a.staff_id === user.id || a.crt_id === user.id);
-
-        let html = `<div class="cd"><h3>📝 Your Cover Requests</h3>`;
-
-        if (userAbsences.length === 0) {
-          html += '<div class="empty"><div class="ei">✓</div><p>No absences recorded</p></div>';
-        } else {
-          html += userAbsences.map(abs => {
-            const canCancel = abs.status !== 'cancelled' && user.id === abs.staff_id;
-            const statusClass = {
-              'pending': 's-pending',
-              'booked': 's-booked',
-              'contacting': 's-contacting',
-              'nocrt': 's-nocrt',
-              'cancelled': 's-nocrt'
-            }[abs.status] || 's-pending';
-            return `
-              <div class="li">
-                <div class="li-row">
-                  <div style="flex:1">
-                    <div class="nm">${abs.staff_name || abs.name}</div>
-                    <div class="dt">${this.formatDate(abs.date_start)} ${abs.date_end && abs.date_end !== abs.date_start ? '- ' + this.formatDate(abs.date_end) : ''}</div>
-                    ${abs.half_day ? `<div class="dt">Half-day: ${abs.half_day.toUpperCase()}</div>` : ''}
-                  </div>
-                  <span class="sb ${statusClass}">${abs.status}</span>
-                </div>
-                <div class="dt" style="margin-top:8px">${abs.reason}</div>
-                ${abs.crt_name ? `<div class="dt">CRT: ${abs.crt_name}</div>` : ''}
-                ${canCancel ? `<button class="btn btn-d btn-s" style="margin-top:10px;width:100px" onclick="app.cancelAbsence(${abs.id})">Cancel</button>` : ''}
-              </div>
-            `;
-          }).join('');
-        }
-        html += '</div>';
-        return html;
-      },
-
-      renderNewAbsence() {
-        const reasons = [
-          // --- Leave (Edupay) ---
-          'Personal Leave – Sick (Without Certificate)',
-          'Personal Leave – Sick (With Certificate)',
-          'Carer\'s Leave',
-          'Family Violence Leave',
-          'Long Service Leave',
-          'Annual Leave',
-          'Study Leave (Paid/Unpaid)',
-          'Defence Force Leave',
-          'Disaster Relief Leave',
-          'Jury Service',
-          'Religious Leave',
-          'Cultural / Ceremonial Leave',
-          'Leave Without Pay',
-          // --- School Activities ---
-          'Sport Carnival / Event',
-          'Excursion / Camp',
-          'Professional Development',
-          'Meeting / Conference',
-          'School Event',
-          'Curriculum Day',
-          // --- Other ---
-          'Other (see notes)'
-        ];
-
-        let html = `
-          <div class="cd">
-            <h3>📝 Report Away / Need Cover</h3>
-            <form id="absenceForm">
-              <div class="fg">
-                <label>Date Start</label>
-                <input type="date" id="dateStart" required>
-              </div>
-              <div class="fg">
-                <label>Date End (leave blank for single day)</label>
-                <input type="date" id="dateEnd">
-              </div>
-              <div class="fg">
-                <label>Duration</label>
-                <div class="half-opts">
-                  <button type="button" class="act" data-half="full" onclick="app.selectHalfDay(this)">Full Day</button>
-                  <button type="button" data-half="am" onclick="app.selectHalfDay(this)">AM Only</button>
-                  <button type="button" data-half="pm" onclick="app.selectHalfDay(this)">PM Only</button>
-                </div>
-              </div>
-              <div class="fg">
-                <label>Reason</label>
-                <select id="reason" required>
-                  <option value="">-- Select a reason --</option>
-                  ${reasons.map(r => `<option value="${r}">${r}</option>`).join('')}
-                </select>
-              </div>
-              <div class="fg">
-                <label>Classes/Areas Affected</label>
-                <input type="text" id="classes" placeholder="e.g. 1A, 2B, Prep">
-              </div>
-              <div class="fg">
-                <label>Additional Notes</label>
-                <textarea id="notes" placeholder="Any other relevant info..."></textarea>
-              </div>
-              <button type="submit" class="btn btn-p">Submit</button>
-            </form>
-            <div id="absenceStatus"></div>
-          </div>
-        `;
-
-        setTimeout(() => {
-          const today = new Date().toISOString().split('T')[0];
-          document.getElementById('dateStart').value = today;
-          document.getElementById('absenceForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const halfBtn = document.querySelector('.half-opts button.act');
-            const halfDay = halfBtn?.dataset.half || 'full';
-
-            const dateStart = document.getElementById('dateStart').value;
-            const dateEnd = document.getElementById('dateEnd').value || dateStart;
-            const reason = document.getElementById('reason').value;
-            const classes = document.getElementById('classes').value;
-            const notes = document.getElementById('notes').value;
-
-            try {
-              const statusEl = document.getElementById('absenceStatus');
-              statusEl.innerHTML = '<div class="loading">Submitting...</div>';
-
-              await app.fetchAPI('POST', '/absences', {
-                dateStart,
-                dateEnd,
-                reason,
-                classes,
-                notes,
-                halfDay
-              });
-
-              statusEl.innerHTML = '<div class="nf suc">✓ Submitted — CRT booking in progress</div>';
-              document.getElementById('absenceForm').reset();
-              document.querySelector('.half-opts button').classList.add('act');
-              document.querySelector('.half-opts button:nth-child(2)').classList.remove('act');
-              document.querySelector('.half-opts button:nth-child(3)').classList.remove('act');
-              document.getElementById('dateStart').value = new Date().toISOString().split('T')[0];
-
-              setTimeout(() => {
-                app.loadInitialData();
-              }, 1000);
-            } catch (err) {
-              document.getElementById('absenceStatus').innerHTML = `<div class="nf err">✕ ${err.message}</div>`;
-            }
-          });
-        }, 0);
-
-        return html;
-      },
-
-      selectHalfDay(btn) {
-        btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('act'));
-        btn.classList.add('act');
-      },
-
-      renderNotifications() {
-        let html = `<div class="cd"><h3>🔔 Notifications</h3>`;
-
-        if (state.notifications.length === 0) {
-          html += '<div class="empty"><div class="ei">📭</div><p>No notifications</p></div>';
-        } else {
-          html += state.notifications.map((notif, idx) => {
-            const typeClass = notif.type === 'error' ? 'urg' : notif.type === 'success' ? 'suc' : '';
-            return `
-              <div class="nf ${typeClass}">
-                ${notif.message}
-                <div class="tm">${new Date(notif.created_at).toLocaleString()}</div>
-              </div>
-            `;
-          }).join('');
-        }
-        html += '</div>';
-        return html;
-      },
-
-      renderSettings() {
-        const s = state.userSettings || {};
-        const notifOn = s.notifications_enabled !== 0;
-        const smsOn = s.notify_sms !== 0;
-        const emailOn = s.notify_email !== 0;
-        const appOn = s.notify_app !== 0;
-        const qStart = s.quiet_start || '21:00';
-        const qEnd = s.quiet_end || '06:00';
-
-        let html = `
-          <div class="cd">
-            <h3>⚙️ Settings</h3>
-            <p style="color:var(--dim);margin-bottom:20px">User: ${state.user.name} (${state.user.role})</p>
-        `;
-
-        if (state.user.role === 'leader' || state.user.role === 'admin') {
-          html += `
-            <div style="margin-bottom:20px">
-              <h4 style="margin-bottom:10px">📋 CRT Preference Order</h4>
-              <p style="color:var(--dim);font-size:0.8rem;margin-bottom:12px">When a staff member is absent, the system contacts CRTs in this order. Tap arrows to reorder.</p>
-              <div id="prefAreaSelect" style="margin-bottom:12px">
-                <select id="prefArea" onchange="app.loadAreaPrefs(this.value)" style="width:100%;padding:10px;border:1px solid var(--bord);border-radius:8px;font-size:0.95rem;background:var(--bg);color:var(--txt)">
-                  <option value="">Select area...</option>
-                </select>
-              </div>
-              <div id="prefList"></div>
-            </div>
-          `;
-        }
-
-        // Notification settings for leaders and admin
-        if (state.user.role === 'leader' || state.user.role === 'admin') {
-          html += `
-            <div style="margin-bottom:20px">
-              <h4 style="margin-bottom:14px">🔔 Notification Preferences</h4>
-
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--card);border:1px solid var(--bord);border-radius:10px;margin-bottom:10px">
-                <div>
-                  <div style="font-weight:600;font-size:0.95rem">Notifications</div>
-                  <div style="font-size:0.8rem;color:var(--dim)">Receive alerts for absences & bookings</div>
-                </div>
-                <label style="position:relative;width:50px;height:28px;display:inline-block">
-                  <input type="checkbox" ${notifOn ? 'checked' : ''} onchange="app.updateSetting('notifications_enabled', this.checked ? 1 : 0)" style="opacity:0;width:0;height:0">
-                  <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:${notifOn ? 'var(--navy)' : '#ccc'};transition:.3s;border-radius:28px"></span>
-                  <span style="position:absolute;content:'';height:22px;width:22px;left:${notifOn ? '25px' : '3px'};bottom:3px;background:white;transition:.3s;border-radius:50%"></span>
-                </label>
-              </div>
-
-              <div id="notifDetails" style="display:${notifOn ? 'block' : 'none'}">
-                <div style="padding:12px;background:var(--card);border:1px solid var(--bord);border-radius:10px;margin-bottom:10px">
-                  <div style="font-weight:600;font-size:0.9rem;margin-bottom:10px">Notify me via</div>
-                  <div style="display:flex;gap:8px;flex-wrap:wrap">
-                    <button class="btn ${smsOn ? '' : 'btn-o'}" style="flex:1;min-width:70px;font-size:0.85rem;padding:8px" onclick="app.updateSetting('notify_sms', ${smsOn ? 0 : 1})">📱 SMS ${smsOn ? '✓' : ''}</button>
-                    <button class="btn ${emailOn ? '' : 'btn-o'}" style="flex:1;min-width:70px;font-size:0.85rem;padding:8px" onclick="app.updateSetting('notify_email', ${emailOn ? 0 : 1})">📧 Email ${emailOn ? '✓' : ''}</button>
-                    <button class="btn ${appOn ? '' : 'btn-o'}" style="flex:1;min-width:70px;font-size:0.85rem;padding:8px" onclick="app.updateSetting('notify_app', ${appOn ? 0 : 1})">🔔 App ${appOn ? '✓' : ''}</button>
-                  </div>
-                </div>
-
-                <div style="padding:12px;background:var(--card);border:1px solid var(--bord);border-radius:10px;margin-bottom:10px">
-                  <div style="font-weight:600;font-size:0.9rem;margin-bottom:4px">🌙 Quiet Hours</div>
-                  <div style="font-size:0.8rem;color:var(--dim);margin-bottom:10px">No notifications during these times</div>
-                  <div style="display:flex;align-items:center;gap:10px">
-                    <div style="flex:1">
-                      <label style="font-size:0.8rem;color:var(--dim)">From</label>
-                      <input type="time" value="${qStart}" onchange="app.updateSetting('quiet_start', this.value)" style="width:100%;padding:8px;border:1px solid var(--bord);border-radius:8px;font-size:0.95rem;background:var(--bg);color:var(--txt)">
-                    </div>
-                    <div style="padding-top:16px;font-size:0.9rem;color:var(--dim)">to</div>
-                    <div style="flex:1">
-                      <label style="font-size:0.8rem;color:var(--dim)">Until</label>
-                      <input type="time" value="${qEnd}" onchange="app.updateSetting('quiet_end', this.value)" style="width:100%;padding:8px;border:1px solid var(--bord);border-radius:8px;font-size:0.95rem;background:var(--bg);color:var(--txt)">
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          `;
-        }
-
-        if (state.user.role === 'crt') {
-          html += `
-            <div style="margin-bottom:20px">
-              <h4 style="margin-bottom:10px">Your Details</h4>
-              <p style="font-size:0.85rem;margin-bottom:5px"><strong>Phone:</strong> ${state.user.phone || 'Not set'}</p>
-              <p style="font-size:0.85rem"><strong>Email:</strong> ${state.user.email || 'Not set'}</p>
-            </div>
-            <div style="margin-bottom:20px">
-              <h4 style="margin-bottom:10px">Unavailable Dates</h4>
-              <button class="btn btn-o" style="width:100%;margin-bottom:10px" onclick="app.showUnavailableModal()">Manage Unavailable</button>
-            </div>
-          `;
-        }
-
-        html += `
-          <div style="margin-top:10px;padding:12px;background:var(--card);border:1px solid var(--bord);border-radius:10px;margin-bottom:20px">
-            <div style="font-size:0.85rem;color:var(--dim)">App Version 1.0</div>
-            <div style="font-size:0.8rem;color:var(--dim)">WPS Staff Hub — Williamstown Primary School</div>
-          </div>
-          <button class="btn btn-d" style="margin-top:10px" onclick="app.logout()">Logout</button>
-        </div>
-        `;
-        return html;
-      },
-
-      async updateSetting(key, value) {
-        try {
-          const body = {};
-          body[key] = value;
-          state.userSettings = await this.fetchAPI('PUT', '/settings', body);
-          this.render();
-        } catch (err) {
-          console.error('Settings update error:', err);
-        }
-      },
-
-      async loadAreaPrefs(area) {
-        if (!area) { document.getElementById('prefList').innerHTML = ''; return; }
-        try {
-          const allPrefs = await this.fetchAPI('GET', '/preferences');
-          const areaPrefs = allPrefs[area] || [];
-          state._currentPrefArea = area;
-          state._currentPrefs = areaPrefs;
-          this.renderPrefList();
-        } catch (err) { console.error('Prefs error:', err); }
-      },
-
-      renderPrefList() {
-        const area = state._currentPrefArea;
-        const prefs = state._currentPrefs || [];
-        const el = document.getElementById('prefList');
-        if (!el) return;
-        if (prefs.length === 0) {
-          el.innerHTML = '<p style="color:var(--dim);font-size:0.85rem">No CRTs assigned to this area yet.</p>';
-          return;
-        }
-        el.innerHTML = prefs.map((p, i) => `
-          <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--card);border:1px solid var(--bord);border-radius:8px;margin-bottom:6px">
-            <span style="font-weight:700;color:var(--navy);font-size:1.1rem;min-width:24px">${i + 1}</span>
-            <div style="flex:1">
-              <div style="font-weight:600;font-size:0.9rem">${p.crt_name}</div>
-              <div style="font-size:0.75rem;color:var(--dim)">${(p.specialties || []).join(', ')}</div>
-            </div>
-            <div style="display:flex;gap:4px">
-              ${i > 0 ? `<button onclick="app.movePref(${i},-1)" style="background:var(--navy);color:white;border:none;border-radius:6px;width:32px;height:32px;font-size:1rem;cursor:pointer">▲</button>` : '<div style="width:32px"></div>'}
-              ${i < prefs.length - 1 ? `<button onclick="app.movePref(${i},1)" style="background:var(--navy);color:white;border:none;border-radius:6px;width:32px;height:32px;font-size:1rem;cursor:pointer">▼</button>` : '<div style="width:32px"></div>'}
-            </div>
-          </div>
-        `).join('');
-      },
-
-      async movePref(idx, dir) {
-        const prefs = state._currentPrefs;
-        const newIdx = idx + dir;
-        if (newIdx < 0 || newIdx >= prefs.length) return;
-        [prefs[idx], prefs[newIdx]] = [prefs[newIdx], prefs[idx]];
-        this.renderPrefList();
-        try {
-          const crtIds = prefs.map(p => p.crt_id);
-          await this.fetchAPI('PUT', `/preferences/${encodeURIComponent(state._currentPrefArea)}`, { crtIds });
-        } catch (err) { console.error('Save prefs error:', err); }
-      },
-
-      formatDate(dateStr) {
-        if (!dateStr) return '';
-        const d = this.parseDate(dateStr);
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        return `${day}/${month}/${year}`;
-      },
-
-      parseDate(dateStr) {
-        const parts = dateStr.split('-');
-        if (parts.length === 3) {
-          return new Date(parts[0], parseInt(parts[1]) - 1, parts[2]);
-        }
-        return new Date(dateStr);
-      },
-
-      async confirmAbsence(id) {
-        try {
-          await app.fetchAPI('PUT', `/absences/${id}/confirm`);
-          await app.loadInitialData();
-        } catch (err) {
-          alert('Error: ' + err.message);
-        }
-      },
-
-      async declineAbsence(id) {
-        try {
-          await app.fetchAPI('PUT', `/absences/${id}/decline`);
-          await app.loadInitialData();
-        } catch (err) {
-          alert('Error: ' + err.message);
-        }
-      },
-
-      async cancelAbsence(id) {
-        if (confirm('Are you sure you want to cancel this absence?')) {
-          try {
-            await app.fetchAPI('PUT', `/absences/${id}/cancel`);
-            await app.loadInitialData();
-          } catch (err) {
-            alert('Error: ' + err.message);
-          }
-        }
-      },
-
-      showUnavailableModal() {
-        alert('Unavailable dates management - coming soon');
-      },
-
-      showLoginView() {
-        const content = document.getElementById('content');
-        content.innerHTML = `
-          <div style="padding:20px 20px">
-            <div style="text-align:center;margin-bottom:20px;margin-top:30px">
-              <img src="logo-circle.png" alt="WPS" style="width:80px;height:80px;margin-bottom:10px">
-              <h2 style="color:var(--navy);font-size:1.3rem;margin:0">Williamstown Primary School</h2>
-              <p style="color:var(--gold);font-weight:700;font-size:.85rem;margin-top:4px">Staff Hub</p>
-            </div>
-            <div class="cd" style="border-top:3px solid var(--gold)">
-              <h3 style="text-align:center;margin-bottom:30px;color:var(--navy)">Sign In</h3>
-
-              <div id="loginStaff" style="margin-bottom:30px">
-                <h4 style="margin-bottom:15px;color:var(--p)">Staff Login</h4>
-                <div class="fg">
-                  <label>Select Staff Member</label>
-                  <select id="staffSelect">
-                    <option value="">-- Choose --</option>
-                    ${state.allUsers.filter(u => u.role === 'staff').map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
-                  </select>
-                </div>
-                <div class="fg">
-                  <label>PIN (if required)</label>
-                  <input type="password" id="staffPin" placeholder="Leave blank if not required">
-                </div>
-                <button class="btn btn-p" onclick="app.staffLogin()">Login</button>
-              </div>
-
-              <hr style="margin:30px 0;border:none;border-top:1px solid var(--bdr)">
-
-              <div id="loginCRT">
-                <h4 style="margin-bottom:15px;color:var(--p)">CRT Login</h4>
-                <div class="fg">
-                  <label>Select CRT</label>
-                  <select id="crtSelect">
-                    <option value="">-- Choose --</option>
-                    ${state.allCRTs.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-                  </select>
-                </div>
-                <button class="btn btn-p" onclick="app.crtLogin()">Login</button>
-              </div>
-
-              <hr style="margin:30px 0;border:none;border-top:1px solid var(--bdr)">
-
-              <div id="loginLeader">
-                <h4 style="margin-bottom:15px;color:var(--p)">Leader Login</h4>
-                <div class="fg">
-                  <label>Select Leader</label>
-                  <select id="leaderSelect">
-                    <option value="">-- Choose --</option>
-                    ${state.allUsers.filter(u => u.role === 'leader').map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
-                  </select>
-                </div>
-                <div class="fg">
-                  <label>PIN (if required)</label>
-                  <input type="password" id="leaderPin" placeholder="Leave blank if not required">
-                </div>
-                <button class="btn btn-p" onclick="app.leaderLogin()">Login</button>
-              </div>
-
-              <div id="loginError" style="margin-top:20px"></div>
-            </div>
-          </div>
-        `;
-      },
-
-      async staffLogin() {
-        const staffId = document.getElementById('staffSelect')?.value;
-        const pin = document.getElementById('staffPin')?.value || '';
-        const errorEl = document.getElementById('loginError');
-
-        if (!staffId) {
-          errorEl.innerHTML = '<div class="nf urg">Please select a user</div>';
-          return;
-        }
-
-        try {
-          errorEl.innerHTML = '<div class="loading">Logging in...</div>';
-          const result = await app.fetchAPI('POST', '/login', {
-            userId: parseInt(staffId),
-            pin
-          });
-          state.token = result.token;
-          state.user = result.user;
-          localStorage.setItem('token', state.token);
-          localStorage.setItem('user', JSON.stringify(state.user));
-          await app.loadInitialData();
-          app.init();
-        } catch (err) {
-          errorEl.innerHTML = `<div class="nf urg">Login failed: ${err.message}</div>`;
-        }
-      },
-
-      async leaderLogin() {
-        const leaderId = document.getElementById('leaderSelect')?.value;
-        const pin = document.getElementById('leaderPin')?.value || '';
-        const errorEl = document.getElementById('loginError');
-
-        if (!leaderId) {
-          errorEl.innerHTML = '<div class="nf urg">Please select a user</div>';
-          return;
-        }
-
-        try {
-          errorEl.innerHTML = '<div class="loading">Logging in...</div>';
-          const result = await app.fetchAPI('POST', '/login', {
-            userId: parseInt(leaderId),
-            pin
-          });
-          state.token = result.token;
-          state.user = result.user;
-          localStorage.setItem('token', state.token);
-          localStorage.setItem('user', JSON.stringify(state.user));
-          await app.loadInitialData();
-          app.init();
-        } catch (err) {
-          errorEl.innerHTML = `<div class="nf urg">Login failed: ${err.message}</div>`;
-        }
-      },
-
-      async crtLogin() {
-        const crtId = document.getElementById('crtSelect')?.value;
-        const errorEl = document.getElementById('loginError');
-
-        if (!crtId) {
-          errorEl.innerHTML = '<div class="nf urg">Please select a CRT</div>';
-          return;
-        }
-
-        try {
-          errorEl.innerHTML = '<div class="loading">Logging in...</div>';
-          const result = await app.fetchAPI('POST', '/login/crt', {
-            crtId: parseInt(crtId)
-          });
-          state.token = result.token;
-          state.user = result.user;
-          localStorage.setItem('token', state.token);
-          localStorage.setItem('user', JSON.stringify(state.user));
-          await app.loadInitialData();
-          app.init();
-        } catch (err) {
-          errorEl.innerHTML = `<div class="nf urg">Login failed: ${err.message}</div>`;
-        }
-      },
-
-      logout() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        state.token = null;
-        state.user = null;
-        this.showLoginView();
-      }
-    };
-
     app.init();
   </script>
 </body>

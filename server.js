@@ -535,6 +535,36 @@ app.get('/api/logs/email', auth, leaderOnly, (req, res) => {
   res.json(dbAll('SELECT * FROM email_log ORDER BY created_at DESC LIMIT 50'));
 });
 
+// ===== HEALTH & INFO =====
+app.get('/api/health', (req, res) => {
+  const today = new Date().toISOString().split('T')[0];
+  const userCount = dbGet('SELECT COUNT(*) as c FROM users WHERE active = 1');
+  const crtCount = dbGet('SELECT COUNT(*) as c FROM crts WHERE active = 1');
+  const todayAbs = dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start <= ? AND date_end >= ? AND status != 'cancelled'", today, today);
+  res.json({
+    status: 'ok',
+    version: '1.0.0',
+    demo: DEMO,
+    live: LIVE,
+    uptime: Math.floor(process.uptime()),
+    staff: userCount?.c || 0,
+    crts: crtCount?.c || 0,
+    todayAbsences: todayAbs?.c || 0
+  });
+});
+
+// ===== COVER REPORT API =====
+app.get('/api/report/today', auth, leaderOnly, (req, res) => {
+  const today = new Date().toISOString().split('T')[0];
+  const absences = dbAll(
+    "SELECT a.*, c.name as crt_name, c.phone as crt_phone FROM absences a LEFT JOIN crts c ON a.assigned_crt_id = c.id WHERE a.date_start <= ? AND a.date_end >= ? AND a.status != 'cancelled' ORDER BY a.area, a.staff_name",
+    today, today
+  );
+  const booked = absences.filter(a => a.status === 'booked').length;
+  const pending = absences.filter(a => a.status !== 'booked').length;
+  res.json({ date: today, absences, summary: { total: absences.length, booked, pending } });
+});
+
 // ===== SERVE FRONTEND =====
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
