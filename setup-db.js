@@ -185,11 +185,11 @@ async function setup() {
   // Add real CRT phone numbers and emails before going live
   const crts = [
     ['Neale Curry',          '0400 000 001', 'neale.c@example.com', '["PE","Health","Sport"]'],
-    ['CRT 2 (Placeholder)',  '0400 000 002', 'crt2@example.com', '["Generalist"]'],
-    ['CRT 3 (Placeholder)',  '0400 000 003', 'crt3@example.com', '["Generalist"]'],
-    ['CRT 4 (Placeholder)',  '0400 000 004', 'crt4@example.com', '["Generalist"]'],
-    ['CRT 5 (Placeholder)',  '0400 000 005', 'crt5@example.com', '["Generalist"]'],
-    ['CRT 6 (Placeholder)',  '0400 000 006', 'crt6@example.com', '["Generalist"]'],
+    ['Sarah Thompson',       '0400 000 002', 'sarah.t@example.com', '["Generalist","Year 1-2"]'],
+    ['James Mitchell',       '0400 000 003', 'james.m@example.com', '["Generalist","Year 3-6"]'],
+    ['Linda Nguyen',         '0400 000 004', 'linda.n@example.com', '["Languages","Arts","Generalist"]'],
+    ['Tom Henderson',        '0400 000 005', 'tom.h@example.com', '["Generalist","Year 5-6","Sport"]'],
+    ['Rachel O\'Brien',      '0400 000 006', 'rachel.o@example.com', '["Generalist","Early Years"]'],
   ];
 
   // ===== CRT Preferences per area =====
@@ -228,6 +228,103 @@ async function setup() {
   console.log(`  ${users.length} staff (including leadership & ES)`);
   console.log(`  ${crts.length} CRTs (placeholders - update with real CRT details)`);
   console.log(`  ${Object.keys(prefs).length} area preference sets\n`);
+
+  // ===== DEMO DATA =====
+  // Pre-populate realistic absences so the dashboard looks active for demos
+  const today = new Date();
+  const fmt = (d) => d.toISOString().split('T')[0];
+  const dayOffset = (days) => { const d = new Date(today); d.setDate(d.getDate() + days); return fmt(d); };
+  const todayStr = fmt(today);
+  const yesterdayStr = dayOffset(-1);
+  const twoDaysAgoStr = dayOffset(-2);
+  const threeDaysAgoStr = dayOffset(-3);
+  const tomorrowStr = dayOffset(1);
+  const twoDaysFromNow = dayOffset(2);
+  const nextWeekStr = dayOffset(7);
+  const nextWeek2Str = dayOffset(8);
+  const nextWeek3Str = dayOffset(9);
+
+  // Staff IDs from insert order: 1=Mat, 2=Lisa, 3=Anna, 4=Steven, 5=Rebecca,
+  // 6=Caitlin(Prep), 7=Georgia(Prep), 8=Claire(Prep),
+  // 9=Stephanie(Yr1), 10=Emma(Yr1),
+  // 11=Joel(Yr2), 12=Rochelle(Yr2), 13=Bianca I(Yr2), 14=Zoe(Yr2),
+  // 15=Hayley(Yr3/4), 16=Grace(Yr3/4), 17=Kayleen(Yr3/4), 18=Katja(Yr3/4), 19=Alison(Yr3/4), 20=Katherine(Yr3/4),
+  // 21=Melati(Yr5/6), 22=Bianca R(Yr5/6), 23=Christina(Yr5/6), 24=Edan(Yr5/6), 25=Molly(Yr5/6), 26=Matt EJ(Yr5/6),
+  // 27=Marcia(VA), 28=Faye(PA), 29=Paddy(PE), 30=Sara(French), 31=Kate(KG),
+  // 32=Anna W(LS), 33-38=ES, 39-41=ES Admin
+
+  // CRT IDs: 1=Neale, 2-6=Placeholders
+
+  const demoAbsences = [
+    // --- PAST (completed/booked) - shows history ---
+    // 3 days ago: Joel Kitchen was sick, Neale covered
+    [11, 'Joel Kitchen', 'Year 2', threeDaysAgoStr, threeDaysAgoStr, 'Personal Illness/Injury', '2K, 2J', '', 'full', 'booked', 1],
+    // 2 days ago: Faye Ferry at PD, CRT 2 covered
+    [28, 'Faye Ferry', 'Performing Arts', twoDaysAgoStr, twoDaysAgoStr, 'Professional Development', 'All Performing Arts classes', 'Music PD at Williamstown Town Hall', 'full', 'booked', 2],
+    // Yesterday: Stephanie Keswick sick (AM only), CRT 3 covered
+    [9, 'Stephanie Keswick', 'Year 1', yesterdayStr, yesterdayStr, 'Personal Illness/Injury', '1S', 'Feeling unwell', 'am', 'booked', 3],
+    // Yesterday: Melati Cordell at curriculum meeting, CRT 4 covered
+    [21, 'Melati Cordell', 'Year 5/6', yesterdayStr, yesterdayStr, 'Meeting/Conference', '5/6M', 'Cluster meeting at Altona North PS', 'full', 'booked', 4],
+
+    // --- TODAY (active - the key demo data) ---
+    // Georgia Grainger (Prep) is sick today - Neale booked
+    [7, 'Georgia Grainger', 'Prep', todayStr, todayStr, 'Personal Illness/Injury', 'Prep G', 'Called in sick this morning', 'full', 'booked', 1],
+    // Paddy Gallivan at Sport Carnival - CRT 2 booked
+    [29, 'Paddy Gallivan', 'PE / Health', todayStr, todayStr, 'Sport Carnival/Event', 'All PE classes', 'District Athletics at Newport Park', 'full', 'booked', 2],
+    // Hayley Thibou (Yr 3/4) sick - contacting CRT 3 (pending confirmation)
+    [15, 'Hayley Thibou', 'Year 3/4', todayStr, todayStr, 'Personal Illness/Injury', '3/4H', '', 'full', 'contacting', 3],
+
+    // --- UPCOMING (shows forward planning) ---
+    // Tomorrow: Edan Baccega at excursion (2 days)
+    [24, 'Edan Baccega', 'Year 5/6', tomorrowStr, twoDaysFromNow, 'Excursion/Camp', '5/6E', 'Year 5/6 camp at Anglesea', 'full', 'booked', 5],
+    // Tomorrow: Sara Borrens at PD
+    [30, 'Sara Borrens', 'French (LoTE)', tomorrowStr, tomorrowStr, 'Professional Development', 'All French classes', 'Languages PD - online', 'full', 'booked', 4],
+    // Next week: Christina Crosland at conference
+    [23, 'Christina Crosland', 'Year 5/6', nextWeekStr, nextWeekStr, 'Meeting/Conference', '5/6C', 'STEM conference at Melbourne Convention Centre', 'full', 'pending', null],
+    // Next week: Marcia Evans - personal leave
+    [27, 'Marcia Evans', 'Visual Arts', nextWeek2Str, nextWeek3Str, 'Carer Leave', 'All Art classes', '', 'full', 'pending', null],
+  ];
+
+  demoAbsences.forEach(a => {
+    db.run(
+      'INSERT INTO absences (staff_id, staff_name, area, date_start, date_end, reason, classes, notes, half_day, status, assigned_crt_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      a
+    );
+  });
+
+  // Demo notifications (recent activity feed)
+  const demoNotifications = [
+    [`Georgia Grainger (Prep) reported absent — Personal Illness/Injury`, 'urgent', 'leader', 5],
+    [`Auto-contacting Neale Curry for Georgia Grainger's absence (Prep)`, 'info', 'leader', 5],
+    [`Neale Curry CONFIRMED for Georgia Grainger on ${todayStr}`, 'success', 'leader', 5],
+    [`Paddy Gallivan (PE / Health) reported away — Sport Carnival/Event`, 'urgent', 'leader', 6],
+    [`Sarah Thompson CONFIRMED for Paddy Gallivan on ${todayStr}`, 'success', 'leader', 6],
+    [`Hayley Thibou (Year 3/4) reported absent — Personal Illness/Injury`, 'urgent', 'leader', 7],
+    [`Auto-contacting James Mitchell for Hayley Thibou's absence (Year 3/4)`, 'info', 'leader', 7],
+    [`Edan Baccega (Year 5/6) reported away — Excursion/Camp (2 days)`, 'info', 'leader', 8],
+    [`Tom Henderson CONFIRMED for Edan Baccega on ${tomorrowStr}`, 'success', 'leader', 8],
+    [`Sara Borrens (French) reported away — Professional Development`, 'info', 'leader', 9],
+    [`Linda Nguyen CONFIRMED for Sara Borrens on ${tomorrowStr}`, 'success', 'leader', 9],
+  ];
+
+  demoNotifications.forEach(n => {
+    db.run('INSERT INTO notifications (message, type, for_roles, related_absence_id) VALUES (?, ?, ?, ?)', n);
+  });
+
+  // Demo SMS log entries
+  const demoSMS = [
+    ['0400 000 001', `WPS BOOKING: Can you cover Georgia Grainger's Prep classes on ${todayStr}? Classes: Prep G. Log in to confirm.`, 'simulated'],
+    ['0400 000 002', `WPS BOOKING: Can you cover Paddy Gallivan's PE / Health classes on ${todayStr}? Classes: All PE classes. Log in to confirm.`, 'simulated'],
+    ['0400 000 003', `WPS BOOKING: Can you cover Hayley Thibou's Year 3/4 classes on ${todayStr}? Classes: 3/4H. Log in to confirm.`, 'simulated'],
+  ];
+
+  demoSMS.forEach(s => {
+    db.run('INSERT INTO sms_log (to_phone, message, status) VALUES (?, ?, ?)', s);
+  });
+
+  console.log(`  ${demoAbsences.length} demo absences (past, today, upcoming)`);
+  console.log(`  ${demoNotifications.length} demo notifications`);
+  console.log(`  ${demoSMS.length} demo SMS log entries\n`);
 
   // Save to file
   const data = db.export();
