@@ -543,7 +543,7 @@ app.get('/api/health', (req, res) => {
   const todayAbs = dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start <= ? AND date_end >= ? AND status != 'cancelled'", today, today);
   res.json({
     status: 'ok',
-    version: '1.0.0',
+    version: '1.1.0',
     demo: DEMO,
     live: LIVE,
     uptime: Math.floor(process.uptime()),
@@ -552,6 +552,20 @@ app.get('/api/health', (req, res) => {
     todayAbsences: todayAbs?.c || 0
   });
 });
+
+// ===== DEMO RESET =====
+app.post('/api/demo/reset', auth, leaderOnly, wrap(async (req, res) => {
+  if (!DEMO) return res.status(400).json({ error: 'Only available in demo mode' });
+  try {
+    require('child_process').execSync('node setup-db.js', { cwd: __dirname, stdio: 'inherit' });
+    const SQL = await require('sql.js')();
+    const fileBuffer = fs.readFileSync(DB_PATH);
+    db = new SQL.Database(fileBuffer);
+    res.json({ ok: true, message: 'Demo data reset successfully' });
+  } catch (e) {
+    res.status(500).json({ error: 'Reset failed: ' + e.message });
+  }
+}));
 
 // ===== COVER REPORT API =====
 app.get('/api/report/today', auth, leaderOnly, (req, res) => {

@@ -6,8 +6,11 @@
   <title>WPS Staff Hub</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#1E2A5E">
-  <link rel="icon" type="image/png" href="favicon.png">
-  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" type="image/png" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="WPS Hub">
   <style>
     :root{--p:#1E2A5E;--pl:#2B3D7B;--pd:#121A3D;--acc:#e74c3c;--ok:#27ae60;--okl:#2ecc71;--warn:#f39c12;--bg:#F0F2F7;--card:#fff;--txt:#1E2A5E;--dim:#6B7280;--bdr:#D1D5E0;--sh:0 2px 12px rgba(30,42,94,.08);--r:14px;--gold:#FFD700;--navy:#1E2A5E;--blue:#3B82F6;--bord:var(--bdr)}
     *{margin:0;padding:0;box-sizing:border-box}
@@ -169,7 +172,7 @@
   </style>
 </head>
 <body>
-  <div class="demo-banner" id="demoBanner" onclick="app.showDemoGuide()">
+  <div class="demo-banner" id="demoBanner" onclick="app.startTour()">
     <span class="pulse-dot"></span>
     DEMO MODE — Tap for walkthrough guide
   </div>
@@ -263,7 +266,7 @@
         const content=document.getElementById('content');if(!state.user){content.innerHTML='';return}
         document.getElementById('userDisplay').textContent=state.user.name;
         document.getElementById('roleBadge').textContent=state.user.role;
-        const views={dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs()};
+        const views={dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs(),directory:()=>this.renderDirectory()};
         content.innerHTML=(views[state.currentView]||views.dashboard)();
         if(state.currentView==='settings'&&(state.user.role==='leader'||state.user.role==='admin'))this.populateAreaDropdown();
         if(state.currentView==='new')this.setupAbsenceForm()},
@@ -284,7 +287,7 @@
 
         let h='<div class="stats"><div class="st '+(s.absentToday>0?'alert':'')+'"><div class="n">'+(s.absentToday||0)+'</div><div class="l">Away Today</div></div><div class="st ok"><div class="n">'+(s.crtsBooked||0)+'</div><div class="l">CRTs Booked</div></div><div class="st '+(s.needAction>0?'alert':'')+'"><div class="n">'+(s.needAction||0)+'</div><div class="l">Need Action</div></div><div class="st"><div class="n">'+(s.totalTerm||0)+'</div><div class="l">This Term</div></div></div>';
 
-        h+='<div class="qa"><button onclick="app.showView(\'new\')"><div class="qi">🆕</div><div class="ql">Report Absence</div><div class="qd">Lodge new</div></button><button onclick="app.showView(\'report\')"><div class="qi">📄</div><div class="ql">Cover Report</div><div class="qd">Today\'s sheet</div></button><button onclick="app.showView(\'logs\')"><div class="qi">📨</div><div class="ql">Activity Log</div><div class="qd">SMS & Email</div></button></div>';
+        h+='<div class="qa"><button onclick="app.showView(\'new\')"><div class="qi">🆕</div><div class="ql">Report Absence</div><div class="qd">Lodge new</div></button><button onclick="app.showView(\'report\')"><div class="qi">📄</div><div class="ql">Cover Report</div><div class="qd">Today\'s sheet</div></button><button onclick="app.showView(\'logs\')"><div class="qi">📨</div><div class="ql">Activity Log</div><div class="qd">SMS & Email</div></button></div><div class="qa"><button onclick="app.showView(\'directory\')"><div class="qi">👥</div><div class="ql">Staff Directory</div><div class="qd">All staff & CRTs</div></button><button onclick="app.startTour()"><div class="qi">🎓</div><div class="ql">Guided Tour</div><div class="qd">How it works</div></button><button onclick="app.showView(\'settings\')"><div class="qi">⚙️</div><div class="ql">Settings</div><div class="qd">Preferences</div></button></div>';
 
         if(contacting.length>0){h+='<div class="cd" style="border-left:4px solid var(--blue)"><h3 style="color:var(--blue)">⏳ Contacting CRTs...</h3>';
           contacting.forEach(a=>{h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div><div class="nm">'+a.staff_name+'</div><div class="dt">'+a.area+' — '+a.reason+'</div></div><span class="sb s-contacting" style="animation:pulse 1.5s infinite">⟳ Contacting</span></div>'+(a.crt_name?'<div class="dt mt-1">Contacting: <strong>'+a.crt_name+'</strong></div>':'')+'</div>'});h+='</div>'}
@@ -421,6 +424,53 @@
 
       async refreshLogs(){try{const[sms,email]=await Promise.all([this.fetchAPI('GET','/logs/sms'),this.fetchAPI('GET','/logs/email')]);state.smsLogs=sms||[];state.emailLogs=email||[];this.render();toast('Logs refreshed','info')}catch(e){toast('Failed to load logs','error')}},
 
+      // ===== STAFF DIRECTORY =====
+      renderDirectory(){
+        const isL=state.user.role==='leader'||state.user.role==='admin';
+        if(!isL)return'<div class="cd"><p>Leaders only</p></div>';
+        const groups={};
+        state.allUsers.filter(u=>u.role!=='admin'||true).forEach(u=>{const area=u.area||u.role;if(!groups[area])groups[area]=[];groups[area].push(u)});
+        let h='<div class="cd"><h3>👥 Staff Directory</h3><p class="text-sm text-dim mb-2">'+state.allUsers.length+' staff members</p>';
+        const leaders=state.allUsers.filter(u=>u.role==='leader'||u.role==='admin');
+        const teaching=state.allUsers.filter(u=>u.role==='staff'&&!u.area?.startsWith('ES'));
+        const es=state.allUsers.filter(u=>u.role==='staff'&&u.area?.startsWith('ES'));
+        h+='<h4 style="font-size:.85rem;color:var(--navy);margin:12px 0 8px;padding:8px 12px;background:linear-gradient(90deg,rgba(30,42,94,.08),transparent);border-radius:8px">Leadership ('+leaders.length+')</h4>';
+        leaders.forEach(u=>{h+='<div class="li"><div class="li-row"><div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:36px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--gold);font-weight:700;font-size:.85rem;flex-shrink:0">'+u.name.charAt(0)+'</div><div><div class="nm" style="font-size:.88rem">'+u.name+'</div><div class="dt">'+u.area+'</div></div></div></div></div>'});
+        h+='<h4 style="font-size:.85rem;color:var(--navy);margin:12px 0 8px;padding:8px 12px;background:linear-gradient(90deg,rgba(30,42,94,.08),transparent);border-radius:8px">Teaching Staff ('+teaching.length+')</h4>';
+        teaching.forEach(u=>{h+='<div class="li"><div class="li-row"><div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:36px;background:var(--pl);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:.8rem;flex-shrink:0">'+u.name.split(' ').map(w=>w[0]).join('')+'</div><div><div class="nm" style="font-size:.88rem">'+u.name+'</div><div class="dt">'+u.area+'</div></div></div></div></div>'});
+        if(es.length>0){h+='<h4 style="font-size:.85rem;color:var(--navy);margin:12px 0 8px;padding:8px 12px;background:linear-gradient(90deg,rgba(30,42,94,.08),transparent);border-radius:8px">Education Support ('+es.length+')</h4>';
+          es.forEach(u=>{h+='<div class="li"><div class="li-row"><div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:36px;background:#6B7280;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:.8rem;flex-shrink:0">'+u.name.split(' ').map(w=>w[0]).join('')+'</div><div><div class="nm" style="font-size:.88rem">'+u.name+'</div><div class="dt">'+u.area+'</div></div></div></div></div>'})}
+        h+='<h4 style="font-size:.85rem;color:var(--navy);margin:12px 0 8px;padding:8px 12px;background:linear-gradient(90deg,rgba(30,42,94,.08),transparent);border-radius:8px">CRT Pool ('+state.allCRTs.length+')</h4>';
+        state.allCRTs.forEach(c=>{h+='<div class="li"><div class="li-row"><div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:36px;background:var(--ok);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.8rem;flex-shrink:0">'+c.name.split(' ').map(w=>w[0]).join('')+'</div><div><div class="nm" style="font-size:.88rem">'+c.name+'</div><div class="dt">'+(c.specialties||[]).join(', ')+'</div></div></div></div></div>'});
+        return h+'</div><button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back to Dashboard</button>'},
+
+      // ===== INTERACTIVE TOUR =====
+      startTour(){
+        const steps=[
+          {title:'Welcome to WPS Staff Hub!',text:'This app replaces texting leaders when staff need cover. Let me show you around.',icon:'👋',action:null},
+          {title:'Dashboard Overview',text:'Your dashboard shows today\'s stats, who\'s away, and CRT booking status — all in real-time.',icon:'📊',action:()=>this.showView('dashboard')},
+          {title:'Report an Absence',text:'Staff tap here to report they\'ll be away. The system automatically finds and contacts the best CRT.',icon:'📝',action:()=>this.showView('new')},
+          {title:'Cover List',text:'See all cover requests with filters. Tap any entry for full details and a progress timeline.',icon:'📋',action:()=>this.showView('absences')},
+          {title:'Cover Report',text:'A printable daily cover sheet for the staffroom — no more whiteboards!',icon:'📄',action:()=>this.showView('report')},
+          {title:'Activity Log',text:'Full transparency: see every SMS and email the system sent to CRTs and leaders.',icon:'📨',action:()=>this.showView('logs')},
+          {title:'Settings & Preferences',text:'Set CRT contact order per area, notification preferences, and quiet hours.',icon:'⚙️',action:()=>this.showView('settings')},
+          {title:'That\'s the tour!',text:'Try reporting an absence to see the auto-booking in action. The system finds and contacts CRTs within seconds.',icon:'🎉',action:()=>this.showView('dashboard')}
+        ];
+        let step=0;
+        const show=()=>{
+          const s=steps[step];
+          const existing=document.getElementById('tourOverlay');if(existing)existing.remove();
+          if(s.action)s.action();
+          const overlay=document.createElement('div');overlay.id='tourOverlay';
+          overlay.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(30,42,94,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .3s';
+          overlay.onclick=e=>{if(e.target===overlay){overlay.remove()}};
+          const card=document.createElement('div');card.style.cssText='background:#fff;border-radius:20px;padding:28px 24px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;animation:slideUp .3s';
+          card.innerHTML='<div style="font-size:2.5rem;margin-bottom:12px">'+s.icon+'</div><div style="font-size:.7rem;color:var(--dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Step '+(step+1)+' of '+steps.length+'</div><h3 style="color:var(--navy);font-size:1.1rem;margin-bottom:8px">'+s.title+'</h3><p style="color:var(--dim);font-size:.88rem;line-height:1.5;margin-bottom:20px">'+s.text+'</p><div style="display:flex;gap:8px;justify-content:center">'+(step>0?'<button onclick="document.getElementById(\'tourOverlay\')._prev()" style="padding:10px 20px;border:1px solid var(--bdr);border-radius:10px;background:#fff;cursor:pointer;font-size:.85rem">← Back</button>':'')+(step<steps.length-1?'<button onclick="document.getElementById(\'tourOverlay\')._next()" style="padding:10px 20px;background:var(--navy);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:.85rem;font-weight:600">Next →</button>':'<button onclick="document.getElementById(\'tourOverlay\').remove()" style="padding:10px 24px;background:var(--navy);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:.85rem;font-weight:600">Let\'s Go! 🚀</button>')+'</div><div style="display:flex;gap:4px;justify-content:center;margin-top:14px">'+steps.map((_,i)=>'<div style="width:'+(i===step?'20px':'6px')+';height:6px;border-radius:3px;background:'+(i===step?'var(--navy)':'var(--bdr)')+';transition:all .3s"></div>').join('')+'</div>';
+          overlay.appendChild(card);document.body.appendChild(overlay);
+          overlay._next=()=>{step++;show()};overlay._prev=()=>{step--;show()};
+        };show();
+      },
+
       // ===== NOTIFICATIONS =====
       renderNotifications(){
         let h='<div class="cd"><h3>🔔 Notifications</h3>';
@@ -444,7 +494,9 @@
 
         if(state.user.role==='crt')h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:8px;font-size:.88rem">Your Details</h4><div style="padding:12px;background:var(--bg);border-radius:10px"><div class="text-sm mb-1"><strong>Phone:</strong> '+(state.user.phone||'Not set')+'</div><div class="text-sm"><strong>Email:</strong> '+(state.user.email||'Not set')+'</div></div></div>';
 
-        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v1.0</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div><button class="btn btn-d" onclick="app.logout()">🚪 Sign Out</button></div>';
+        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v1.1</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
+        if(isL)h+='<button class="btn btn-o mb-1" onclick="app.resetDemo()" style="width:100%">🔄 Reset Demo Data</button>';
+        h+='<button class="btn btn-d" onclick="app.logout()">🚪 Sign Out</button></div>';
         return h},
 
       async updateSetting(k,v){try{const b={};b[k]=v;state.userSettings=await this.fetchAPI('PUT','/settings',b);toast('Setting updated','success');this.render()}catch(e){toast('Error: '+e.message,'error')}},
@@ -469,6 +521,8 @@
       async confirmAbsence(id){try{await this.fetchAPI('PUT','/absences/'+id+'/confirm');toast('Booking confirmed!','success');await this.loadInitialData()}catch(e){toast('Error: '+e.message,'error')}},
       async declineAbsence(id){try{await this.fetchAPI('PUT','/absences/'+id+'/decline');toast('Declined — finding next CRT','info');await this.loadInitialData()}catch(e){toast('Error: '+e.message,'error')}},
       async cancelAbsence(id){if(!confirm('Cancel this absence?'))return;try{await this.fetchAPI('PUT','/absences/'+id+'/cancel');toast('Absence cancelled','info');await this.loadInitialData()}catch(e){toast('Error: '+e.message,'error')}},
+
+      async resetDemo(){if(!confirm('Reset all demo data? This will clear any changes and restore the original demo state.'))return;try{await this.fetchAPI('POST','/demo/reset');toast('Demo reset! Refreshing...','success');setTimeout(()=>location.reload(),1500)}catch(e){toast('Reset failed: '+e.message,'error')}},
 
       formatDate(str){if(!str)return'';const d=this.parseDate(str);return d.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})},
       parseDate(str){const p=str.split('-');return p.length===3?new Date(p[0],parseInt(p[1])-1,p[2]):new Date(str)},
@@ -495,6 +549,8 @@
       logout(){localStorage.removeItem('wps_token');localStorage.removeItem('wps_user');state.token=null;state.user=null;if(this._poll)clearInterval(this._poll);this.showLoginView()}
     };
     app.init();
+    // Register service worker for PWA
+    if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(()=>console.log('SW registered')).catch(e=>console.log('SW failed:',e))}
   </script>
 </body>
 </html>
