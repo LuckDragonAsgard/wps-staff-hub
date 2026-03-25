@@ -206,20 +206,22 @@ async function setup() {
 
   // ===== CRT Preferences per area =====
   // Leaders can update these through the app — these are just defaults
+  // CRT IDs: 1=Neale(PE/Health/Sport), 2=Sarah(Generalist/Yr1-2), 3=James(Generalist/Yr3-6),
+  //          4=Linda(Languages/Arts/Generalist), 5=Tom(Generalist/Yr5-6/Sport), 6=Rachel(Generalist/Early Years)
   const prefs = {
-    'Prep':           [1, 2, 3],
-    'Year 1':         [1, 2, 3],
-    'Year 2':         [1, 2, 3],
-    'Year 3/4':       [1, 2, 3],
-    'Year 5/6':       [1, 2, 3],
-    'PE / Health':    [1, 2, 3],
-    'Visual Arts':    [1, 2, 3],
-    'Performing Arts': [1, 2, 3],
-    'French (LoTE)':  [1, 2, 3],
-    'Kitchen Garden':  [1, 2, 3],
-    'Learning Support': [1, 2, 3],
-    'ES - Classroom': [1, 2, 3],
-    'ES - Admin':     [1, 2, 3],
+    'Prep':           [6, 2, 4],    // Rachel (Early Years) → Sarah (Yr 1-2) → Linda
+    'Year 1':         [2, 6, 4],    // Sarah (Yr 1-2) → Rachel (Early Years) → Linda
+    'Year 2':         [2, 6, 3],    // Sarah (Yr 1-2) → Rachel → James (Yr 3-6)
+    'Year 3/4':       [3, 5, 4],    // James (Yr 3-6) → Tom (Yr 5-6) → Linda
+    'Year 5/6':       [5, 3, 1],    // Tom (Yr 5-6) → James (Yr 3-6) → Neale
+    'PE / Health':    [1, 5, 3],    // Neale (PE/Sport) → Tom (Sport) → James
+    'Visual Arts':    [4, 6, 2],    // Linda (Arts) → Rachel → Sarah
+    'Performing Arts': [4, 6, 2],   // Linda (Arts) → Rachel → Sarah
+    'French (LoTE)':  [4, 3, 2],   // Linda (Languages) → James → Sarah
+    'Kitchen Garden':  [6, 2, 3],   // Rachel → Sarah → James
+    'Learning Support': [2, 6, 3],  // Sarah → Rachel → James
+    'ES - Classroom': [2, 6, 3],
+    'ES - Admin':     [2, 6, 3],
   };
 
   users.forEach(u => {
@@ -265,35 +267,35 @@ async function setup() {
   // 27=Marcia(VA), 28=Faye(PA), 29=Paddy(PE), 30=Sara(French), 31=Kate(KG),
   // 32=Anna W(LS), 33-38=ES, 39-41=ES Admin
 
-  // CRT IDs: 1=Neale, 2-6=Placeholders
+  // CRT IDs: 1=Neale(PE/Sport), 2=Sarah(Yr1-2), 3=James(Yr3-6), 4=Linda(Lang/Arts), 5=Tom(Yr5-6/Sport), 6=Rachel(Early Yrs)
 
   const demoAbsences = [
     // --- PAST (completed/booked) - shows history ---
-    // 3 days ago: Joel Kitchen was sick, Neale covered
-    [11, 'Joel Kitchen', 'Year 2', threeDaysAgoStr, threeDaysAgoStr, 'Personal Illness/Injury', '2K, 2J', '', 'full', 'booked', 1],
-    // 2 days ago: Faye Ferry at PD, CRT 2 covered
-    [28, 'Faye Ferry', 'Performing Arts', twoDaysAgoStr, twoDaysAgoStr, 'Professional Development', 'All Performing Arts classes', 'Music PD at Williamstown Town Hall', 'full', 'booked', 2],
-    // Yesterday: Stephanie Keswick sick (AM only), CRT 3 covered
-    [9, 'Stephanie Keswick', 'Year 1', yesterdayStr, yesterdayStr, 'Personal Illness/Injury', '1S', 'Feeling unwell', 'am', 'booked', 3],
-    // Yesterday: Melati Cordell at curriculum meeting, CRT 4 covered
-    [21, 'Melati Cordell', 'Year 5/6', yesterdayStr, yesterdayStr, 'Meeting/Conference', '5/6M', 'Cluster meeting at Altona North PS', 'full', 'booked', 4],
+    // 3 days ago: Joel Kitchen (Yr2) sick — Sarah Thompson covered (1st pref for Yr2)
+    [11, 'Joel Kitchen', 'Year 2', threeDaysAgoStr, threeDaysAgoStr, 'Personal Illness/Injury', '2K, 2J', '', 'full', 'booked', 2],
+    // 2 days ago: Faye Ferry (PA) at PD — Linda Nguyen covered (1st pref for Performing Arts)
+    [28, 'Faye Ferry', 'Performing Arts', twoDaysAgoStr, twoDaysAgoStr, 'Professional Development', 'All Performing Arts classes', 'Music PD at Williamstown Town Hall', 'full', 'booked', 4],
+    // Yesterday: Stephanie Keswick (Yr1) sick AM — Sarah Thompson covered (1st pref for Yr1)
+    [9, 'Stephanie Keswick', 'Year 1', yesterdayStr, yesterdayStr, 'Personal Illness/Injury', '1S', 'Feeling unwell', 'am', 'booked', 2],
+    // Yesterday: Melati Cordell (Yr5/6) at meeting — Tom Henderson covered (1st pref for Yr5/6)
+    [21, 'Melati Cordell', 'Year 5/6', yesterdayStr, yesterdayStr, 'Meeting/Conference', '5/6M', 'Cluster meeting at Altona North PS', 'full', 'booked', 5],
 
     // --- TODAY (active - the key demo data) ---
-    // Georgia Grainger (Prep) is sick today - Neale booked
-    [7, 'Georgia Grainger', 'Prep', todayStr, todayStr, 'Personal Illness/Injury', 'Prep G', 'Called in sick this morning', 'full', 'booked', 1],
-    // Paddy Gallivan at Sport Carnival - CRT 2 booked
-    [29, 'Paddy Gallivan', 'PE / Health', todayStr, todayStr, 'Sport Carnival/Event', 'All PE classes', 'District Athletics at Newport Park', 'full', 'booked', 2],
-    // Hayley Thibou (Yr 3/4) sick - contacting CRT 3 (pending confirmation)
+    // Georgia Grainger (Prep) sick — Rachel O'Brien booked (1st pref for Prep = Early Years specialist)
+    [7, 'Georgia Grainger', 'Prep', todayStr, todayStr, 'Personal Illness/Injury', 'Prep G', 'Called in sick this morning', 'full', 'booked', 6],
+    // Paddy Gallivan (PE) at Sport Carnival — Neale Curry booked (1st pref for PE = PE/Sport specialist)
+    [29, 'Paddy Gallivan', 'PE / Health', todayStr, todayStr, 'Sport Carnival/Event', 'All PE classes', 'District Athletics at Newport Park', 'full', 'booked', 1],
+    // Hayley Thibou (Yr3/4) sick — contacting James Mitchell (1st pref for Yr3/4 = Yr3-6 specialist)
     [15, 'Hayley Thibou', 'Year 3/4', todayStr, todayStr, 'Personal Illness/Injury', '3/4H', '', 'full', 'contacting', 3],
 
     // --- UPCOMING (shows forward planning) ---
-    // Tomorrow: Edan Baccega at excursion (2 days)
+    // Tomorrow: Edan Baccega (Yr5/6) at camp — Tom Henderson booked (1st pref for Yr5/6)
     [24, 'Edan Baccega', 'Year 5/6', tomorrowStr, twoDaysFromNow, 'Excursion/Camp', '5/6E', 'Year 5/6 camp at Anglesea', 'full', 'booked', 5],
-    // Tomorrow: Sara Borrens at PD
+    // Tomorrow: Sara Borrens (French) at PD — Linda Nguyen booked (1st pref for French = Languages specialist)
     [30, 'Sara Borrens', 'French (LoTE)', tomorrowStr, tomorrowStr, 'Professional Development', 'All French classes', 'Languages PD - online', 'full', 'booked', 4],
-    // Next week: Christina Crosland at conference
+    // Next week: Christina Crosland (Yr5/6) at conference — not yet booked
     [23, 'Christina Crosland', 'Year 5/6', nextWeekStr, nextWeekStr, 'Meeting/Conference', '5/6C', 'STEM conference at Melbourne Convention Centre', 'full', 'pending', null],
-    // Next week: Marcia Evans - personal leave
+    // Next week: Marcia Evans (VA) - carer leave — not yet booked
     [27, 'Marcia Evans', 'Visual Arts', nextWeek2Str, nextWeek3Str, 'Carer Leave', 'All Art classes', '', 'full', 'pending', null],
   ];
 
@@ -307,10 +309,11 @@ async function setup() {
   // Demo notifications (recent activity feed)
   const demoNotifications = [
     [`Georgia Grainger (Prep) reported absent — Personal Illness/Injury`, 'urgent', 'leader', 5],
-    [`Auto-contacting Neale Curry for Georgia Grainger's absence (Prep)`, 'info', 'leader', 5],
-    [`Neale Curry CONFIRMED for Georgia Grainger on ${todayStr}`, 'success', 'leader', 5],
+    [`Auto-contacting Rachel O'Brien for Georgia Grainger's absence (Prep)`, 'info', 'leader', 5],
+    [`Rachel O'Brien CONFIRMED for Georgia Grainger on ${todayStr}`, 'success', 'leader', 5],
     [`Paddy Gallivan (PE / Health) reported away — Sport Carnival/Event`, 'urgent', 'leader', 6],
-    [`Sarah Thompson CONFIRMED for Paddy Gallivan on ${todayStr}`, 'success', 'leader', 6],
+    [`Auto-contacting Neale Curry for Paddy Gallivan's absence (PE / Health)`, 'info', 'leader', 6],
+    [`Neale Curry CONFIRMED for Paddy Gallivan on ${todayStr}`, 'success', 'leader', 6],
     [`Hayley Thibou (Year 3/4) reported absent — Personal Illness/Injury`, 'urgent', 'leader', 7],
     [`Auto-contacting James Mitchell for Hayley Thibou's absence (Year 3/4)`, 'info', 'leader', 7],
     [`Edan Baccega (Year 5/6) reported away — Excursion/Camp (2 days)`, 'info', 'leader', 8],
@@ -325,8 +328,8 @@ async function setup() {
 
   // Demo SMS log entries
   const demoSMS = [
-    ['0400 000 001', `WPS BOOKING: Can you cover Georgia Grainger's Prep classes on ${todayStr}? Classes: Prep G. Log in to confirm.`, 'simulated'],
-    ['0400 000 002', `WPS BOOKING: Can you cover Paddy Gallivan's PE / Health classes on ${todayStr}? Classes: All PE classes. Log in to confirm.`, 'simulated'],
+    ['0400 000 006', `WPS BOOKING: Can you cover Georgia Grainger's Prep classes on ${todayStr}? Classes: Prep G. Log in to confirm.`, 'simulated'],
+    ['0400 000 001', `WPS BOOKING: Can you cover Paddy Gallivan's PE / Health classes on ${todayStr}? Classes: All PE classes. Log in to confirm.`, 'simulated'],
     ['0400 000 003', `WPS BOOKING: Can you cover Hayley Thibou's Year 3/4 classes on ${todayStr}? Classes: 3/4H. Log in to confirm.`, 'simulated'],
   ];
 
