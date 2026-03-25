@@ -102,6 +102,18 @@ async function setup() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS user_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL UNIQUE,
+      notifications_enabled INTEGER DEFAULT 1,
+      quiet_start TEXT DEFAULT '21:00',
+      quiet_end TEXT DEFAULT '06:00',
+      notify_sms INTEGER DEFAULT 1,
+      notify_email INTEGER DEFAULT 1,
+      notify_app INTEGER DEFAULT 1,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_absences_date ON absences(date_start, date_end);
     CREATE INDEX IF NOT EXISTS idx_absences_staff ON absences(staff_id);
     CREATE INDEX IF NOT EXISTS idx_absences_status ON absences(status);

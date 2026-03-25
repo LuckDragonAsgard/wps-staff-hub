@@ -488,6 +488,35 @@ app.get('/api/notifications', auth, (req, res) => {
   res.json(dbAll(sql, ...params));
 });
 
+// ===== NOTIFICATION SETTINGS =====
+app.get('/api/settings', auth, (req, res) => {
+  let settings = dbGet('SELECT * FROM user_settings WHERE user_id = ?', req.user.id);
+  if (!settings) {
+    dbRun('INSERT INTO user_settings (user_id) VALUES (?)', [req.user.id]);
+    settings = dbGet('SELECT * FROM user_settings WHERE user_id = ?', req.user.id);
+  }
+  res.json(settings);
+});
+
+app.put('/api/settings', auth, (req, res) => {
+  const { notifications_enabled, quiet_start, quiet_end, notify_sms, notify_email, notify_app } = req.body;
+  let settings = dbGet('SELECT * FROM user_settings WHERE user_id = ?', req.user.id);
+  if (!settings) {
+    dbRun('INSERT INTO user_settings (user_id) VALUES (?)', [req.user.id]);
+  }
+  dbRun(`UPDATE user_settings SET
+    notifications_enabled = COALESCE(?, notifications_enabled),
+    quiet_start = COALESCE(?, quiet_start),
+    quiet_end = COALESCE(?, quiet_end),
+    notify_sms = COALESCE(?, notify_sms),
+    notify_email = COALESCE(?, notify_email),
+    notify_app = COALESCE(?, notify_app)
+    WHERE user_id = ?`,
+    [notifications_enabled, quiet_start, quiet_end, notify_sms, notify_email, notify_app, req.user.id]
+  );
+  res.json(dbGet('SELECT * FROM user_settings WHERE user_id = ?', req.user.id));
+});
+
 // ===== STATS =====
 app.get('/api/stats', auth, (req, res) => {
   const today = new Date().toISOString().split('T')[0];
@@ -537,6 +566,17 @@ async function start() {
   try { db.run('CREATE INDEX IF NOT EXISTS idx_absences_status ON absences(status)'); } catch(e) {}
   try { db.run("ALTER TABLE absences ADD COLUMN half_day TEXT DEFAULT 'full'"); } catch(e) {}
   try { db.run("ALTER TABLE crts ADD COLUMN pin_hash TEXT"); } catch(e) {}
+  try { db.run(`CREATE TABLE IF NOT EXISTS user_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL UNIQUE,
+    notifications_enabled INTEGER DEFAULT 1,
+    quiet_start TEXT DEFAULT '21:00',
+    quiet_end TEXT DEFAULT '06:00',
+    notify_sms INTEGER DEFAULT 1,
+    notify_email INTEGER DEFAULT 1,
+    notify_app INTEGER DEFAULT 1,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )`); } catch(e) {}
   db.run('PRAGMA foreign_keys = ON');
 
   // Save on exit

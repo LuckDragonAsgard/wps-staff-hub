@@ -193,7 +193,8 @@
       stats: {},
       preferences: {},
       lastPollTime: new Date().toISOString(),
-      crtsUnavailable: {}
+      crtsUnavailable: {},
+      userSettings: null
     };
 
     const app = {
@@ -226,6 +227,8 @@
           state.absences = absences || [];
           state.stats = stats || {};
           state.notifications = notif || [];
+          // Fetch notification settings
+          try { state.userSettings = await this.fetchAPI('GET', '/settings'); } catch(e) { state.userSettings = null; }
           this.updateNotifBadge();
           this.render();
         } catch (err) {
@@ -680,13 +683,21 @@
       },
 
       renderSettings() {
+        const s = state.userSettings || {};
+        const notifOn = s.notifications_enabled !== 0;
+        const smsOn = s.notify_sms !== 0;
+        const emailOn = s.notify_email !== 0;
+        const appOn = s.notify_app !== 0;
+        const qStart = s.quiet_start || '21:00';
+        const qEnd = s.quiet_end || '06:00';
+
         let html = `
           <div class="cd">
             <h3>⚙️ Settings</h3>
             <p style="color:var(--dim);margin-bottom:20px">User: ${state.user.name} (${state.user.role})</p>
         `;
 
-        if (state.user.role === 'leader') {
+        if (state.user.role === 'leader' || state.user.role === 'admin') {
           html += `
             <div style="margin-bottom:20px">
               <h4 style="margin-bottom:10px">CRT Preferences by Area</h4>
@@ -694,6 +705,54 @@
                 <p style="color:var(--dim);font-size:0.85rem;margin-bottom:10px">Area: ${state.user.area}</p>
               ` : ''}
               <p style="color:var(--dim);font-size:0.8rem">Manage CRT priority order in Preferences section</p>
+            </div>
+          `;
+        }
+
+        // Notification settings for leaders and admin
+        if (state.user.role === 'leader' || state.user.role === 'admin') {
+          html += `
+            <div style="margin-bottom:20px">
+              <h4 style="margin-bottom:14px">🔔 Notification Preferences</h4>
+
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--card);border:1px solid var(--bord);border-radius:10px;margin-bottom:10px">
+                <div>
+                  <div style="font-weight:600;font-size:0.95rem">Notifications</div>
+                  <div style="font-size:0.8rem;color:var(--dim)">Receive alerts for absences & bookings</div>
+                </div>
+                <label style="position:relative;width:50px;height:28px;display:inline-block">
+                  <input type="checkbox" ${notifOn ? 'checked' : ''} onchange="app.updateSetting('notifications_enabled', this.checked ? 1 : 0)" style="opacity:0;width:0;height:0">
+                  <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:${notifOn ? 'var(--navy)' : '#ccc'};transition:.3s;border-radius:28px"></span>
+                  <span style="position:absolute;content:'';height:22px;width:22px;left:${notifOn ? '25px' : '3px'};bottom:3px;background:white;transition:.3s;border-radius:50%"></span>
+                </label>
+              </div>
+
+              <div id="notifDetails" style="display:${notifOn ? 'block' : 'none'}">
+                <div style="padding:12px;background:var(--card);border:1px solid var(--bord);border-radius:10px;margin-bottom:10px">
+                  <div style="font-weight:600;font-size:0.9rem;margin-bottom:10px">Notify me via</div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button class="btn ${smsOn ? '' : 'btn-o'}" style="flex:1;min-width:70px;font-size:0.85rem;padding:8px" onclick="app.updateSetting('notify_sms', ${smsOn ? 0 : 1})">📱 SMS ${smsOn ? '✓' : ''}</button>
+                    <button class="btn ${emailOn ? '' : 'btn-o'}" style="flex:1;min-width:70px;font-size:0.85rem;padding:8px" onclick="app.updateSetting('notify_email', ${emailOn ? 0 : 1})">📧 Email ${emailOn ? '✓' : ''}</button>
+                    <button class="btn ${appOn ? '' : 'btn-o'}" style="flex:1;min-width:70px;font-size:0.85rem;padding:8px" onclick="app.updateSetting('notify_app', ${appOn ? 0 : 1})">🔔 App ${appOn ? '✓' : ''}</button>
+                  </div>
+                </div>
+
+                <div style="padding:12px;background:var(--card);border:1px solid var(--bord);border-radius:10px;margin-bottom:10px">
+                  <div style="font-weight:600;font-size:0.9rem;margin-bottom:4px">🌙 Quiet Hours</div>
+                  <div style="font-size:0.8rem;color:var(--dim);margin-bottom:10px">No notifications during these times</div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="flex:1">
+                      <label style="font-size:0.8rem;color:var(--dim)">From</label>
+                      <input type="time" value="${qStart}" onchange="app.updateSetting('quiet_start', this.value)" style="width:100%;padding:8px;border:1px solid var(--bord);border-radius:8px;font-size:0.95rem;background:var(--bg);color:var(--txt)">
+                    </div>
+                    <div style="padding-top:16px;font-size:0.9rem;color:var(--dim)">to</div>
+                    <div style="flex:1">
+                      <label style="font-size:0.8rem;color:var(--dim)">Until</label>
+                      <input type="time" value="${qEnd}" onchange="app.updateSetting('quiet_end', this.value)" style="width:100%;padding:8px;border:1px solid var(--bord);border-radius:8px;font-size:0.95rem;background:var(--bg);color:var(--txt)">
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           `;
         }
@@ -713,10 +772,25 @@
         }
 
         html += `
-          <button class="btn btn-d" style="margin-top:20px" onclick="app.logout()">Logout</button>
+          <div style="margin-top:10px;padding:12px;background:var(--card);border:1px solid var(--bord);border-radius:10px;margin-bottom:20px">
+            <div style="font-size:0.85rem;color:var(--dim)">App Version 1.0</div>
+            <div style="font-size:0.8rem;color:var(--dim)">WPS Staff Hub — Williamstown Primary School</div>
+          </div>
+          <button class="btn btn-d" style="margin-top:10px" onclick="app.logout()">Logout</button>
         </div>
         `;
         return html;
+      },
+
+      async updateSetting(key, value) {
+        try {
+          const body = {};
+          body[key] = value;
+          state.userSettings = await this.fetchAPI('PUT', '/settings', body);
+          this.render();
+        } catch (err) {
+          console.error('Settings update error:', err);
+        }
       },
 
       formatDate(dateStr) {
