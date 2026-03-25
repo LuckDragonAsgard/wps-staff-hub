@@ -302,32 +302,41 @@ app.get('/api/absences/month/:year/:month', auth, (req, res) => {
 });
 
 app.post('/api/absences', auth, wrap(async (req, res) => {
-  const { dateStart, dateEnd, reason, classes, notes, halfDay } = req.body;
-  const u = req.user;
+  const { dateStart, dateEnd, reason, classes, notes, halfDay, staffId } = req.body;
+  const isLeader = req.user.role === 'leader' || req.user.role === 'admin';
+
+  // Leaders can lodge on behalf of another staff member
+  let staffUser = req.user;
+  if (staffId && isLeader) {
+    const target = dbGet('SELECT * FROM users WHERE id = ? AND active = 1', parseInt(staffId));
+    if (target) staffUser = { id: target.id, name: target.name, area: target.area };
+  }
+
   if (!dateStart || !reason) return res.status(400).json({ error: 'Date and reason required' });
 
-  const recent = dbGet("SELECT 1 as found FROM absences WHERE staff_id = ? AND date_start = ? AND submitted_at > datetime('now', '-60 seconds') AND status != 'cancelled'", u.id, dateStart);
+  const recent = dbGet("SELECT 1 as found FROM absences WHERE staff_id = ? AND date_start = ? AND submitted_at > datetime('now', '-60 seconds') AND status != 'cancelled'", staffUser.id, dateStart);
   if (recent) return res.status(409).json({ error: 'Absence already submitted for this date' });
 
   dbRun(
     'INSERT INTO absences (staff_id, staff_name, area, date_start, date_end, reason, classes, notes, half_day) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [u.id, u.name, u.area, dateStart, dateEnd || dateStart, reason, classes || '', notes || '', halfDay || 'full']
+    [staffUser.id, staffUser.name, staffUser.area, dateStart, dateEnd || dateStart, reason, classes || '', notes || '', halfDay || 'full']
   );
 
   const absenceId = dbLastId();
   const absence = dbGet('SELECT * FROM absences WHERE id = ?', absenceId);
   const halfLabel = halfDay === 'am' ? ' (AM only)' : halfDay === 'pm' ? ' (PM only)' : '';
+  const byLeader = staffUser.id !== req.user.id ? ` (lodged by ${req.user.name})` : '';
 
-  addNotification(`New absence: ${u.name} (${u.area}) \u2013 ${reason}${halfLabel}`, 'urgent', 'leader', absenceId);
+  addNotification(`New absence: ${staffUser.name} (${staffUser.area}) \u2013 ${reason}${halfLabel}${byLeader}`, 'urgent', 'leader', absenceId);
 
   const leaders = dbAll("SELECT * FROM users WHERE role = 'leader' AND active = 1");
   for (const leader of leaders) {
     if (leader.phone) {
-      await sendSMS(leader.phone, `WPS ABSENCE: ${u.name} (${u.area}) is absent ${dateStart}${halfLabel}. Reason: ${reason}. CRT auto-booking in progress.`);
+      await sendSMS(leader.phone, `WPS ABSENCE: ${staffUser.name} (${staffUser.area}) is absent ${dateStart}${halfLabel}. Reason: ${reason}. CRT auto-booking in progress.`);
     }
     if (leader.email) {
-      await sendEmail(leader.email, `Staff Absence: ${u.name}`,
-        `<h2>New Staff Absence</h2><p><strong>${u.name}</strong> (${u.area}) has reported an absence.</p>
+      await sendEmail(leader.email, `Staff Absence: ${staffUser.name}`,
+        `<h2>New Staff Absence</h2><p><strong>${staffUser.name}</strong> (${staffUser.area}) has reported an absence.</p>
         <p>Date: ${dateStart}${dateEnd && dateEnd !== dateStart ? ' to ' + dateEnd : ''}${halfLabel}</p>
         <p>Reason: ${reason}</p>${classes ? '<p>Classes: ' + classes + '</p>' : ''}
         <p>CRT auto-booking is in progress.</p>`

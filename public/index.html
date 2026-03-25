@@ -84,7 +84,7 @@
     .cal .dy.has-abs{background:#ffeaea;border:2px solid var(--acc);font-weight:600;cursor:pointer}
     .cal .dy.has-abs:hover{background:#ffdddd}
     .cal .dy.other{color:var(--bdr)}
-    .cal .dy .dot{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;background:var(--acc);border-radius:50%}
+    .cal .dy .dot{position:absolute;bottom:1px;left:50%;transform:translateX(-50%);min-width:14px;height:14px;background:var(--acc);border-radius:7px;font-size:.55rem;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 3px}
 
     .qa{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:14px}
     .qa button{background:var(--card);border:2px solid var(--bdr);border-radius:var(--r);padding:16px 10px;cursor:pointer;text-align:center;font-family:inherit;transition:all .15s}
@@ -268,7 +268,7 @@
         document.getElementById('roleBadge').textContent=state.user.role;
         const views={dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs(),directory:()=>this.renderDirectory()};
         content.innerHTML=(views[state.currentView]||views.dashboard)();
-        if(state.currentView==='settings'&&(state.user.role==='leader'||state.user.role==='admin'))this.populateAreaDropdown();
+        if(state.currentView==='settings'){if(state.user.role==='leader'||state.user.role==='admin')this.populateAreaDropdown();if(state.user.role==='crt')this.loadUnavailDates()}
         if(state.currentView==='new')this.setupAbsenceForm()},
 
       // ===== DASHBOARD =====
@@ -335,7 +335,7 @@
         let c=new Date(start);
         while(c<=last||c.getDay()!==0){const k=c.getFullYear()+'-'+c.getMonth()+'-'+c.getDate();const isT=c.toDateString()===today.toDateString();const isCur=c.getMonth()===mo;const cnt=absMap[k]||0;
           let cls='dy';if(isT)cls+=' today';if(!isCur)cls+=' other';if(cnt>0&&isCur)cls+=' has-abs';
-          h+='<div class="'+cls+'">'+c.getDate()+(cnt>0&&isCur?'<div class="dot"></div>':'')+'</div>';
+          h+='<div class="'+cls+'"'+(cnt>0&&isCur?' title="'+cnt+' absence'+(cnt>1?'s':'')+'"':'')+'>'+c.getDate()+(cnt>0&&isCur?'<div class="dot">'+cnt+'</div>':'')+'</div>';
           c.setDate(c.getDate()+1);if(c>last&&c.getDay()===0)break}
         return h+'</div>'},
 
@@ -392,7 +392,7 @@
         const form=document.getElementById('absenceForm');if(!form)return;
         document.getElementById('dateStart').value=new Date().toISOString().split('T')[0];
         form.onsubmit=async(e)=>{e.preventDefault();const btn=document.getElementById('submitBtn');btn.disabled=true;btn.textContent='⏳ Submitting...';
-          try{await this.fetchAPI('POST','/absences',{dateStart:document.getElementById('dateStart').value,dateEnd:document.getElementById('dateEnd').value||document.getElementById('dateStart').value,reason:document.getElementById('reason').value,classes:document.getElementById('classes').value,notes:document.getElementById('notes').value,halfDay:(document.querySelector('.half-opts button.act')||{}).dataset?.half||'full'});
+          try{const absData={dateStart:document.getElementById('dateStart').value,dateEnd:document.getElementById('dateEnd').value||document.getElementById('dateStart').value,reason:document.getElementById('reason').value,classes:document.getElementById('classes').value,notes:document.getElementById('notes').value,halfDay:(document.querySelector('.half-opts button.act')||{}).dataset?.half||'full'};const staffSel=document.getElementById('absStaff');if(staffSel&&staffSel.value)absData.staffId=parseInt(staffSel.value);await this.fetchAPI('POST','/absences',absData);
             toast('Absence submitted! CRT booking in progress...','success');document.getElementById('absenceStatus').innerHTML='<div style="text-align:center;padding:20px;background:#f0fff4;border-radius:12px;border:2px solid var(--ok)"><div style="font-size:2rem;margin-bottom:8px">✅</div><div style="font-weight:700;color:var(--ok);font-size:1rem;margin-bottom:4px">Submitted Successfully!</div><div class="text-sm text-dim">Finding a CRT now. You\'ll be notified when confirmed.</div></div>';form.style.display='none';
             setTimeout(()=>{this.loadInitialData();this.showView('dashboard')},3000)
           }catch(err){btn.disabled=false;btn.textContent='📤 Submit Absence';toast('Error: '+err.message,'error')}}},
@@ -492,7 +492,8 @@
           if(notifOn){h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px"><div style="font-weight:600;font-size:.85rem;margin-bottom:8px">Notify me via</div><div style="display:flex;gap:6px"><button class="btn '+(smsOn?'btn-p':'btn-o')+' btn-s" style="flex:1" onclick="app.updateSetting(\'notify_sms\','+(smsOn?0:1)+')">📱 SMS '+(smsOn?'✓':'')+'</button><button class="btn '+(emailOn?'btn-p':'btn-o')+' btn-s" style="flex:1" onclick="app.updateSetting(\'notify_email\','+(emailOn?0:1)+')">📧 Email '+(emailOn?'✓':'')+'</button><button class="btn '+(appOn?'btn-p':'btn-o')+' btn-s" style="flex:1" onclick="app.updateSetting(\'notify_app\','+(appOn?0:1)+')">🔔 App '+(appOn?'✓':'')+'</button></div></div><div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px"><div style="font-weight:600;font-size:.85rem;margin-bottom:4px">🌙 Quiet Hours</div><div class="text-sm text-dim mb-1">No notifications during these times</div><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><label class="text-sm text-dim">From</label><input type="time" value="'+qStart+'" onchange="app.updateSetting(\'quiet_start\',this.value)" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:.88rem;background:#fff"></div><div style="padding-top:16px;color:var(--dim)">to</div><div style="flex:1"><label class="text-sm text-dim">Until</label><input type="time" value="'+qEnd+'" onchange="app.updateSetting(\'quiet_end\',this.value)" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:.88rem;background:#fff"></div></div></div>'}
           h+='</div>'}
 
-        if(state.user.role==='crt')h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:8px;font-size:.88rem">Your Details</h4><div style="padding:12px;background:var(--bg);border-radius:10px"><div class="text-sm mb-1"><strong>Phone:</strong> '+(state.user.phone||'Not set')+'</div><div class="text-sm"><strong>Email:</strong> '+(state.user.email||'Not set')+'</div></div></div>';
+        if(state.user.role==='crt'){h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:8px;font-size:.88rem">Your Details</h4><div style="padding:12px;background:var(--bg);border-radius:10px"><div class="text-sm mb-1"><strong>Phone:</strong> '+(state.user.phone||'Not set')+'</div><div class="text-sm mb-1"><strong>Email:</strong> '+(state.user.email||'Not set')+'</div><div class="text-sm"><strong>Specialties:</strong> '+(state.user.specialties||[]).join(', ')+'</div></div></div>';
+          h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:8px;font-size:.88rem">📅 Unavailable Dates</h4><p class="text-sm text-dim mb-1">Mark dates you can\'t work so the system skips you.</p><div style="display:flex;gap:6px;margin-bottom:10px"><input type="date" id="unavailDate" style="flex:1;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:.85rem"><input type="text" id="unavailReason" placeholder="Reason (optional)" style="flex:1;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:.85rem"><button class="btn btn-p btn-s" onclick="app.addUnavailDate()">Add</button></div><div id="unavailList"></div></div>'}
 
         h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v1.1</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
         if(isL)h+='<button class="btn btn-o mb-1" onclick="app.resetDemo()" style="width:100%">🔄 Reset Demo Data</button>';
@@ -523,6 +524,12 @@
       async cancelAbsence(id){if(!confirm('Cancel this absence?'))return;try{await this.fetchAPI('PUT','/absences/'+id+'/cancel');toast('Absence cancelled','info');await this.loadInitialData()}catch(e){toast('Error: '+e.message,'error')}},
 
       async resetDemo(){if(!confirm('Reset all demo data? This will clear any changes and restore the original demo state.'))return;try{await this.fetchAPI('POST','/demo/reset');toast('Demo reset! Refreshing...','success');setTimeout(()=>location.reload(),1500)}catch(e){toast('Reset failed: '+e.message,'error')}},
+
+      async addUnavailDate(){const d=document.getElementById('unavailDate');const r=document.getElementById('unavailReason');if(!d||!d.value){toast('Pick a date','error');return}try{await this.fetchAPI('POST','/crts/'+state.user.id+'/unavailable',{date:d.value,reason:r?.value||''});toast('Date marked unavailable','success');d.value='';if(r)r.value='';this.loadUnavailDates()}catch(e){toast('Error: '+e.message,'error')}},
+
+      async removeUnavailDate(date){try{await this.fetchAPI('DELETE','/crts/'+state.user.id+'/unavailable/'+date);toast('Date removed','info');this.loadUnavailDates()}catch(e){toast('Error: '+e.message,'error')}},
+
+      async loadUnavailDates(){const el=document.getElementById('unavailList');if(!el)return;try{const dates=await this.fetchAPI('GET','/crts/'+state.user.id+'/unavailable');if(dates.length===0){el.innerHTML='<p class="text-sm text-dim">No unavailable dates set.</p>';return}el.innerHTML=dates.map(d=>'<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;font-size:.82rem"><div style="flex:1"><strong>'+d.date+'</strong>'+(d.reason?' — '+d.reason:'')+'</div><button onclick="app.removeUnavailDate(\''+d.date+'\')" style="background:none;border:none;color:var(--acc);cursor:pointer;font-size:1rem">✕</button></div>').join('')}catch(e){}},
 
       formatDate(str){if(!str)return'';const d=this.parseDate(str);return d.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})},
       parseDate(str){const p=str.split('-');return p.length===3?new Date(p[0],parseInt(p[1])-1,p[2]):new Date(str)},
