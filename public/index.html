@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WPS Staff Hub</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1E2A5E">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    :root{--p:#1E2A5E;--pl:#2B3D7B;--pd:#121A3D;--acc:#e74c3c;--ok:#27ae60;--okl:#2ecc71;--warn:#FFD700;--bg:#F0F2F7;--card:#fff;--txt:#1E2A5E;--dim:#6B7280;--bdr:#D1D5E0;--sh:0 2px 12px rgba(30,42,94,.08);--r:14px;--gold:#FFD700;--navy:#1E2A5E}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+    .nav{background:linear-gradient(135deg,var(--navy),var(--pd));color:#fff;padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;box-shadow:0 2px 10px rgba(30,42,94,.25);border-bottom:3px solid var(--gold)}
+    .nav .logo{font-size:1.05rem;font-weight:700;display:flex;align-items:center;gap:10px}
+    .nav .logo-i{width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#fff;display:flex;align-items:center;justify-content:center}
+    .nav .logo-i img{width:100%;height:100%;object-fit:cover}
+    .nav .ui{display:flex;align-items:center;gap:8px}
+    .nav .badge{background:rgba(255,215,0,.25);color:var(--gold);padding:2px 8px;border-radius:12px;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+    .btn-lo{background:rgba(255,255,255,.12);border:1px solid rgba(255,215,0,.4);color:#fff;padding:5px 12px;border-radius:8px;cursor:pointer;font-size:.8rem;font-family:inherit}
+    .btn-lo:hover{background:rgba(255,215,0,.2)}
+
+    .wrap{max-width:900px;margin:0 auto;padding:16px 12px 80px}
+    .bnav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--bdr);display:flex;z-index:99;box-shadow:0 -2px 10px rgba(0,0,0,.06)}
+    .bnav button{flex:1;padding:8px 4px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:.68rem;color:var(--dim);display:flex;flex-direction:column;align-items:center;gap:3px;position:relative}
+    .bnav button.act{color:var(--navy);font-weight:600;border-top:2px solid var(--gold)}
+    .bnav button .bi{font-size:1.3rem}
+    .bnav button .badge{background:var(--acc);color:#fff;font-size:.5rem;padding:2px 6px;border-radius:10px;position:absolute;top:0;right:4px}
+
+    .cd{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:20px;margin-bottom:16px}
+    .cd h3{font-size:1rem;margin-bottom:14px;color:var(--navy);display:flex;align-items:center;gap:8px}
+    .fg{margin-bottom:16px;text-align:left}
+    .fg label{display:block;font-size:.8rem;font-weight:600;margin-bottom:5px}
+    .fg input,.fg select,.fg textarea{width:100%;padding:10px 12px;border:2px solid var(--bdr);border-radius:10px;font-size:.9rem;font-family:inherit;background:#fff;-webkit-appearance:none}
+    .fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--pl)}
+    .fg textarea{resize:vertical;min-height:70px}
+    .fg select{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238795a1' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center/12px;padding-right:32px}
+
+    .btn{padding:11px 20px;border:none;border-radius:10px;font-size:.9rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;justify-content:center;font-family:inherit;transition:all .15s;width:100%}
+    .btn-p{background:var(--navy);color:#fff}.btn-p:hover{background:var(--pl)}
+    .btn-ok{background:var(--ok);color:#fff}.btn-ok:hover{background:var(--okl)}
+    .btn-d{background:var(--acc);color:#fff}
+    .btn-o{background:transparent;border:2px solid var(--navy);color:var(--navy)}.btn-o:hover{background:var(--navy);color:#fff}
+    .btn-g{background:var(--bg);color:var(--txt);border:1px solid var(--bdr)}
+    .btn-s{padding:6px 12px;font-size:.78rem;width:auto}
+
+    .sb{padding:3px 10px;border-radius:14px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+    .s-pending{background:#fef3cd;color:#856404}
+    .s-booked{background:#d4edda;color:#155724}
+    .s-contacting{background:#cce5ff;color:#004085}
+    .s-nocrt{background:#f8d7da;color:#721c24}
+
+    .li{padding:14px;border:1px solid var(--bdr);border-radius:12px;margin-bottom:10px}
+    .li:hover{border-color:var(--pl);background:#f8fbff}
+    .li .nm{font-weight:600;font-size:.95rem}
+    .li .dt{font-size:.78rem;color:var(--dim);margin-top:2px;line-height:1.4}
+    .li-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:18px}
+    .st{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px;text-align:center}
+    .st .n{font-size:1.8rem;font-weight:800;color:var(--navy)}
+    .st .l{font-size:.72rem;color:var(--dim);margin-top:2px}
+
+    .nf{padding:10px 14px;border-left:4px solid var(--p);background:#f8fbff;border-radius:0 8px 8px 0;margin-bottom:8px;font-size:.85rem}
+    .nf.urg{border-left-color:var(--acc);background:#fff5f5}
+    .nf.suc{border-left-color:var(--ok);background:#f0fff4}
+    .nf.err{border-left-color:var(--acc);background:#fff5f5;color:var(--acc)}
+    .nf .tm{font-size:.7rem;color:var(--dim);margin-top:3px}
+
+    .pi{display:flex;align-items:center;padding:10px 14px;border:1px solid var(--bdr);border-radius:10px;margin-bottom:6px;background:#fff;gap:10px}
+    .pi .rk{width:28px;height:28px;background:var(--navy);color:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;flex-shrink:0}
+    .pi .ci{flex:1;min-width:0}
+    .pi .cn{font-weight:600;font-size:.88rem}
+    .pi .cs{font-size:.75rem;color:var(--dim)}
+    .ob{display:flex;flex-direction:column;gap:1px}
+    .ob button{background:var(--bg);border:1px solid var(--bdr);border-radius:3px;cursor:pointer;padding:1px 5px;font-size:.65rem;line-height:1.3}
+    .ob button:hover{background:var(--p);color:#fff}
+
+    .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px}
+    .cal .ch{text-align:center;font-size:.7rem;font-weight:700;color:var(--dim);padding:6px 0}
+    .cal .dy{text-align:center;padding:8px 2px;border-radius:8px;font-size:.8rem;cursor:default;min-height:40px;position:relative}
+    .cal .dy.today{background:var(--navy);color:var(--gold);font-weight:700}
+    .cal .dy.has-abs{background:#ffeaea;border:2px solid var(--acc);font-weight:600;cursor:pointer}
+    .cal .dy.other{color:var(--bdr)}
+    .cal .dy .dot{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:5px;height:5px;background:var(--acc);border-radius:50%}
+
+    .bk{border:2px solid var(--ok);border-radius:var(--r);padding:18px;background:#f0fff4;margin-bottom:12px}
+    .bk h4{color:var(--ok);margin-bottom:8px;font-size:1rem}
+    .bk .dr{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(39,174,96,.12);font-size:.85rem}
+    .bk .dr:last-child{border-bottom:none}
+
+    .qa{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px}
+    .qa button{background:var(--card);border:2px solid var(--bdr);border-radius:var(--r);padding:18px 12px;cursor:pointer;text-align:center;font-family:inherit}
+    .qa button:hover{border-color:var(--pl);transform:translateY(-1px);box-shadow:var(--sh)}
+    .qa .qi{font-size:1.6rem;margin-bottom:6px}
+    .qa .ql{font-weight:600;font-size:.85rem}
+    .qa .qd{font-size:.72rem;color:var(--dim);margin-top:3px}
+
+    .mo{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;justify-content:center;align-items:flex-end;z-index:200}
+    .mo .mc{background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto}
+    @media(min-width:600px){.mo{align-items:center;padding:20px}.mo .mc{border-radius:var(--r)}}
+    .mo .handle{width:40px;height:4px;background:var(--bdr);border-radius:4px;margin:0 auto 16px}
+
+    .conf{text-align:center;padding:20px 10px}
+    .conf .ck{width:60px;height:60px;background:var(--ok);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.8rem;color:#fff}
+    .conf h2{color:var(--ok);margin-bottom:8px;font-size:1.2rem}
+    .conf p{color:var(--dim);margin-bottom:4px;font-size:.88rem}
+
+    .empty{text-align:center;padding:30px 16px;color:var(--dim)}
+    .empty .ei{font-size:2.5rem;margin-bottom:10px;opacity:.4}
+    .empty p{font-size:.85rem}
+
+    .tog{display:flex;gap:3px;background:var(--bg);border-radius:10px;padding:3px;margin-bottom:16px}
+    .tog button{flex:1;padding:8px 6px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:.8rem;font-family:inherit;background:transparent;color:var(--dim)}
+    .tog button.act{background:var(--navy);color:#fff}
+
+    .chk{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem}
+    .chk input{width:18px;height:18px;accent-color:var(--pl)}
+
+    .ag{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px}
+    .ag button{padding:8px;border:2px solid var(--bdr);border-radius:8px;font-size:.75rem;cursor:pointer;font-family:inherit;background:#fff}
+    .ag button.avail{border-color:var(--ok);background:#f0fff4;color:var(--ok);font-weight:600}
+    .ag button.unavail{border-color:var(--acc);background:#ffeaea;color:var(--acc);font-weight:600}
+
+    .flex{display:flex;gap:12px}
+    .flex>*{flex:1}
+
+    .pulse{animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+    @keyframes si{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    .ai{animation:si .25s ease-out}
+    .loading{text-align:center;padding:40px;color:var(--dim)}
+
+    .hidden{display:none}
+
+    .half-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+    .half-opts button{padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:.8rem;font-weight:600;font-family:inherit;cursor:pointer;background:#fff}
+    .half-opts button.act{border-color:var(--pl);background:var(--p);color:#fff}
+
+    @media(max-width:400px){.wrap{padding:10px 8px 80px}.cd{padding:14px}.st .n{font-size:1.4rem}}
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="logo">
+      <div class="logo-i"><img src="logo-circle.png" alt="WPS"></div>
+      <span>WPS Staff Hub</span>
+    </div>
+    <div class="ui">
+      <span id="userDisplay" style="font-size:0.85rem;font-weight:500"></span>
+      <button class="btn-lo" onclick="app.logout()">Logout</button>
+    </div>
+  </nav>
+
+  <div class="wrap" id="content"></div>
+
+  <nav class="bnav">
+    <button id="navDash" class="act" onclick="app.showView('dashboard')">
+      <div class="bi">📊</div>
+      <div>Dashboard</div>
+    </button>
+    <button id="navAbs" onclick="app.showView('absences')">
+      <div class="bi">📝</div>
+      <div>Cover</div>
+    </button>
+    <button id="navNew" onclick="app.showView('new')">
+      <div class="bi">➕</div>
+      <div>New</div>
+    </button>
+    <button id="navNotif" onclick="app.showView('notifications')">
+      <div class="bi">🔔</div>
+      <div>Notify</div>
+      <span class="badge" id="notifBadge" style="display:none;"></span>
+    </button>
+    <button id="navSettings" onclick="app.showView('settings')">
+      <div class="bi">⚙️</div>
+      <div>More</div>
+    </button>
+  </nav>
+
+  <script>
+    const API_BASE = '/api';
+    let state = {
+      token: null,
+      user: null,
+      currentView: 'dashboard',
+      allUsers: [],
+      allCRTs: [],
+      absences: [],
+      notifications: [],
+      stats: {},
+      preferences: {},
+      lastPollTime: new Date().toISOString(),
+      crtsUnavailable: {}
+    };
+
+    const app = {
+      async init() {
+        const token = localStorage.getItem('token');
+        if (token) {
+          state.token = token;
+          state.user = JSON.parse(localStorage.getItem('user'));
+          await this.loadInitialData();
+          this.startPolling();
+          this.showView('dashboard');
+        } else {
+          this.showLoginView();
+        }
+      },
+
+      async loadInitialData() {
+        try {
+          const requests = [
+            this.fetchAPI('GET', '/users'),
+            this.fetchAPI('GET', '/crts'),
+            this.fetchAPI('GET', '/absences?limit=50'),
+            this.fetchAPI('GET', '/stats'),
+            this.fetchAPI('GET', `/notifications?role=${state.user.role}&limit=20`)
+          ];
+
+          const [users, crts, absences, stats, notif] = await Promise.all(requests);
+          state.allUsers = users || [];
+          state.allCRTs = crts || [];
+          state.absences = absences || [];
+          state.stats = stats || {};
+          state.notifications = notif || [];
+          this.updateNotifBadge();
+          this.render();
+        } catch (err) {
+          console.error('Init error:', err);
+        }
+      },
+
+      startPolling() {
+        setInterval(async () => {
+          try {
+            const pollTime = new Date().toISOString();
+            const [absences, stats, notif] = await Promise.all([
+              this.fetchAPI('GET', '/absences?limit=50'),
+              this.fetchAPI('GET', '/stats'),
+              this.fetchAPI('GET', `/notifications?role=${state.user.role}&limit=20&since=${state.lastPollTime}`)
+            ]);
+
+            state.absences = absences || [];
+            state.stats = stats || {};
+            if (notif && notif.length > 0) {
+              state.notifications = [...notif, ...state.notifications].slice(0, 50);
+            }
+            state.lastPollTime = pollTime;
+            this.updateNotifBadge();
+            this.render();
+          } catch (err) {
+            console.error('Poll error:', err);
+          }
+        }, 5000);
+      },
+
+      updateNotifBadge() {
+        const unreadCount = state.notifications.filter(n => !n.read).length;
+        const badge = document.getElementById('notifBadge');
+        if (unreadCount > 0) {
+          badge.textContent = unreadCount;
+          badge.style.display = 'block';
+        } else {
+          badge.style.display = 'none';
+        }
+      },
+
+      async fetchAPI(method, endpoint, body = null) {
+        const options = {
+          method,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        };
+        if (state.token) {
+          options.headers['Authorization'] = `Bearer ${state.token}`;
+        }
+        if (body) {
+          options.body = JSON.stringify(body);
+        }
+        const res = await fetch(API_BASE + endpoint, options);
+        if (res.status === 401) {
+          this.logout();
+          throw new Error('Unauthorized');
+        }
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || `HTTP ${res.status}`);
+        }
+        return await res.json();
+      },
+
+      showView(view) {
+        state.currentView = view;
+        document.querySelectorAll('.bnav button').forEach(b => b.classList.remove('act'));
+        const viewName = 'nav' + view.charAt(0).toUpperCase() + view.slice(1);
+        document.getElementById(viewName)?.classList.add('act');
+        this.render();
+      },
+
+      render() {
+        const content = document.getElementById('content');
+        const user = state.user;
+        if (!user) {
+          content.innerHTML = '';
+          return;
+        }
+        document.getElementById('userDisplay').textContent = user.name;
+
+        let html = '';
+        switch (state.currentView) {
+          case 'dashboard':
+            html = this.renderDashboard();
+            break;
+          case 'absences':
+            html = this.renderAbsences();
+            break;
+          case 'new':
+            html = this.renderNewAbsence();
+            break;
+          case 'notifications':
+            html = this.renderNotifications();
+            break;
+          case 'settings':
+            html = this.renderSettings();
+            break;
+        }
+        content.innerHTML = html;
+      },
+
+      renderDashboard() {
+        const user = state.user;
+        let html = '';
+
+        if (user.role === 'leader') {
+          html = this.renderLeaderDashboard();
+        } else if (user.role === 'crt') {
+          html = this.renderCRTDashboard();
+        } else {
+          html = this.renderStaffDashboard();
+        }
+        return html;
+      },
+
+      renderLeaderDashboard() {
+        const stats = state.stats;
+        let html = `
+          <div class="cd">
+            <h3>📊 Today's Overview</h3>
+            <div class="stats">
+              <div class="st">
+                <div class="n">${stats.absentToday || 0}</div>
+                <div class="l">Away Today</div>
+              </div>
+              <div class="st">
+                <div class="n">${stats.crtsBooked || 0}</div>
+                <div class="l">CRTs Booked</div>
+              </div>
+              <div class="st">
+                <div class="n">${stats.needAction || 0}</div>
+                <div class="l">Need Action</div>
+              </div>
+            </div>
+          </div>
+          <div class="cd">
+            <h3>📅 Calendar View</h3>
+            ${this.renderCalendar()}
+          </div>
+          <div class="cd">
+            <h3>👥 Staff Away Today</h3>
+            ${this.renderAbsencesList()}
+          </div>
+        `;
+        return html;
+      },
+
+      renderStaffDashboard() {
+        const stats = state.stats;
+        let html = `
+          <div class="cd">
+            <h3>📊 Your Status</h3>
+            <div class="stats">
+              <div class="st">
+                <div class="n">${state.absences.filter(a => a.staff_id === state.user.id).length}</div>
+                <div class="l">Your Cover Requests</div>
+              </div>
+            </div>
+          </div>
+          <div class="cd">
+            <h3>🔄 Recent Activity</h3>
+            ${this.renderAbsencesList()}
+          </div>
+        `;
+        return html;
+      },
+
+      renderCRTDashboard() {
+        const stats = state.stats;
+        const pending = state.absences.filter(a => a.status === 'pending' && a.crt_id === state.user.id);
+        let html = `
+          <div class="cd">
+            <h3>📊 Your Bookings</h3>
+            <div class="stats">
+              <div class="st">
+                <div class="n">${state.absences.filter(a => a.status === 'booked' && a.crt_id === state.user.id).length}</div>
+                <div class="l">Confirmed</div>
+              </div>
+              <div class="st">
+                <div class="n">${pending.length || 0}</div>
+                <div class="l">Pending</div>
+              </div>
+            </div>
+          </div>
+          <div class="cd">
+            <h3>⏳ Pending Requests</h3>
+            ${pending.length > 0 ? pending.map(abs => `
+              <div class="li">
+                <div class="nm">${abs.staff_name}</div>
+                <div class="dt">${this.formatDate(abs.date_start)} ${abs.date_end && abs.date_end !== abs.date_start ? '- ' + this.formatDate(abs.date_end) : ''}</div>
+                ${abs.half_day ? `<div class="dt">Half-day: ${abs.half_day.toUpperCase()}</div>` : ''}
+                <div class="dt">${abs.reason}</div>
+                <div style="margin-top:10px;display:flex;gap:8px">
+                  <button class="btn btn-ok btn-s" onclick="app.confirmAbsence(${abs.id})">Confirm</button>
+                  <button class="btn btn-d btn-s" onclick="app.declineAbsence(${abs.id})">Decline</button>
+                </div>
+              </div>
+            `).join('') : '<div class="empty"><div class="ei">✓</div><p>No pending requests</p></div>'}
+          </div>
+        `;
+        return html;
+      },
+
+      renderCalendar() {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = today.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const startDate = new Date(firstDay);
+        startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+        const monthAbsences = {};
+        state.absences.forEach(abs => {
+          const d = this.parseDate(abs.date_start);
+          const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+          monthAbsences[key] = abs;
+        });
+
+        let html = '<div class="cal">';
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        days.forEach(d => {
+          html += `<div class="ch">${d}</div>`;
+        });
+
+        let current = new Date(startDate);
+        while (current <= lastDay) {
+          const key = `${current.getFullYear()}-${current.getMonth()}-${current.getDate()}`;
+          const isToday = current.toDateString() === today.toDateString();
+          const isCurrentMonth = current.getMonth() === month;
+          const hasAbsence = monthAbsences[key];
+
+          let cls = 'dy';
+          if (isToday) cls += ' today';
+          if (!isCurrentMonth) cls += ' other';
+          if (hasAbsence) cls += ' has-abs';
+
+          html += `<div class="${cls}">${current.getDate()}${hasAbsence ? '<div class="dot"></div>' : ''}</div>`;
+          current.setDate(current.getDate() + 1);
+        }
+        html += '</div>';
+        return html;
+      },
+
+      renderAbsencesList() {
+        if (state.absences.length === 0) {
+          return '<div class="empty"><div class="ei">📭</div><p>No absences</p></div>';
+        }
+        return state.absences.slice(0, 10).map(abs => {
+          const statusClass = {
+            'pending': 's-pending',
+            'booked': 's-booked',
+            'contacting': 's-contacting',
+            'nocrt': 's-nocrt',
+            'cancelled': 's-nocrt'
+          }[abs.status] || 's-pending';
+          return `
+            <div class="li">
+              <div class="li-row">
+                <div class="nm">${abs.staff_name || abs.name}</div>
+                <span class="sb ${statusClass}">${abs.status}</span>
+              </div>
+              <div class="dt">${this.formatDate(abs.date_start)} ${abs.date_end && abs.date_end !== abs.date_start ? '- ' + this.formatDate(abs.date_end) : ''}</div>
+              ${abs.half_day ? `<div class="dt">Half-day: ${abs.half_day.toUpperCase()}</div>` : ''}
+              <div class="dt">${abs.reason}</div>
+              ${abs.crt_name ? `<div class="dt">CRT: ${abs.crt_name}</div>` : ''}
+            </div>
+          `;
+        }).join('');
+      },
+
+      renderAbsences() {
+        const user = state.user;
+        const userAbsences = state.absences.filter(a => a.staff_id === user.id || a.crt_id === user.id);
+
+        let html = `<div class="cd"><h3>📝 Your Cover Requests</h3>`;
+
+        if (userAbsences.length === 0) {
+          html += '<div class="empty"><div class="ei">✓</div><p>No absences recorded</p></div>';
+        } else {
+          html += userAbsences.map(abs => {
+            const canCancel = abs.status !== 'cancelled' && user.id === abs.staff_id;
+            const statusClass = {
+              'pending': 's-pending',
+              'booked': 's-booked',
+              'contacting': 's-contacting',
+              'nocrt': 's-nocrt',
+              'cancelled': 's-nocrt'
+            }[abs.status] || 's-pending';
+            return `
+              <div class="li">
+                <div class="li-row">
+                  <div style="flex:1">
+                    <div class="nm">${abs.staff_name || abs.name}</div>
+                    <div class="dt">${this.formatDate(abs.date_start)} ${abs.date_end && abs.date_end !== abs.date_start ? '- ' + this.formatDate(abs.date_end) : ''}</div>
+                    ${abs.half_day ? `<div class="dt">Half-day: ${abs.half_day.toUpperCase()}</div>` : ''}
+                  </div>
+                  <span class="sb ${statusClass}">${abs.status}</span>
+                </div>
+                <div class="dt" style="margin-top:8px">${abs.reason}</div>
+                ${abs.crt_name ? `<div class="dt">CRT: ${abs.crt_name}</div>` : ''}
+                ${canCancel ? `<button class="btn btn-d btn-s" style="margin-top:10px;width:100px" onclick="app.cancelAbsence(${abs.id})">Cancel</button>` : ''}
+              </div>
+            `;
+          }).join('');
+        }
+        html += '</div>';
+        return html;
+      },
+
+      renderNewAbsence() {
+        const reasons = [
+          // --- Leave (Edupay) ---
+          'Personal Leave – Sick (Without Certificate)',
+          'Personal Leave – Sick (With Certificate)',
+          'Carer\'s Leave',
+          'Family Violence Leave',
+          'Long Service Leave',
+          'Annual Leave',
+          'Study Leave (Paid/Unpaid)',
+          'Defence Force Leave',
+          'Disaster Relief Leave',
+          'Jury Service',
+          'Religious Leave',
+          'Cultural / Ceremonial Leave',
+          'Leave Without Pay',
+          // --- School Activities ---
+          'Sport Carnival / Event',
+          'Excursion / Camp',
+          'Professional Development',
+          'Meeting / Conference',
+          'School Event',
+          'Curriculum Day',
+          // --- Other ---
+          'Other (see notes)'
+        ];
+
+        let html = `
+          <div class="cd">
+            <h3>📝 Report Away / Need Cover</h3>
+            <form id="absenceForm">
+              <div class="fg">
+                <label>Date Start</label>
+                <input type="date" id="dateStart" required>
+              </div>
+              <div class="fg">
+                <label>Date End (leave blank for single day)</label>
+                <input type="date" id="dateEnd">
+              </div>
+              <div class="fg">
+                <label>Duration</label>
+                <div class="half-opts">
+                  <button type="button" class="act" data-half="full" onclick="app.selectHalfDay(this)">Full Day</button>
+                  <button type="button" data-half="am" onclick="app.selectHalfDay(this)">AM Only</button>
+                  <button type="button" data-half="pm" onclick="app.selectHalfDay(this)">PM Only</button>
+                </div>
+              </div>
+              <div class="fg">
+                <label>Reason</label>
+                <select id="reason" required>
+                  <option value="">-- Select a reason --</option>
+                  ${reasons.map(r => `<option value="${r}">${r}</option>`).join('')}
+                </select>
+              </div>
+              <div class="fg">
+                <label>Classes/Areas Affected</label>
+                <input type="text" id="classes" placeholder="e.g. 1A, 2B, Prep">
+              </div>
+              <div class="fg">
+                <label>Additional Notes</label>
+                <textarea id="notes" placeholder="Any other relevant info..."></textarea>
+              </div>
+              <button type="submit" class="btn btn-p">Submit</button>
+            </form>
+            <div id="absenceStatus"></div>
+          </div>
+        `;
+
+        setTimeout(() => {
+          const today = new Date().toISOString().split('T')[0];
+          document.getElementById('dateStart').value = today;
+          document.getElementById('absenceForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const halfBtn = document.querySelector('.half-opts button.act');
+            const halfDay = halfBtn?.dataset.half || 'full';
+
+            const dateStart = document.getElementById('dateStart').value;
+            const dateEnd = document.getElementById('dateEnd').value || dateStart;
+            const reason = document.getElementById('reason').value;
+            const classes = document.getElementById('classes').value;
+            const notes = document.getElementById('notes').value;
+
+            try {
+              const statusEl = document.getElementById('absenceStatus');
+              statusEl.innerHTML = '<div class="loading">Submitting...</div>';
+
+              await app.fetchAPI('POST', '/absences', {
+                dateStart,
+                dateEnd,
+                reason,
+                classes,
+                notes,
+                halfDay
+              });
+
+              statusEl.innerHTML = '<div class="nf suc">✓ Submitted — CRT booking in progress</div>';
+              document.getElementById('absenceForm').reset();
+              document.querySelector('.half-opts button').classList.add('act');
+              document.querySelector('.half-opts button:nth-child(2)').classList.remove('act');
+              document.querySelector('.half-opts button:nth-child(3)').classList.remove('act');
+              document.getElementById('dateStart').value = new Date().toISOString().split('T')[0];
+
+              setTimeout(() => {
+                app.loadInitialData();
+              }, 1000);
+            } catch (err) {
+              document.getElementById('absenceStatus').innerHTML = `<div class="nf err">✕ ${err.message}</div>`;
+            }
+          });
+        }, 0);
+
+        return html;
+      },
+
+      selectHalfDay(btn) {
+        btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('act'));
+        btn.classList.add('act');
+      },
+
+      renderNotifications() {
+        let html = `<div class="cd"><h3>🔔 Notifications</h3>`;
+
+        if (state.notifications.length === 0) {
+          html += '<div class="empty"><div class="ei">📭</div><p>No notifications</p></div>';
+        } else {
+          html += state.notifications.map((notif, idx) => {
+            const typeClass = notif.type === 'error' ? 'urg' : notif.type === 'success' ? 'suc' : '';
+            return `
+              <div class="nf ${typeClass}">
+                ${notif.message}
+                <div class="tm">${new Date(notif.created_at).toLocaleString()}</div>
+              </div>
+            `;
+          }).join('');
+        }
+        html += '</div>';
+        return html;
+      },
+
+      renderSettings() {
+        let html = `
+          <div class="cd">
+            <h3>⚙️ Settings</h3>
+            <p style="color:var(--dim);margin-bottom:20px">User: ${state.user.name} (${state.user.role})</p>
+        `;
+
+        if (state.user.role === 'leader') {
+          html += `
+            <div style="margin-bottom:20px">
+              <h4 style="margin-bottom:10px">CRT Preferences by Area</h4>
+              ${state.user.area ? `
+                <p style="color:var(--dim);font-size:0.85rem;margin-bottom:10px">Area: ${state.user.area}</p>
+              ` : ''}
+              <p style="color:var(--dim);font-size:0.8rem">Manage CRT priority order in Preferences section</p>
+            </div>
+          `;
+        }
+
+        if (state.user.role === 'crt') {
+          html += `
+            <div style="margin-bottom:20px">
+              <h4 style="margin-bottom:10px">Your Details</h4>
+              <p style="font-size:0.85rem;margin-bottom:5px"><strong>Phone:</strong> ${state.user.phone || 'Not set'}</p>
+              <p style="font-size:0.85rem"><strong>Email:</strong> ${state.user.email || 'Not set'}</p>
+            </div>
+            <div style="margin-bottom:20px">
+              <h4 style="margin-bottom:10px">Unavailable Dates</h4>
+              <button class="btn btn-o" style="width:100%;margin-bottom:10px" onclick="app.showUnavailableModal()">Manage Unavailable</button>
+            </div>
+          `;
+        }
+
+        html += `
+          <button class="btn btn-d" style="margin-top:20px" onclick="app.logout()">Logout</button>
+        </div>
+        `;
+        return html;
+      },
+
+      formatDate(dateStr) {
+        if (!dateStr) return '';
+        const d = this.parseDate(dateStr);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+      },
+
+      parseDate(dateStr) {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          return new Date(parts[0], parseInt(parts[1]) - 1, parts[2]);
+        }
+        return new Date(dateStr);
+      },
+
+      async confirmAbsence(id) {
+        try {
+          await app.fetchAPI('PUT', `/absences/${id}/confirm`);
+          await app.loadInitialData();
+        } catch (err) {
+          alert('Error: ' + err.message);
+        }
+      },
+
+      async declineAbsence(id) {
+        try {
+          await app.fetchAPI('PUT', `/absences/${id}/decline`);
+          await app.loadInitialData();
+        } catch (err) {
+          alert('Error: ' + err.message);
+        }
+      },
+
+      async cancelAbsence(id) {
+        if (confirm('Are you sure you want to cancel this absence?')) {
+          try {
+            await app.fetchAPI('PUT', `/absences/${id}/cancel`);
+            await app.loadInitialData();
+          } catch (err) {
+            alert('Error: ' + err.message);
+          }
+        }
+      },
+
+      showUnavailableModal() {
+        alert('Unavailable dates management - coming soon');
+      },
+
+      showLoginView() {
+        const content = document.getElementById('content');
+        content.innerHTML = `
+          <div style="padding:20px 20px">
+            <div style="text-align:center;margin-bottom:20px;margin-top:30px">
+              <img src="logo-circle.png" alt="WPS" style="width:80px;height:80px;margin-bottom:10px">
+              <h2 style="color:var(--navy);font-size:1.3rem;margin:0">Williamstown Primary School</h2>
+              <p style="color:var(--gold);font-weight:700;font-size:.85rem;margin-top:4px">Staff Hub</p>
+            </div>
+            <div class="cd" style="border-top:3px solid var(--gold)">
+              <h3 style="text-align:center;margin-bottom:30px;color:var(--navy)">Sign In</h3>
+
+              <div id="loginStaff" style="margin-bottom:30px">
+                <h4 style="margin-bottom:15px;color:var(--p)">Staff Login</h4>
+                <div class="fg">
+                  <label>Select Staff Member</label>
+                  <select id="staffSelect">
+                    <option value="">-- Choose --</option>
+                    ${state.allUsers.filter(u => u.role === 'staff').map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
+                  </select>
+                </div>
+                <div class="fg">
+                  <label>PIN (if required)</label>
+                  <input type="password" id="staffPin" placeholder="Leave blank if not required">
+                </div>
+                <button class="btn btn-p" onclick="app.staffLogin()">Login</button>
+              </div>
+
+              <hr style="margin:30px 0;border:none;border-top:1px solid var(--bdr)">
+
+              <div id="loginCRT">
+                <h4 style="margin-bottom:15px;color:var(--p)">CRT Login</h4>
+                <div class="fg">
+                  <label>Select CRT</label>
+                  <select id="crtSelect">
+                    <option value="">-- Choose --</option>
+                    ${state.allCRTs.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                  </select>
+                </div>
+                <button class="btn btn-p" onclick="app.crtLogin()">Login</button>
+              </div>
+
+              <hr style="margin:30px 0;border:none;border-top:1px solid var(--bdr)">
+
+              <div id="loginLeader">
+                <h4 style="margin-bottom:15px;color:var(--p)">Leader Login</h4>
+                <div class="fg">
+                  <label>Select Leader</label>
+                  <select id="leaderSelect">
+                    <option value="">-- Choose --</option>
+                    ${state.allUsers.filter(u => u.role === 'leader').map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
+                  </select>
+                </div>
+                <div class="fg">
+                  <label>PIN (if required)</label>
+                  <input type="password" id="leaderPin" placeholder="Leave blank if not required">
+                </div>
+                <button class="btn btn-p" onclick="app.leaderLogin()">Login</button>
+              </div>
+
+              <div id="loginError" style="margin-top:20px"></div>
+            </div>
+          </div>
+        `;
+      },
+
+      async staffLogin() {
+        const staffId = document.getElementById('staffSelect')?.value;
+        const pin = document.getElementById('staffPin')?.value || '';
+        const errorEl = document.getElementById('loginError');
+
+        if (!staffId) {
+          errorEl.innerHTML = '<div class="nf urg">Please select a user</div>';
+          return;
+        }
+
+        try {
+          errorEl.innerHTML = '<div class="loading">Logging in...</div>';
+          const result = await app.fetchAPI('POST', '/login', {
+            userId: parseInt(staffId),
+            pin
+          });
+          state.token = result.token;
+          state.user = result.user;
+          localStorage.setItem('token', state.token);
+          localStorage.setItem('user', JSON.stringify(state.user));
+          await app.loadInitialData();
+          app.init();
+        } catch (err) {
+          errorEl.innerHTML = `<div class="nf urg">Login failed: ${err.message}</div>`;
+        }
+      },
+
+      async leaderLogin() {
+        const leaderId = document.getElementById('leaderSelect')?.value;
+        const pin = document.getElementById('leaderPin')?.value || '';
+        const errorEl = document.getElementById('loginError');
+
+        if (!leaderId) {
+          errorEl.innerHTML = '<div class="nf urg">Please select a user</div>';
+          return;
+        }
+
+        try {
+          errorEl.innerHTML = '<div class="loading">Logging in...</div>';
+          const result = await app.fetchAPI('POST', '/login', {
+            userId: parseInt(leaderId),
+            pin
+          });
+          state.token = result.token;
+          state.user = result.user;
+          localStorage.setItem('token', state.token);
+          localStorage.setItem('user', JSON.stringify(state.user));
+          await app.loadInitialData();
+          app.init();
+        } catch (err) {
+          errorEl.innerHTML = `<div class="nf urg">Login failed: ${err.message}</div>`;
+        }
+      },
+
+      async crtLogin() {
+        const crtId = document.getElementById('crtSelect')?.value;
+        const errorEl = document.getElementById('loginError');
+
+        if (!crtId) {
+          errorEl.innerHTML = '<div class="nf urg">Please select a CRT</div>';
+          return;
+        }
+
+        try {
+          errorEl.innerHTML = '<div class="loading">Logging in...</div>';
+          const result = await app.fetchAPI('POST', '/login/crt', {
+            crtId: parseInt(crtId)
+          });
+          state.token = result.token;
+          state.user = result.user;
+          localStorage.setItem('token', state.token);
+          localStorage.setItem('user', JSON.stringify(state.user));
+          await app.loadInitialData();
+          app.init();
+        } catch (err) {
+          errorEl.innerHTML = `<div class="nf urg">Login failed: ${err.message}</div>`;
+        }
+      },
+
+      logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        state.token = null;
+        state.user = null;
+        this.showLoginView();
+      }
+    };
+
+    app.init();
+  </script>
+</body>
+</html>

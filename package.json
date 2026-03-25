@@ -1,0 +1,24 @@
+{
+  "name": "wps-absence-manager",
+  "version": "1.0.0",
+  "description": "Williamstown Primary School Staff Absence Manager",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "setup": "node setup-db.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "sql.js": "^1.10.3",
+    "twilio": "^4.23.0",
+    "@sendgrid/mail": "^8.1.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
