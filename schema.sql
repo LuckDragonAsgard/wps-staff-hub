@@ -108,6 +108,26 @@ CREATE TABLE IF NOT EXISTS system_settings (
   FOREIGN KEY (updated_by) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS sub_plans (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  absence_id INTEGER NOT NULL,
+  title TEXT,
+  content TEXT NOT NULL,
+  created_by INTEGER NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (absence_id) REFERENCES absences(id)
+);
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  user_type TEXT DEFAULT 'staff',
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth_key TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_absences_date ON absences(date_start, date_end);
 CREATE INDEX IF NOT EXISTS idx_absences_staff ON absences(staff_id);
 CREATE INDEX IF NOT EXISTS idx_absences_status ON absences(status);

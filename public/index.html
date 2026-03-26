@@ -212,7 +212,7 @@
 
   <script>
     const API='/api';
-    let state={token:null,user:null,currentView:'dashboard',allUsers:[],allCRTs:[],absences:[],notifications:[],stats:{},userSettings:null,systemSettings:{},lastPollTime:new Date().toISOString(),_currentPrefArea:null,_currentPrefs:[],smsLogs:[],emailLogs:[],absenceFilter:'all',_logTab:'sms'};
+    let state={token:null,user:null,currentView:'dashboard',allUsers:[],allCRTs:[],absences:[],notifications:[],stats:{},userSettings:null,systemSettings:{},lastPollTime:new Date().toISOString(),_currentPrefArea:null,_currentPrefs:[],smsLogs:[],emailLogs:[],absenceFilter:'all',_logTab:'sms',pushSupported:false,pushSubscribed:false,reportData:null,reportFilters:{from:'',to:'',area:'',status:'all'}};
 
     function toast(msg,type='info',dur=4000){const c=document.getElementById('toasts');const icons={success:'✓',error:'✕',info:'ℹ'};const el=document.createElement('div');el.className='toast '+type;el.innerHTML='<span>'+(icons[type]||'ℹ')+'</span> '+msg;el.onclick=()=>{el.classList.add('hiding');setTimeout(()=>el.remove(),300)};c.appendChild(el);setTimeout(()=>{el.classList.add('hiding');setTimeout(()=>el.remove(),300)},dur)}
 
@@ -220,7 +220,7 @@
       async init(){
         const token=localStorage.getItem('wps_token');
         if(token){state.token=token;try{state.user=JSON.parse(localStorage.getItem('wps_user'))}catch(e){}
-          if(state.user){this.showApp();await this.loadInitialData();this.startPolling();this.showView('dashboard');return}}
+          if(state.user){this.showApp();await this.loadInitialData();this.startPolling();this.checkPushStatus();this.showView('dashboard');return}}
         this.showLoginView()},
 
       showApp(){document.getElementById('topNav').style.display='flex';document.getElementById('bottomNav').style.display='flex'},
@@ -267,10 +267,13 @@
         const content=document.getElementById('content');if(!state.user){content.innerHTML='';return}
         document.getElementById('userDisplay').textContent=state.user.name;
         document.getElementById('roleBadge').textContent=state.user.role;
-        const views={dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs(),directory:()=>this.renderDirectory()};
+        const views={dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs(),directory:()=>this.renderDirectory(),reports:()=>this.renderReports(),prebook:()=>this.renderPrebook(),crtcalendar:()=>this.renderCRTCalendar()};
         content.innerHTML=(views[state.currentView]||views.dashboard)();
         if(state.currentView==='settings'){if(state.user.role==='leader'||state.user.role==='admin')this.populateAreaDropdown();if(state.user.role==='crt')this.loadUnavailDates()}
-        if(state.currentView==='new')this.setupAbsenceForm()},
+        if(state.currentView==='new')this.setupAbsenceForm();
+        if(state.currentView==='prebook')this.setupPrebookForm();
+        if(state.currentView==='crtcalendar')this.loadCRTCalendar();
+        if(state.currentView==='reports')this.loadReportSummary()},
 
       // ===== DASHBOARD =====
       renderDashboard(){
@@ -288,7 +291,7 @@
 
         let h='<div class="stats"><div class="st '+(s.absentToday>0?'alert':'')+'"><div class="n">'+(s.absentToday||0)+'</div><div class="l">Away Today</div></div><div class="st ok"><div class="n">'+(s.crtsBooked||0)+'</div><div class="l">CRTs Booked</div></div><div class="st '+(s.needAction>0?'alert':'')+'"><div class="n">'+(s.needAction||0)+'</div><div class="l">Need Action</div></div><div class="st"><div class="n">'+(s.totalTerm||0)+'</div><div class="l">This Term</div></div></div>';
 
-        h+='<div class="qa"><button onclick="app.showView(\'new\')"><div class="qi">🆕</div><div class="ql">Report Absence</div><div class="qd">Lodge new</div></button><button onclick="app.showView(\'report\')"><div class="qi">📄</div><div class="ql">Cover Report</div><div class="qd">Today\'s sheet</div></button><button onclick="app.showView(\'logs\')"><div class="qi">📨</div><div class="ql">Activity Log</div><div class="qd">SMS & Email</div></button></div><div class="qa"><button onclick="app.showView(\'directory\')"><div class="qi">👥</div><div class="ql">Staff Directory</div><div class="qd">All staff & CRTs</div></button><button onclick="app.startTour()"><div class="qi">🎓</div><div class="ql">Guided Tour</div><div class="qd">How it works</div></button><button onclick="app.showView(\'settings\')"><div class="qi">⚙️</div><div class="ql">Settings</div><div class="qd">Preferences</div></button></div>';
+        h+='<div class="qa"><button onclick="app.showView(\'new\')"><div class="qi">🆕</div><div class="ql">Report Absence</div><div class="qd">Lodge new</div></button><button onclick="app.showView(\'prebook\')"><div class="qi">📅</div><div class="ql">Pre-book Leave</div><div class="qd">PD, camps, etc</div></button><button onclick="app.showView(\'report\')"><div class="qi">📄</div><div class="ql">Cover Report</div><div class="qd">Today\'s sheet</div></button></div><div class="qa"><button onclick="app.showView(\'crtcalendar\')"><div class="qi">🗓️</div><div class="ql">CRT Calendar</div><div class="qd">Availability</div></button><button onclick="app.showView(\'reports\')"><div class="qi">📊</div><div class="ql">Reports</div><div class="qd">Export data</div></button><button onclick="app.showView(\'logs\')"><div class="qi">📨</div><div class="ql">Activity Log</div><div class="qd">SMS & Email</div></button></div><div class="qa"><button onclick="app.showView(\'directory\')"><div class="qi">👥</div><div class="ql">Staff Directory</div><div class="qd">All staff & CRTs</div></button><button onclick="app.startTour()"><div class="qi">🎓</div><div class="ql">Guided Tour</div><div class="qd">How it works</div></button><button onclick="app.showView(\'settings\')"><div class="qi">⚙️</div><div class="ql">Settings</div><div class="qd">Preferences</div></button></div>';
 
         if(contacting.length>0){h+='<div class="cd" style="border-left:4px solid var(--blue)"><h3 style="color:var(--blue)">⏳ Contacting CRTs...</h3>';
           contacting.forEach(a=>{h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div><div class="nm">'+a.staff_name+'</div><div class="dt">'+a.area+' — '+a.reason+'</div></div><span class="sb s-contacting" style="animation:pulse 1.5s infinite">⟳ Contacting</span></div>'+(a.crt_name?'<div class="dt mt-1">Contacting: <strong>'+a.crt_name+'</strong></div>':'')+'</div>'});h+='</div>'}
@@ -308,7 +311,7 @@
 
       renderStaffDashboard(){
         const mine=state.absences.filter(a=>a.staff_id===state.user.id);
-        let h='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><p class="text-sm text-dim mb-2">Use this app to report when you\'ll be away. The system will automatically find a CRT to cover your classes.</p><button class="btn btn-p" onclick="app.showView(\'new\')">➕ Report Absence / Need Cover</button></div>';
+        let h='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><p class="text-sm text-dim mb-2">Use this app to report when you\'ll be away. The system will automatically find a CRT to cover your classes.</p><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.showView(\'new\')">➕ Report Absence</button><button class="btn btn-o" style="flex:1" onclick="app.showView(\'prebook\')">📅 Pre-book Leave</button></div></div>';
         if(mine.length>0){h+='<div class="cd"><h3>📋 Your Absences</h3>';
           mine.forEach(a=>{const sc={pending:'s-pending',booked:'s-booked',contacting:'s-contacting',nocrt:'s-nocrt',cancelled:'s-cancelled'}[a.status]||'s-pending';
             h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div style="flex:1"><div class="nm">'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+'</div><div class="dt">'+a.reason+(a.half_day&&a.half_day!=='full'?' ('+a.half_day.toUpperCase()+')':'')+'</div>'+(a.crt_name?'<div class="dt" style="color:var(--ok)">CRT: '+a.crt_name+'</div>':'')+'</div><span class="sb '+sc+'">'+a.status+'</span></div></div>'});
@@ -319,6 +322,8 @@
         const my=state.absences.filter(a=>a.assigned_crt_id===state.user.id);
         const pending=my.filter(a=>a.status==='contacting');const confirmed=my.filter(a=>a.status==='booked');
         let h='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><div class="stats"><div class="st ok"><div class="n">'+confirmed.length+'</div><div class="l">Confirmed</div></div><div class="st '+(pending.length>0?'alert':'')+'"><div class="n">'+pending.length+'</div><div class="l">Pending</div></div></div></div>';
+        // CRT's own calendar view showing their bookings
+        h+='<div class="cd"><h3>📅 Your Month</h3>'+this.renderCRTMiniCalendar()+'</div>';
         if(pending.length>0){h+='<div class="cd" style="border-left:4px solid var(--warn)"><h3>⏳ Pending Requests</h3>';
           pending.forEach(a=>{h+='<div class="li"><div class="nm">'+a.staff_name+' — '+a.area+'</div><div class="dt">'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+'</div><div class="dt">'+a.reason+(a.classes?' · Classes: '+a.classes:'')+'</div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-ok btn-s" style="flex:1" onclick="app.confirmAbsence('+a.id+')">✓ Accept</button><button class="btn btn-d btn-s" style="flex:1" onclick="app.declineAbsence('+a.id+')">✕ Decline</button></div></div>'});h+='</div>'}
         if(confirmed.length>0){h+='<div class="cd"><h3>✅ Your Confirmed Bookings</h3>';
@@ -337,6 +342,26 @@
         while(c<=last||c.getDay()!==0){const k=c.getFullYear()+'-'+c.getMonth()+'-'+c.getDate();const isT=c.toDateString()===today.toDateString();const isCur=c.getMonth()===mo;const cnt=absMap[k]||0;
           let cls='dy';if(isT)cls+=' today';if(!isCur)cls+=' other';if(cnt>0&&isCur)cls+=' has-abs';
           h+='<div class="'+cls+'"'+(cnt>0&&isCur?' title="'+cnt+' absence'+(cnt>1?'s':'')+'"':'')+'>'+c.getDate()+(cnt>0&&isCur?'<div class="dot">'+cnt+'</div>':'')+'</div>';
+          c.setDate(c.getDate()+1);if(c>last&&c.getDay()===0)break}
+        return h+'</div>'},
+
+      renderCRTMiniCalendar(){
+        const today=new Date();const yr=today.getFullYear(),mo=today.getMonth();
+        const first=new Date(yr,mo,1),last=new Date(yr,mo+1,0);
+        const start=new Date(first);start.setDate(start.getDate()-first.getDay());
+        // Map my bookings
+        const myBookings={};
+        state.absences.filter(a=>a.assigned_crt_id===state.user.id&&a.status!=='cancelled').forEach(a=>{
+          const ds=this.parseDate(a.date_start),de=this.parseDate(a.date_end||a.date_start);
+          for(let d=new Date(ds);d<=de;d.setDate(d.getDate()+1)){
+            const k=d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate();
+            myBookings[k]={staff:a.staff_name,area:a.area,status:a.status}}});
+        let h='<div class="cal">';['S','M','T','W','T','F','S'].forEach(d=>h+='<div class="ch">'+d+'</div>');
+        let c=new Date(start);
+        while(c<=last||c.getDay()!==0){const k=c.getFullYear()+'-'+c.getMonth()+'-'+c.getDate();const isT=c.toDateString()===today.toDateString();const isCur=c.getMonth()===mo;const booking=myBookings[k];
+          let cls='dy';if(isT)cls+=' today';if(!isCur)cls+=' other';
+          let style='';if(booking&&isCur){style='background:'+(booking.status==='booked'?'#d4edda':'#cce5ff')+';border:2px solid '+(booking.status==='booked'?'var(--ok)':'var(--blue)')+';font-weight:600;cursor:pointer';cls=cls.replace(' today','')}
+          h+='<div class="'+cls+'" style="'+style+'"'+(booking&&isCur?' title="'+booking.staff+' — '+booking.area+'"':'')+'>'+c.getDate()+(booking&&isCur?'<div class="dot" style="background:'+(booking.status==='booked'?'var(--ok)':'var(--blue)')+'">📋</div>':'')+'</div>';
           c.setDate(c.getDate()+1);if(c>last&&c.getDay()===0)break}
         return h+'</div>'},
 
@@ -370,8 +395,24 @@
         tl+='</div>';
 
         const m=document.createElement('div');m.className='mo';m.onclick=e=>{if(e.target===m)m.remove()};
-        m.innerHTML='<div class="mc"><div class="handle"></div><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px"><div><h3 style="font-size:1.05rem;color:var(--navy);margin-bottom:2px">'+a.staff_name+'</h3><p class="text-sm text-dim">'+a.area+'</p></div><span class="sb '+sc+'">'+a.status+'</span></div><div class="divider"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;font-size:.83rem"><div><span class="text-dim">Date:</span><br><strong>'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+'</strong></div><div><span class="text-dim">Duration:</span><br><strong>'+(a.half_day==='am'?'AM Only':a.half_day==='pm'?'PM Only':'Full Day')+'</strong></div><div><span class="text-dim">Reason:</span><br><strong>'+a.reason+'</strong></div><div><span class="text-dim">Classes:</span><br><strong>'+(a.classes||'—')+'</strong></div></div>'+(a.notes?'<div style="background:var(--bg);padding:10px;border-radius:8px;font-size:.82rem;margin-bottom:14px"><strong>Notes:</strong> '+a.notes+'</div>':'')+(a.crt_name?'<div style="background:#f0fff4;padding:10px;border-radius:8px;font-size:.82rem;margin-bottom:14px;border:1px solid rgba(39,174,96,.2)"><strong>CRT:</strong> '+a.crt_name+'</div>':'')+'<div class="divider"></div><h4 style="font-size:.85rem;margin-bottom:10px;color:var(--navy)">Progress</h4>'+tl+'<div style="display:flex;gap:8px;margin-top:16px">'+(isL&&(a.status==='nocrt'||a.status==='pending')?'<button class="btn btn-p btn-s" style="flex:1" onclick="app.showOverrideModal('+a.id+');this.closest(\'.mo\').remove()">🔄 Override</button>':'')+(canCancel?'<button class="btn btn-d btn-s" style="flex:1" onclick="app.cancelAbsence('+a.id+');this.closest(\'.mo\').remove()">Cancel</button>':'')+'<button class="btn btn-g btn-s" style="flex:1" onclick="this.closest(\'.mo\').remove()">Close</button></div></div>';
-        document.body.appendChild(m)},
+        const canAddPlan=a.staff_id===state.user.id||isL;
+        m.innerHTML='<div class="mc"><div class="handle"></div><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px"><div><h3 style="font-size:1.05rem;color:var(--navy);margin-bottom:2px">'+a.staff_name+'</h3><p class="text-sm text-dim">'+a.area+(a.is_prebooked?' · <span style="color:var(--blue)">Pre-booked</span>':'')+'</p></div><span class="sb '+sc+'">'+a.status+'</span></div><div class="divider"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;font-size:.83rem"><div><span class="text-dim">Date:</span><br><strong>'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+'</strong></div><div><span class="text-dim">Duration:</span><br><strong>'+(a.half_day==='am'?'AM Only':a.half_day==='pm'?'PM Only':'Full Day')+'</strong></div><div><span class="text-dim">Reason:</span><br><strong>'+a.reason+'</strong></div><div><span class="text-dim">Classes:</span><br><strong>'+(a.classes||'—')+'</strong></div></div>'+(a.notes?'<div style="background:var(--bg);padding:10px;border-radius:8px;font-size:.82rem;margin-bottom:14px"><strong>Notes:</strong> '+a.notes+'</div>':'')+(a.crt_name?'<div style="background:#f0fff4;padding:10px;border-radius:8px;font-size:.82rem;margin-bottom:14px;border:1px solid rgba(39,174,96,.2)"><strong>CRT:</strong> '+a.crt_name+'</div>':'')+'<div class="divider"></div><div style="margin-bottom:14px"><h4 style="font-size:.85rem;margin-bottom:8px;color:var(--navy)">📝 Sub Plans / Handover Notes</h4><div id="subPlansList_'+a.id+'" style="margin-bottom:8px"><div class="loading" style="padding:8px;font-size:.78rem">Loading...</div></div>'+(canAddPlan?'<div style="background:var(--bg);border-radius:10px;padding:10px"><input type="text" id="spTitle_'+a.id+'" placeholder="Title (e.g. Period 3 Maths)" style="width:100%;padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;font-size:.82rem;margin-bottom:6px"><textarea id="spContent_'+a.id+'" placeholder="Leave instructions for the CRT covering your class..." style="width:100%;padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;font-size:.82rem;min-height:60px;resize:vertical;margin-bottom:6px"></textarea><button class="btn btn-p btn-s" onclick="app.addSubPlan('+a.id+')">📎 Add Sub Plan</button></div>':'')+'</div><div class="divider"></div><h4 style="font-size:.85rem;margin-bottom:10px;color:var(--navy)">Progress</h4>'+tl+'<div style="display:flex;gap:8px;margin-top:16px">'+(isL&&(a.status==='nocrt'||a.status==='pending')?'<button class="btn btn-p btn-s" style="flex:1" onclick="app.showOverrideModal('+a.id+');this.closest(\'.mo\').remove()">🔄 Override</button>':'')+(canCancel?'<button class="btn btn-d btn-s" style="flex:1" onclick="app.cancelAbsence('+a.id+');this.closest(\'.mo\').remove()">Cancel</button>':'')+'<button class="btn btn-g btn-s" style="flex:1" onclick="this.closest(\'.mo\').remove()">Close</button></div></div>';
+        document.body.appendChild(m);
+        this.loadSubPlans(a.id)},
+
+      async loadSubPlans(absId){
+        const el=document.getElementById('subPlansList_'+absId);if(!el)return;
+        try{const plans=await this.fetchAPI('GET','/absences/'+absId+'/sub-plans');
+          if(plans.length===0){el.innerHTML='<p class="text-sm text-dim" style="padding:4px 0">No sub plans yet. Staff can add instructions for the covering CRT.</p>';return}
+          el.innerHTML=plans.map(p=>'<div style="background:#fff;border:1px solid var(--bdr);border-radius:8px;padding:10px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="font-weight:600;font-size:.85rem;color:var(--navy)">'+(p.title||'Sub Plan')+'</div>'+(p.created_by===state.user.id?'<button onclick="app.deleteSubPlan('+p.id+','+absId+')" style="background:none;border:none;color:var(--acc);cursor:pointer;font-size:.85rem">✕</button>':'')+'</div><div style="font-size:.82rem;color:var(--txt);margin-top:4px;white-space:pre-wrap">'+p.content+'</div><div style="font-size:.7rem;color:var(--dim);margin-top:4px">'+(p.created_at?new Date(p.created_at).toLocaleString():'')+'</div></div>').join('')
+        }catch(e){el.innerHTML='<p class="text-sm text-dim">Could not load sub plans.</p>'}},
+
+      async addSubPlan(absId){
+        const title=document.getElementById('spTitle_'+absId);const content=document.getElementById('spContent_'+absId);
+        if(!content||!content.value.trim()){toast('Please add some instructions','error');return}
+        try{await this.fetchAPI('POST','/absences/'+absId+'/sub-plans',{title:title?.value||'',content:content.value});toast('Sub plan added!','success');if(title)title.value='';content.value='';this.loadSubPlans(absId)}catch(e){toast('Error: '+e.message,'error')}},
+
+      async deleteSubPlan(planId,absId){try{await this.fetchAPI('DELETE','/sub-plans/'+planId);toast('Plan removed','info');this.loadSubPlans(absId)}catch(e){toast('Error: '+e.message,'error')}},
 
       showOverrideModal(absId){
         const m=document.createElement('div');m.className='mo';m.onclick=e=>{if(e.target===m)m.remove()};
@@ -536,7 +577,17 @@
         if(state.user.role==='crt'){h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:8px;font-size:.88rem">Your Details</h4><div style="padding:12px;background:var(--bg);border-radius:10px"><div class="text-sm mb-1"><strong>Phone:</strong> '+(state.user.phone||'Not set')+'</div><div class="text-sm mb-1"><strong>Email:</strong> '+(state.user.email||'Not set')+'</div><div class="text-sm"><strong>Specialties:</strong> '+(state.user.specialties||[]).join(', ')+'</div></div></div>';
           h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:8px;font-size:.88rem">📅 Unavailable Dates</h4><p class="text-sm text-dim mb-1">Mark dates you can\'t work so the system skips you.</p><div style="display:flex;gap:6px;margin-bottom:10px"><input type="date" id="unavailDate" style="flex:1;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:.85rem"><input type="text" id="unavailReason" placeholder="Reason (optional)" style="flex:1;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:.85rem"><button class="btn btn-p btn-s" onclick="app.addUnavailDate()">Add</button></div><div id="unavailList"></div></div>'}
 
-        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v2.1</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
+        // Push notifications section
+        h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:8px;font-size:.88rem">📲 Push Notifications</h4>';
+        if(state.pushSupported){
+          h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg);border-radius:10px"><div><div style="font-weight:600;font-size:.9rem">Phone Alerts</div><div class="text-sm text-dim">Get real push notifications on this device</div></div>';
+          if(state.pushSubscribed)h+='<button class="btn btn-d btn-s" onclick="app.disablePush()">Disable</button>';
+          else h+='<button class="btn btn-ok btn-s" onclick="app.setupPush()">Enable</button>';
+          h+='</div>'}
+        else h+='<p class="text-sm text-dim" style="padding:8px">Push notifications not supported on this browser.</p>';
+        h+='</div><div class="divider"></div>';
+
+        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v3.0</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
         if(isL)h+='<button class="btn btn-o mb-1" onclick="app.resetDemo()" style="width:100%">🔄 Reset Demo Data</button>';
         h+='<button class="btn btn-d" onclick="app.logout()">🚪 Sign Out</button></div>';
         return h},
@@ -557,6 +608,151 @@
         el.innerHTML=prefs.map((p,i)=>'<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#fff;border:1px solid var(--bdr);border-radius:10px;margin-bottom:6px"><span style="font-weight:800;color:var(--navy);font-size:1.05rem;min-width:22px;text-align:center">'+(i+1)+'</span><div style="flex:1"><div style="font-weight:600;font-size:.88rem">'+p.crt_name+'</div><div style="font-size:.72rem;color:var(--dim)">'+(p.specialties||[]).join(', ')+'</div></div><div style="display:flex;gap:3px">'+(i>0?'<button onclick="app.movePref('+i+',-1)" style="background:var(--navy);color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:.9rem;cursor:pointer">▲</button>':'<div style="width:30px"></div>')+(i<prefs.length-1?'<button onclick="app.movePref('+i+',1)" style="background:var(--navy);color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:.9rem;cursor:pointer">▼</button>':'<div style="width:30px"></div>')+'</div></div>').join('')},
 
       async movePref(idx,dir){const prefs=state._currentPrefs;const ni=idx+dir;if(ni<0||ni>=prefs.length)return;[prefs[idx],prefs[ni]]=[prefs[ni],prefs[idx]];this.renderPrefList();try{await this.fetchAPI('PUT','/preferences/'+encodeURIComponent(state._currentPrefArea),{crtIds:prefs.map(p=>p.crt_id)});toast('Preference order saved','success')}catch(e){}},
+
+      // ===== PRE-BOOK ABSENCE =====
+      renderPrebook(){
+        const isL=state.user.role==='leader'||state.user.role==='admin';
+        const reasons=['Curriculum Day','Professional Development','Camp / Excursion','Long Service Leave','Annual Leave','Personal Leave (known)','Meeting / Conference','Other (see notes)'];
+        let staffOpts='';
+        if(isL)staffOpts='<div class="fg"><label>Staff Member</label><select id="pbStaff"><option value="">Myself ('+state.user.name+')</option>'+state.allUsers.filter(u=>u.role==='staff'||u.role==='leader').map(u=>'<option value="'+u.id+'">'+u.name+' — '+(u.area||'')+'</option>').join('')+'</select></div>';
+        return '<div class="cd"><h3>📅 Pre-book Known Absence</h3><p class="text-sm text-dim mb-2">Lodge upcoming absences in advance (PD days, camps, planned leave). CRTs get booked early so cover is sorted ahead of time.</p><form id="prebookForm">'+staffOpts+'<div class="fg"><label>Dates (add multiple)</label><div id="pbDates" style="margin-bottom:8px"></div><div style="display:flex;gap:6px"><input type="date" id="pbDateAdd" style="flex:1;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:.85rem"><button type="button" class="btn btn-o btn-s" onclick="app.addPrebookDate()">+ Add Date</button></div></div><div class="fg"><label>Reason</label><select id="pbReason" required><option value="">-- Select --</option>'+reasons.map(r=>'<option value="'+r+'">'+r+'</option>').join('')+'</select></div><div class="fg"><label>Duration</label><div class="half-opts"><button type="button" class="act" data-half="full" onclick="app.selectHalf(this)">Full Day</button><button type="button" data-half="am" onclick="app.selectHalf(this)">AM Only</button><button type="button" data-half="pm" onclick="app.selectHalf(this)">PM Only</button></div></div><div class="fg"><label>Classes / Areas Affected</label><input type="text" id="pbClasses" placeholder="e.g. All PE classes, Prep G"></div><div class="fg"><label>Notes (optional)</label><textarea id="pbNotes" placeholder="Additional info for the CRT..."></textarea></div><button type="submit" class="btn btn-p" id="pbSubmit">📅 Pre-book Absences</button></form><div id="pbStatus" style="margin-top:12px"></div></div><button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>'},
+
+      setupPrebookForm(){
+        const form=document.getElementById('prebookForm');if(!form)return;
+        state._pbDates=state._pbDates||[];this.renderPbDates();
+        form.onsubmit=async(e)=>{e.preventDefault();if(!state._pbDates||state._pbDates.length===0){toast('Add at least one date','error');return}
+          const btn=document.getElementById('pbSubmit');btn.disabled=true;btn.textContent='⏳ Booking...';
+          try{const staffSel=document.getElementById('pbStaff');
+            await this.fetchAPI('POST','/absences/prebook',{staffId:staffSel?.value?parseInt(staffSel.value):undefined,dates:state._pbDates.map(d=>({start:d,end:d})),reason:document.getElementById('pbReason').value,classes:document.getElementById('pbClasses').value,notes:document.getElementById('pbNotes').value,halfDay:(document.querySelector('.half-opts button.act')||{}).dataset?.half||'full'});
+            toast(state._pbDates.length+' absence(s) pre-booked!','success');state._pbDates=[];
+            document.getElementById('pbStatus').innerHTML='<div style="text-align:center;padding:20px;background:#f0fff4;border-radius:12px;border:2px solid var(--ok)"><div style="font-size:2rem;margin-bottom:8px">📅✅</div><div style="font-weight:700;color:var(--ok);font-size:1rem;margin-bottom:4px">Pre-booked Successfully!</div><div class="text-sm text-dim">CRTs will be contacted automatically.</div></div>';form.style.display='none';
+            setTimeout(()=>{this.loadInitialData();this.showView('dashboard')},3000)
+          }catch(err){btn.disabled=false;btn.textContent='📅 Pre-book Absences';toast('Error: '+err.message,'error')}}},
+
+      addPrebookDate(){const d=document.getElementById('pbDateAdd');if(!d||!d.value)return;if(!state._pbDates)state._pbDates=[];if(state._pbDates.includes(d.value)){toast('Date already added','error');return}state._pbDates.push(d.value);state._pbDates.sort();d.value='';this.renderPbDates()},
+
+      renderPbDates(){const el=document.getElementById('pbDates');if(!el)return;if(!state._pbDates||state._pbDates.length===0){el.innerHTML='<p class="text-sm text-dim">No dates added yet.</p>';return}
+        el.innerHTML=state._pbDates.map(d=>'<div style="display:inline-flex;align-items:center;gap:4px;background:var(--navy);color:#fff;padding:4px 10px;border-radius:16px;font-size:.78rem;font-weight:600;margin:2px 4px 2px 0">'+this.formatDate(d)+'<span onclick="state._pbDates=state._pbDates.filter(x=>x!==\''+d+'\');app.renderPbDates()" style="cursor:pointer;opacity:.7;margin-left:2px">✕</span></div>').join('')},
+
+      // ===== CRT AVAILABILITY CALENDAR =====
+      renderCRTCalendar(){
+        return '<div class="cd"><h3>🗓️ CRT Availability Calendar</h3><p class="text-sm text-dim mb-2">See which CRTs are available, unavailable, or already booked for each day.</p><div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><button class="btn btn-o btn-s" onclick="app.crtCalMonth(-1)">←</button><span id="crtCalTitle" style="font-weight:700;font-size:.95rem;flex:1;text-align:center">Loading...</span><button class="btn btn-o btn-s" onclick="app.crtCalMonth(1)">→</button></div><div id="crtCalBody"><div class="loading">Loading calendar...</div></div></div><button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>'},
+
+      async loadCRTCalendar(){
+        if(!state._crtCalDate)state._crtCalDate=new Date();
+        const d=state._crtCalDate;const mo=d.getMonth()+1;const yr=d.getFullYear();
+        document.getElementById('crtCalTitle').textContent=d.toLocaleDateString('en-AU',{month:'long',year:'numeric'});
+        try{
+          const data=await this.fetchAPI('GET','/crts/availability?month='+mo+'&year='+yr);
+          const body=document.getElementById('crtCalBody');
+          const first=new Date(yr,mo-1,1);const lastDay=new Date(yr,mo,0).getDate();
+          const today=new Date().toISOString().split('T')[0];
+
+          // Build unavailable map: {crt_id: Set(dates)}
+          const unavailMap={};(data.unavailable||[]).forEach(u=>{if(!unavailMap[u.crt_id])unavailMap[u.crt_id]=new Set();unavailMap[u.crt_id].add(u.date)});
+
+          // Build bookings map: {crt_id: {date: {staff, area}}}
+          const bookMap={};(data.bookings||[]).forEach(b=>{if(!bookMap[b.assigned_crt_id])bookMap[b.assigned_crt_id]={};const ds=new Date(b.date_start),de=new Date(b.date_end);for(let dd=new Date(ds);dd<=de;dd.setDate(dd.getDate()+1)){const dk=dd.toISOString().split('T')[0];bookMap[b.assigned_crt_id][dk]={staff:b.staff_name,area:b.area}}});
+
+          let h='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.75rem"><thead><tr><th style="padding:6px 8px;background:var(--navy);color:#fff;font-size:.72rem;position:sticky;left:0;z-index:1;min-width:100px">CRT</th>';
+          for(let day=1;day<=lastDay;day++){const dow=new Date(yr,mo-1,day).getDay();const isWknd=dow===0||dow===6;
+            h+='<th style="padding:4px 2px;background:'+(isWknd?'#e2e3e5':'var(--navy)')+';color:'+(isWknd?'#495057':'#fff')+';font-size:.65rem;min-width:28px;text-align:center">'+day+'</th>'}
+          h+='</tr></thead><tbody>';
+
+          (data.crts||[]).forEach(crt=>{
+            h+='<tr><td style="padding:6px 8px;font-weight:600;font-size:.78rem;white-space:nowrap;border-bottom:1px solid var(--bdr);position:sticky;left:0;background:#fff;z-index:1">'+crt.name+'</td>';
+            for(let day=1;day<=lastDay;day++){
+              const dateStr=yr+'-'+String(mo).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+              const dow=new Date(yr,mo-1,day).getDay();const isWknd=dow===0||dow===6;
+              const isUnavail=unavailMap[crt.id]&&unavailMap[crt.id].has(dateStr);
+              const booking=bookMap[crt.id]&&bookMap[crt.id][dateStr];
+              const isToday=dateStr===today;
+              let bg='#f0fff4',txt='✓',title='Available';
+              if(isWknd){bg='#f5f5f5';txt='';title='Weekend'}
+              else if(isUnavail){bg='#f8d7da';txt='✕';title='Unavailable'}
+              else if(booking){bg='#cce5ff';txt='📋';title='Booked: '+booking.staff+' ('+booking.area+')'}
+              h+='<td style="padding:2px;text-align:center;background:'+bg+';border-bottom:1px solid var(--bdr);font-size:.65rem;cursor:default'+(isToday?';outline:2px solid var(--navy)':'')+'" title="'+title+'">'+txt+'</td>'}
+            h+='</tr>'});
+          h+='</tbody></table></div>';
+          h+='<div style="display:flex;gap:12px;margin-top:12px;font-size:.72rem;flex-wrap:wrap"><span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#f0fff4;border:1px solid #c3e6cb;border-radius:3px"></span>Available</span><span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#cce5ff;border:1px solid #b8daff;border-radius:3px"></span>Booked</span><span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#f8d7da;border:1px solid #f5c6cb;border-radius:3px"></span>Unavailable</span></div>';
+          body.innerHTML=h
+        }catch(e){document.getElementById('crtCalBody').innerHTML='<p class="text-sm" style="color:var(--acc)">Error loading calendar: '+e.message+'</p>'}},
+
+      crtCalMonth(dir){if(!state._crtCalDate)state._crtCalDate=new Date();state._crtCalDate.setMonth(state._crtCalDate.getMonth()+dir);this.loadCRTCalendar()},
+
+      // ===== REPORTS & EXPORT =====
+      renderReports(){
+        const f=state.reportFilters;
+        const areas=[...new Set(state.allUsers.map(u=>u.area).filter(Boolean))].sort();
+        return '<div class="cd"><h3>📊 Reports & Export</h3><p class="text-sm text-dim mb-2">View absence trends and export data as CSV spreadsheet.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px"><div class="fg" style="margin-bottom:0"><label>From</label><input type="date" id="rptFrom" value="'+(f.from||'')+'" onchange="state.reportFilters.from=this.value"></div><div class="fg" style="margin-bottom:0"><label>To</label><input type="date" id="rptTo" value="'+(f.to||'')+'" onchange="state.reportFilters.to=this.value"></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px"><div class="fg" style="margin-bottom:0"><label>Area</label><select id="rptArea" onchange="state.reportFilters.area=this.value"><option value="">All Areas</option>'+areas.map(a=>'<option value="'+a+'"'+(f.area===a?' selected':'')+'>'+a+'</option>').join('')+'</select></div><div class="fg" style="margin-bottom:0"><label>Status</label><select id="rptStatus" onchange="state.reportFilters.status=this.value"><option value="all">All Statuses</option><option value="booked"'+(f.status==='booked'?' selected':'')+'>Booked</option><option value="pending"'+(f.status==='pending'?' selected':'')+'>Pending</option><option value="nocrt"'+(f.status==='nocrt'?' selected':'')+'>No CRT</option><option value="cancelled"'+(f.status==='cancelled'?' selected':'')+'>Cancelled</option></select></div></div><div style="display:flex;gap:8px;margin-bottom:14px"><button class="btn btn-p btn-s" style="flex:1" onclick="app.loadReportSummary()">📊 Load Report</button><button class="btn btn-ok btn-s" style="flex:1" onclick="app.exportCSV()">📥 Export CSV</button></div><div id="reportBody"><div class="loading">Loading summary...</div></div></div><button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>'},
+
+      async loadReportSummary(){
+        const body=document.getElementById('reportBody');if(!body)return;
+        const f=state.reportFilters;
+        try{
+          const data=await this.fetchAPI('GET','/reports/summary?from='+(f.from||'')+'&to='+(f.to||''));
+          let h='<div class="stats"><div class="st"><div class="n">'+data.total+'</div><div class="l">Total Absences</div></div></div>';
+
+          if(data.byStatus&&data.byStatus.length>0){
+            h+='<h4 style="font-size:.85rem;color:var(--navy);margin:12px 0 8px">By Status</h4><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">';
+            data.byStatus.forEach(s=>{const colors={booked:'#d4edda',pending:'#fef3cd',contacting:'#cce5ff',nocrt:'#f8d7da',cancelled:'#e2e3e5'};
+              h+='<div style="padding:6px 12px;background:'+(colors[s.status]||'var(--bg)')+';border-radius:8px;font-size:.82rem"><strong>'+s.c+'</strong> '+s.status+'</div>'});h+='</div>'}
+
+          if(data.byArea&&data.byArea.length>0){
+            h+='<h4 style="font-size:.85rem;color:var(--navy);margin:12px 0 8px">By Area</h4>';
+            const maxA=Math.max(...data.byArea.map(a=>a.c));
+            data.byArea.forEach(a=>{h+='<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:2px"><span>'+a.area+'</span><strong>'+a.c+'</strong></div><div style="height:8px;background:var(--bg);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+Math.round(a.c/maxA*100)+'%;background:var(--navy);border-radius:4px"></div></div></div>'})}
+
+          if(data.byReason&&data.byReason.length>0){
+            h+='<h4 style="font-size:.85rem;color:var(--navy);margin:12px 0 8px">Top Reasons</h4>';
+            data.byReason.slice(0,5).forEach((r,i)=>{h+='<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bdr);font-size:.82rem"><span>'+(i+1)+'. '+r.reason+'</span><strong>'+r.c+'</strong></div>'})}
+
+          if(data.topStaff&&data.topStaff.length>0){
+            h+='<h4 style="font-size:.85rem;color:var(--navy);margin:12px 0 8px">Most Absences (Staff)</h4>';
+            data.topStaff.slice(0,5).forEach((s,i)=>{h+='<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bdr);font-size:.82rem"><span>'+(i+1)+'. '+s.staff_name+'</span><strong>'+s.c+' day'+(s.c>1?'s':'')+'</strong></div>'})}
+
+          if(data.crtUsage&&data.crtUsage.length>0){
+            h+='<h4 style="font-size:.85rem;color:var(--navy);margin:12px 0 8px">CRT Usage</h4>';
+            data.crtUsage.forEach((c,i)=>{h+='<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bdr);font-size:.82rem"><span>'+(i+1)+'. '+c.name+'</span><strong>'+c.c+' booking'+(c.c>1?'s':'')+'</strong></div>'})}
+
+          h+='<div style="margin-top:14px;padding:10px;background:var(--bg);border-radius:8px;font-size:.75rem;color:var(--dim)">Report period: '+data.from+' to '+data.to+'</div>';
+          body.innerHTML=h
+        }catch(e){body.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      exportCSV(){
+        const f=state.reportFilters;
+        const params=new URLSearchParams();
+        if(f.from)params.set('from',f.from);if(f.to)params.set('to',f.to);
+        if(f.area)params.set('area',f.area);if(f.status&&f.status!=='all')params.set('status',f.status);
+        const url=API+'/reports/export?'+params.toString();
+        const a=document.createElement('a');a.href=url;a.download='wps-absences.csv';
+        // Add auth header via fetch
+        fetch(url,{headers:{'Authorization':'Bearer '+state.token}}).then(r=>r.blob()).then(blob=>{
+          const u=URL.createObjectURL(blob);a.href=u;a.click();URL.revokeObjectURL(u);toast('CSV downloaded!','success')
+        }).catch(e=>toast('Export failed: '+e.message,'error'))},
+
+      // ===== PUSH NOTIFICATIONS =====
+      async setupPush(){
+        if(!('serviceWorker' in navigator)||!('PushManager' in window)){toast('Push notifications not supported on this device','error');return}
+        try{
+          const vapid=await this.fetchAPI('GET','/push/vapid-key');if(!vapid.publicKey){toast('Push not configured on server','error');return}
+          const reg=await navigator.serviceWorker.ready;
+          const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:this.urlBase64ToUint8Array(vapid.publicKey)});
+          await this.fetchAPI('POST','/push/subscribe',{subscription:sub.toJSON()});
+          state.pushSubscribed=true;toast('Push notifications enabled!','success');this.render()
+        }catch(e){toast('Push setup failed: '+e.message,'error')}},
+
+      async disablePush(){
+        try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub)await sub.unsubscribe();
+          await this.fetchAPI('POST','/push/unsubscribe');state.pushSubscribed=false;toast('Push notifications disabled','info');this.render()
+        }catch(e){toast('Error: '+e.message,'error')}},
+
+      urlBase64ToUint8Array(base64String){const padding='='.repeat((4-base64String.length%4)%4);const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');const raw=window.atob(base64);const arr=new Uint8Array(raw.length);for(let i=0;i<raw.length;++i)arr[i]=raw.charCodeAt(i);return arr},
+
+      async checkPushStatus(){
+        if(!('serviceWorker' in navigator)||!('PushManager' in window)){state.pushSupported=false;return}
+        state.pushSupported=true;
+        try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();state.pushSubscribed=!!sub}catch(e){state.pushSubscribed=false}},
 
       // ===== DEMO GUIDE =====
       showDemoGuide(){

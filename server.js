@@ -206,6 +206,18 @@ async function addNotification(message, type, forRoles, absenceId) {
   await dbRun('INSERT INTO notifications (message, type, for_roles, related_absence_id) VALUES (?, ?, ?, ?)', [
     message, type || 'info', forRoles || 'leader', absenceId || null
   ]);
+  // Send push notifications to all subscribed users of matching roles
+  try {
+    const roles = (forRoles || 'leader').split(',').map(r => r.trim());
+    const pushTitle = type === 'urgent' ? '🚨 WPS Staff Hub' : 'WPS Staff Hub';
+    for (const role of roles) {
+      const userType = role === 'crt' ? 'crt' : 'staff';
+      const subs = await dbAll('SELECT DISTINCT user_id FROM push_subscriptions WHERE user_type = ?', userType);
+      for (const s of subs) {
+        sendPushNotification(s.user_id, userType, pushTitle, message).catch(() => {});
+      }
+    }
+  } catch (e) { /* push is best-effort */ }
 }
 
 // ===== AUTH ENDPOINTS =====
@@ -622,7 +634,8 @@ app.put('/api/system-settings', auth, leaderOnly, wrap(async (req, res) => {
   const allowed = [
     'auto_contact_crts', 'auto_approve_crts',
     'notify_leaders_absence', 'leader_notify_sms', 'leader_notify_email', 'leader_notify_app',
-    'notify_staff_booked', 'staff_notify_sms', 'staff_notify_email'
+    'notify_staff_booked', 'staff_notify_sms', 'staff_notify_email',
+    'enable_push_notifications', 'enable_sub_plans', 'enable_prebook'
   ];
   for (const [key, value] of Object.entries(req.body)) {
     if (!allowed.includes(key)) continue;
@@ -694,7 +707,7 @@ app.get('/api/health', wrap(async (req, res) => {
   const todayAbs = await dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start <= ? AND date_end >= ? AND status != 'cancelled'", today, today);
   res.json({
     status: 'ok',
-    version: '2.1.0',
+    version: '3.0.0',
     demo: DEMO,
     live: LIVE,
     database: USE_TURSO ? 'turso' : 'local',
@@ -740,6 +753,185 @@ app.get('/api/report/today', auth, leaderOnly, wrap(async (req, res) => {
   const booked = absences.filter(a => a.status === 'booked').length;
   const pending = absences.filter(a => a.status !== 'booked').length;
   res.json({ date: today, absences, summary: { total: absences.length, booked, pending } });
+}));
+
+// ===== SUB PLANS / HANDOVER NOTES =====
+app.get('/api/absences/:id/sub-plans', auth, wrap(async (req, res) => {
+  const plans = await dbAll('SELECT * FROM sub_plans WHERE absence_id = ? ORDER BY created_at DESC', parseInt(req.params.id));
+  res.json(plans);
+}));
+
+app.post('/api/absences/:id/sub-plans', auth, wrap(async (req, res) => {
+  const { title, content } = req.body;
+  if (!content) return res.status(400).json({ error: 'Content is required' });
+  const absId = parseInt(req.params.id);
+  const absence = await dbGet('SELECT * FROM absences WHERE id = ?', absId);
+  if (!absence) return res.status(404).json({ error: 'Absence not found' });
+  await dbRun('INSERT INTO sub_plans (absence_id, title, content, created_by) VALUES (?, ?, ?, ?)',
+    [absId, title || 'Sub Plan', content, req.user.id]);
+  const id = await dbLastId();
+  // Notify CRT if one is assigned
+  if (absence.assigned_crt_id) {
+    await addNotification('📝 Sub plan added for ' + absence.staff_name + ' (' + absence.area + ')', 'info', 'crt', absId);
+  }
+  res.json({ ok: true, id });
+}));
+
+app.delete('/api/sub-plans/:id', auth, wrap(async (req, res) => {
+  await dbRun('DELETE FROM sub_plans WHERE id = ? AND created_by = ?', [parseInt(req.params.id), req.user.id]);
+  res.json({ ok: true });
+}));
+
+// ===== PUSH NOTIFICATIONS =====
+app.get('/api/push/vapid-key', wrap(async (req, res) => {
+  const row = await dbGet("SELECT value FROM system_settings WHERE key = 'vapid_public_key'");
+  res.json({ publicKey: row ? row.value : null });
+}));
+
+app.post('/api/push/subscribe', auth, wrap(async (req, res) => {
+  const { subscription } = req.body;
+  if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'Invalid subscription' });
+  const keys = subscription.keys || {};
+  // Upsert
+  try {
+    await dbRun('DELETE FROM push_subscriptions WHERE endpoint = ?', [subscription.endpoint]);
+  } catch(e) {}
+  await dbRun('INSERT INTO push_subscriptions (user_id, user_type, endpoint, p256dh, auth_key) VALUES (?, ?, ?, ?, ?)',
+    [req.user.id, req.user.role === 'crt' ? 'crt' : 'staff', subscription.endpoint, keys.p256dh || '', keys.auth || '']);
+  res.json({ ok: true });
+}));
+
+app.post('/api/push/unsubscribe', auth, wrap(async (req, res) => {
+  await dbRun('DELETE FROM push_subscriptions WHERE user_id = ? AND user_type = ?',
+    [req.user.id, req.user.role === 'crt' ? 'crt' : 'staff']);
+  res.json({ ok: true });
+}));
+
+// Send push notification helper
+async function sendPushNotification(userId, userType, title, body, data = {}) {
+  try {
+    const webpush = require('web-push');
+    const pubKey = await dbGet("SELECT value FROM system_settings WHERE key = 'vapid_public_key'");
+    const privKey = await dbGet("SELECT value FROM system_settings WHERE key = 'vapid_private_key'");
+    if (!pubKey || !privKey) return;
+
+    webpush.setVapidDetails('mailto:admin@wps-staff-hub.onrender.com', pubKey.value, privKey.value);
+
+    const subs = await dbAll('SELECT * FROM push_subscriptions WHERE user_id = ? AND user_type = ?', userId, userType || 'staff');
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification({
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.p256dh, auth: sub.auth_key }
+        }, JSON.stringify({ title, body, ...data }));
+      } catch (err) {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await dbRun('DELETE FROM push_subscriptions WHERE id = ?', [sub.id]);
+        }
+      }
+    }
+  } catch (e) {
+    console.log('Push notification error:', e.message);
+  }
+}
+
+// ===== PRE-BOOKED / RECURRING ABSENCES =====
+app.post('/api/absences/prebook', auth, wrap(async (req, res) => {
+  const { staffId, dateStart, dateEnd, reason, classes, notes, halfDay, recurrence, dates } = req.body;
+  const uid = staffId || req.user.id;
+  const user = await dbGet('SELECT * FROM users WHERE id = ?', uid);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const created = [];
+  const datesToBook = dates || [{ start: dateStart, end: dateEnd || dateStart }];
+
+  for (const d of datesToBook) {
+    await dbRun(
+      "INSERT INTO absences (staff_id, staff_name, area, date_start, date_end, reason, classes, notes, half_day, status, is_prebooked, recurrence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1, ?)",
+      [uid, user.name, user.area || '', d.start, d.end || d.start, reason, classes || '', notes || '', halfDay || 'full', recurrence || 'none']
+    );
+    const id = await dbLastId();
+    created.push(id);
+
+    // Auto-book CRT if enabled
+    const autoContact = await getSettingBool('auto_contact_crts', true);
+    if (autoContact) {
+      setTimeout(() => autoBookCRT(id), 500);
+    }
+  }
+
+  await addNotification('📅 Pre-booked absence: ' + user.name + ' — ' + reason + ' (' + datesToBook.length + ' date' + (datesToBook.length > 1 ? 's' : '') + ')', 'info', 'leader');
+  res.json({ ok: true, ids: created });
+}));
+
+// ===== REPORTS & EXPORT =====
+app.get('/api/reports/export', auth, leaderOnly, wrap(async (req, res) => {
+  const { from, to, area, status, format } = req.query;
+  let sql = "SELECT a.*, c.name as crt_name FROM absences a LEFT JOIN crts c ON a.assigned_crt_id = c.id WHERE 1=1";
+  const params = [];
+
+  if (from) { sql += ' AND a.date_start >= ?'; params.push(from); }
+  if (to) { sql += ' AND a.date_end <= ?'; params.push(to); }
+  if (area) { sql += ' AND a.area = ?'; params.push(area); }
+  if (status && status !== 'all') { sql += ' AND a.status = ?'; params.push(status); }
+
+  sql += ' ORDER BY a.date_start DESC';
+  const rows = await dbAll(sql, ...params);
+
+  if (format === 'json') {
+    return res.json(rows);
+  }
+
+  // CSV export
+  const headers = ['Date Start', 'Date End', 'Staff Name', 'Area', 'Reason', 'Duration', 'Status', 'CRT Assigned', 'Notes', 'Submitted'];
+  const csvRows = [headers.join(',')];
+  for (const r of rows) {
+    csvRows.push([
+      r.date_start, r.date_end, '"' + (r.staff_name || '').replace(/"/g, '""') + '"',
+      '"' + (r.area || '').replace(/"/g, '""') + '"',
+      '"' + (r.reason || '').replace(/"/g, '""') + '"',
+      r.half_day || 'full', r.status, '"' + (r.crt_name || '').replace(/"/g, '""') + '"',
+      '"' + (r.notes || '').replace(/"/g, '""') + '"',
+      r.submitted_at || ''
+    ].join(','));
+  }
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="wps-absences-' + new Date().toISOString().split('T')[0] + '.csv"');
+  res.send(csvRows.join('\n'));
+}));
+
+app.get('/api/reports/summary', auth, leaderOnly, wrap(async (req, res) => {
+  const { from, to } = req.query;
+  const today = new Date().toISOString().split('T')[0];
+  const startDate = from || new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
+  const endDate = to || today;
+
+  const total = await dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start >= ? AND date_end <= ? AND status != 'cancelled'", startDate, endDate);
+  const byStatus = await dbAll("SELECT status, COUNT(*) as c FROM absences WHERE date_start >= ? AND date_end <= ? GROUP BY status", startDate, endDate);
+  const byArea = await dbAll("SELECT area, COUNT(*) as c FROM absences WHERE date_start >= ? AND date_end <= ? AND status != 'cancelled' GROUP BY area ORDER BY c DESC", startDate, endDate);
+  const byReason = await dbAll("SELECT reason, COUNT(*) as c FROM absences WHERE date_start >= ? AND date_end <= ? AND status != 'cancelled' GROUP BY reason ORDER BY c DESC LIMIT 10", startDate, endDate);
+  const byMonth = await dbAll("SELECT substr(date_start,1,7) as month, COUNT(*) as c FROM absences WHERE date_start >= ? AND date_end <= ? AND status != 'cancelled' GROUP BY month ORDER BY month", startDate, endDate);
+  const topStaff = await dbAll("SELECT staff_name, COUNT(*) as c FROM absences WHERE date_start >= ? AND date_end <= ? AND status != 'cancelled' GROUP BY staff_id ORDER BY c DESC LIMIT 10", startDate, endDate);
+  const crtUsage = await dbAll("SELECT c.name, COUNT(*) as c FROM absences a JOIN crts c ON a.assigned_crt_id = c.id WHERE a.date_start >= ? AND a.date_end <= ? AND a.status = 'booked' GROUP BY a.assigned_crt_id ORDER BY c DESC", startDate, endDate);
+
+  res.json({ total: total.c, byStatus, byArea, byReason, byMonth, topStaff, crtUsage, from: startDate, to: endDate });
+}));
+
+// ===== CRT AVAILABILITY CALENDAR (enhanced) =====
+app.get('/api/crts/availability', auth, wrap(async (req, res) => {
+  const { month, year } = req.query;
+  const yr = parseInt(year) || new Date().getFullYear();
+  const mo = parseInt(month) || (new Date().getMonth() + 1);
+  const startDate = `${yr}-${String(mo).padStart(2,'0')}-01`;
+  const endDay = new Date(yr, mo, 0).getDate();
+  const endDate = `${yr}-${String(mo).padStart(2,'0')}-${String(endDay).padStart(2,'0')}`;
+
+  const crts = await dbAll('SELECT id, name, phone, specialties FROM crts WHERE active = 1');
+  const unavail = await dbAll('SELECT crt_id, date, reason FROM crt_unavailable WHERE date >= ? AND date <= ?', startDate, endDate);
+  const bookings = await dbAll("SELECT assigned_crt_id, date_start, date_end, staff_name, area FROM absences WHERE assigned_crt_id IS NOT NULL AND status IN ('booked','contacting') AND date_start <= ? AND date_end >= ?", endDate, startDate);
+
+  res.json({ crts, unavailable: unavail, bookings, month: mo, year: yr });
 }));
 
 // ===== SERVE FRONTEND =====
@@ -804,6 +996,42 @@ async function start() {
   try { await dbRun('CREATE INDEX IF NOT EXISTS idx_absences_status ON absences(status)'); } catch(e) {}
   try { await dbRun("ALTER TABLE absences ADD COLUMN half_day TEXT DEFAULT 'full'"); } catch(e) {}
   try { await dbRun("ALTER TABLE crts ADD COLUMN pin_hash TEXT"); } catch(e) {}
+
+  // v3.0 tables
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS sub_plans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    absence_id INTEGER NOT NULL,
+    title TEXT,
+    content TEXT NOT NULL,
+    created_by INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (absence_id) REFERENCES absences(id)
+  )`); } catch(e) {}
+
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    user_type TEXT DEFAULT 'staff',
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth_key TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`); } catch(e) {}
+
+  try { await dbRun("ALTER TABLE absences ADD COLUMN is_prebooked INTEGER DEFAULT 0"); } catch(e) {}
+  try { await dbRun("ALTER TABLE absences ADD COLUMN recurrence TEXT DEFAULT 'none'"); } catch(e) {}
+
+  // Generate VAPID keys if not stored
+  try {
+    const existingVapid = await dbGet("SELECT value FROM system_settings WHERE key = 'vapid_public_key'");
+    if (!existingVapid) {
+      const webpush = require('web-push');
+      const vapidKeys = webpush.generateVAPIDKeys();
+      try { await dbRun("INSERT INTO system_settings (key, value) VALUES (?, ?)", ['vapid_public_key', vapidKeys.publicKey]); } catch(e) {}
+      try { await dbRun("INSERT INTO system_settings (key, value) VALUES (?, ?)", ['vapid_private_key', vapidKeys.privateKey]); } catch(e) {}
+    }
+  } catch(e) { console.log('VAPID key generation skipped:', e.message); }
+
   try { await dbRun(`CREATE TABLE IF NOT EXISTS user_settings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL UNIQUE,
@@ -822,7 +1050,7 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`\n  WPS Staff Hub v2.1`);
+    console.log(`\n  WPS Staff Hub v3.0`);
     console.log(`  http://localhost:${PORT}`);
     console.log(`  Database: ${USE_TURSO ? 'Turso (cloud)' : 'sql.js (local)'}`);
     console.log(`  Notifications: ${LIVE ? 'LIVE' : 'SIMULATED'}`);

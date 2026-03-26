@@ -1,5 +1,5 @@
 // WPS Staff Hub Service Worker
-const CACHE_NAME = 'wps-hub-v1';
+const CACHE_NAME = 'wps-hub-v3';
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', event => {
@@ -13,6 +13,33 @@ self.addEventListener('activate', event => {
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
+  );
+});
+
+// Push notification handler
+self.addEventListener('push', event => {
+  let data = { title: 'WPS Staff Hub', body: 'New notification' };
+  try { data = event.data.json(); } catch(e) { data.body = event.data ? event.data.text() : 'New notification'; }
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'WPS Staff Hub', {
+      body: data.body || '',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      vibrate: [200, 100, 200],
+      data: data
+    })
+  );
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then(clientList => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow('/');
+    })
   );
 });
 
