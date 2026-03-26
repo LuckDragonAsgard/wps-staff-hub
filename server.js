@@ -1,4 +1,4 @@
-// WPS Staff Hub - Production Server v4.1 (Turso + sql.js fallback)
+// WPS Staff Hub - Production Server v4.2 (Turso + sql.js fallback)
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcryptjs');
@@ -224,14 +224,14 @@ async function addNotification(message, type, forRoles, absenceId) {
 app.get('/api/health', wrap(async (req, res) => {
   try {
     await dbGet('SELECT 1 as ok');
-    res.json({ status: 'ok', version: '4.1.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
+    res.json({ status: 'ok', version: '4.2.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
   } catch (e) {
     res.status(503).json({ status: 'error', error: 'Database unreachable' });
   }
 }));
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: '4.1.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking'] });
+  res.json({ version: '4.2.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard'] });
 });
 
 // ===== STAFF PROFILE =====
@@ -286,6 +286,72 @@ app.get('/api/users', wrap(async (req, res) => {
   res.json(users);
 }));
 
+// ===== STAFF MANAGEMENT (leaders) =====
+app.get('/api/staff', auth, leaderOnly, wrap(async (req, res) => {
+  const staff = await dbAll('SELECT id, name, email, phone, role, area, active FROM users ORDER BY name');
+  res.json(staff);
+}));
+
+app.post('/api/staff', auth, leaderOnly, wrap(async (req, res) => {
+  const { name, email, phone, role, area, pin } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+  const pinHash = bcrypt.hashSync(pin || '0000', 10);
+  await dbRun('INSERT INTO users (name, email, phone, role, area, pin_hash, active) VALUES (?,?,?,?,?,?,1)',
+    [name.trim(), email || '', phone || '', role || 'staff', area || '', pinHash]);
+  const id = await dbLastId();
+  await addNotification(`New staff added: ${name.trim()} (${area || 'no area'})`, 'info', 'leader');
+  res.json({ ok: true, id });
+}));
+
+app.put('/api/staff/:id', auth, leaderOnly, wrap(async (req, res) => {
+  const { name, email, phone, role, area, active, pin } = req.body;
+  const user = await dbGet('SELECT * FROM users WHERE id = ?', parseInt(req.params.id));
+  if (!user) return res.status(404).json({ error: 'Staff not found' });
+  const updates = [];
+  const params = [];
+  if (name !== undefined) { updates.push('name = ?'); params.push(name.trim()); }
+  if (email !== undefined) { updates.push('email = ?'); params.push(email); }
+  if (phone !== undefined) { updates.push('phone = ?'); params.push(phone); }
+  if (role !== undefined) { updates.push('role = ?'); params.push(role); }
+  if (area !== undefined) { updates.push('area = ?'); params.push(area); }
+  if (active !== undefined) { updates.push('active = ?'); params.push(active ? 1 : 0); }
+  if (pin) { updates.push('pin_hash = ?'); params.push(bcrypt.hashSync(pin, 10)); }
+  if (updates.length === 0) return res.status(400).json({ error: 'Nothing to update' });
+  params.push(parseInt(req.params.id));
+  await dbRun(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
+  res.json({ ok: true });
+}));
+
+// ===== CRT MANAGEMENT (leaders) =====
+app.post('/api/crts', auth, leaderOnly, wrap(async (req, res) => {
+  const { name, phone, email, specialties, pin } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+  const pinHash = pin ? bcrypt.hashSync(pin, 10) : null;
+  await dbRun('INSERT INTO crts (name, phone, email, specialties, pin_hash, active) VALUES (?,?,?,?,?,1)',
+    [name.trim(), phone || '', email || '', JSON.stringify(specialties || []), pinHash]);
+  const id = await dbLastId();
+  await addNotification(`New CRT added: ${name.trim()}`, 'info', 'leader');
+  res.json({ ok: true, id });
+}));
+
+app.put('/api/crts/:id', auth, leaderOnly, wrap(async (req, res) => {
+  const { name, phone, email, specialties, active, pin } = req.body;
+  const crt = await dbGet('SELECT * FROM crts WHERE id = ?', parseInt(req.params.id));
+  if (!crt) return res.status(404).json({ error: 'CRT not found' });
+  const updates = [];
+  const params = [];
+  if (name !== undefined) { updates.push('name = ?'); params.push(name.trim()); }
+  if (phone !== undefined) { updates.push('phone = ?'); params.push(phone); }
+  if (email !== undefined) { updates.push('email = ?'); params.push(email); }
+  if (specialties !== undefined) { updates.push('specialties = ?'); params.push(JSON.stringify(specialties)); }
+  if (active !== undefined) { updates.push('active = ?'); params.push(active ? 1 : 0); }
+  if (pin) { updates.push('pin_hash = ?'); params.push(bcrypt.hashSync(pin, 10)); }
+  if (updates.length === 0) return res.status(400).json({ error: 'Nothing to update' });
+  params.push(parseInt(req.params.id));
+  await dbRun(`UPDATE crts SET ${updates.join(', ')} WHERE id = ?`, params);
+  res.json({ ok: true });
+}));
+
 // ===== CRT ENDPOINTS =====
 app.get('/api/crts', wrap(async (req, res) => {
   const crts = await dbAll('SELECT id, name, phone, email, specialties, active FROM crts WHERE active = 1');
@@ -335,6 +401,18 @@ app.put('/api/preferences/:area', auth, leaderOnly, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// ===== ABSENCE QUICK STATS (for any staff) =====
+app.get('/api/staff/:id/absence-stats', auth, wrap(async (req, res) => {
+  const staffId = parseInt(req.params.id);
+  const user = await dbGet('SELECT id, name, area FROM users WHERE id = ?', staffId);
+  if (!user) return res.status(404).json({ error: 'Staff not found' });
+  const thisYear = new Date().getFullYear();
+  const total = await dbGet("SELECT COUNT(*) as c FROM absences WHERE staff_id = ? AND status != 'cancelled'", staffId);
+  const yearTotal = await dbGet("SELECT COUNT(*) as c FROM absences WHERE staff_id = ? AND status != 'cancelled' AND date_start >= ?", staffId, `${thisYear}-01-01`);
+  const lastAbsence = await dbGet("SELECT date_start, reason FROM absences WHERE staff_id = ? AND status != 'cancelled' ORDER BY date_start DESC LIMIT 1", staffId);
+  res.json({ ...user, stats: { allTime: total?.c || 0, thisYear: yearTotal?.c || 0, lastAbsence: lastAbsence || null } });
+}));
+
 // ===== ABSENCE ENDPOINTS =====
 app.get('/api/absences', auth, wrap(async (req, res) => {
   const { date, staffId, limit, status } = req.query;
@@ -375,6 +453,8 @@ app.post('/api/absences', auth, wrap(async (req, res) => {
   }
 
   if (!dateStart || !reason) return res.status(400).json({ error: 'Date and reason required' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStart)) return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+  if (dateEnd && !/^\d{4}-\d{2}-\d{2}$/.test(dateEnd)) return res.status(400).json({ error: 'Invalid end date format. Use YYYY-MM-DD' });
 
   const recent = await dbGet("SELECT 1 as found FROM absences WHERE staff_id = ? AND date_start = ? AND submitted_at > datetime('now', '-60 seconds') AND status != 'cancelled'", staffUser.id, dateStart);
   if (recent) return res.status(409).json({ error: 'Absence already submitted for this date' });
@@ -744,22 +824,30 @@ app.get('/api/logs/email', auth, leaderOnly, wrap(async (req, res) => {
   res.json(await dbAll('SELECT * FROM email_log ORDER BY created_at DESC LIMIT 50'));
 }));
 
-// ===== HEALTH & INFO =====
-app.get('/api/health', wrap(async (req, res) => {
+// ===== DASHBOARD STATS (detailed, auth required) =====
+app.get('/api/dashboard', auth, wrap(async (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const userCount = await dbGet('SELECT COUNT(*) as c FROM users WHERE active = 1');
   const crtCount = await dbGet('SELECT COUNT(*) as c FROM crts WHERE active = 1');
   const todayAbs = await dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start <= ? AND date_end >= ? AND status != 'cancelled'", today, today);
+  const booked = await dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start <= ? AND date_end >= ? AND status = 'booked'", today, today);
+  const pending = await dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start <= ? AND date_end >= ? AND status IN ('pending','nocrt','contacting')", today, today);
+  const thisWeekStart = new Date();
+  thisWeekStart.setDate(thisWeekStart.getDate() - thisWeekStart.getDay() + 1);
+  const weekStart = thisWeekStart.toISOString().split('T')[0];
+  const weekAbs = await dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start >= ? AND status != 'cancelled'", weekStart);
+  const recentNotifs = await dbAll("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 5");
   res.json({
-    status: 'ok',
-    version: '4.0.0',
+    version: '4.2.0',
     demo: DEMO,
     live: LIVE,
     database: USE_TURSO ? 'turso' : 'local',
     uptime: Math.floor(process.uptime()),
     staff: userCount?.c || 0,
     crts: crtCount?.c || 0,
-    todayAbsences: todayAbs?.c || 0
+    today: { absences: todayAbs?.c || 0, booked: booked?.c || 0, needAction: pending?.c || 0 },
+    thisWeek: weekAbs?.c || 0,
+    recentNotifications: recentNotifs
   });
 }));
 
@@ -1425,7 +1513,7 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`\n  WPS Staff Hub v4.1`);
+    console.log(`\n  WPS Staff Hub v4.2`);
     console.log(`  http://localhost:${PORT}`);
     console.log(`  Database: ${USE_TURSO ? 'Turso (cloud)' : 'sql.js (local)'}`);
     console.log(`  Notifications: ${LIVE ? 'LIVE' : 'SIMULATED'}`);
