@@ -1,4 +1,4 @@
-// WPS Staff Hub - Production Server v4.3 (Turso + sql.js fallback)
+// WPS Staff Hub - Production Server v4.4 (Turso + sql.js fallback)
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcryptjs');
@@ -224,14 +224,14 @@ async function addNotification(message, type, forRoles, absenceId) {
 app.get('/api/health', wrap(async (req, res) => {
   try {
     await dbGet('SELECT 1 as ok');
-    res.json({ status: 'ok', version: '4.3.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
+    res.json({ status: 'ok', version: '4.4.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
   } catch (e) {
     res.status(503).json({ status: 'error', error: 'Database unreachable' });
   }
 }));
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: '4.3.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard'] });
+  res.json({ version: '4.4.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard'] });
 });
 
 // ===== STAFF PROFILE =====
@@ -510,6 +510,9 @@ app.post('/api/absences', auth, wrap(async (req, res) => {
   // Auto-cover yard duty for absent staff
   try { await autoYardDutyCover(dateStart); } catch(e) { console.log('Yard duty auto-cover skipped:', e.message); }
 
+  // Auto-notify specialist teachers if their classes are affected
+  try { await notifySpecialists(absence); } catch(e) { console.log('Specialist notify skipped:', e.message); }
+
   res.json({ absence, crt: crtResult });
 }));
 
@@ -534,6 +537,8 @@ app.put('/api/absences/:id/cancel', auth, wrap(async (req, res) => {
       await addNotification(`${crt.name} notified of cancellation`, 'info', 'leader,crt', absence.id);
     }
   }
+  // Clean up specialist alerts for this cancelled absence
+  try { await dbRun('DELETE FROM class_absence_alerts WHERE absence_id = ?', [absence.id]); } catch(e) {}
   res.json({ ok: true });
 }));
 
@@ -838,7 +843,7 @@ app.get('/api/dashboard', auth, wrap(async (req, res) => {
   const weekAbs = await dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start >= ? AND status != 'cancelled'", weekStart);
   const recentNotifs = await dbAll("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 5");
   res.json({
-    version: '4.3.0',
+    version: '4.4.0',
     demo: DEMO,
     live: LIVE,
     database: USE_TURSO ? 'turso' : 'local',
@@ -1104,11 +1109,24 @@ app.get('/api/daily-zap/:date', auth, wrap(async (req, res) => {
   // Current timetables
   const timetables = await dbAll('SELECT id, name, type, term FROM timetables WHERE is_current = 1 ORDER BY type, name');
 
+  // Specialist class absence alerts for this date
+  let specialistAlerts = [];
+  try {
+    specialistAlerts = await dbAll(
+      `SELECT ca.*, a.reason, a.half_day, a.status as absence_status
+       FROM class_absence_alerts ca
+       LEFT JOIN absences a ON ca.absence_id = a.id
+       WHERE ca.date = ? AND (a.status IS NULL OR a.status != 'cancelled')
+       ORDER BY ca.specialist_name, ca.time_slot`,
+      date
+    );
+  } catch(e) { /* table may not exist yet */ }
+
   res.json({
     date, dayName, zap: zap || {},
     absences, yardDuty: { roster, changes },
     calendar: { thisWeek: thisWeekEvents, nextWeek: nextWeekEvents },
-    timetables
+    timetables, specialistAlerts
   });
 }));
 
@@ -1261,6 +1279,165 @@ async function autoYardDutyCover(date) {
   }
   return { assigned, needsCover: needsCover.length };
 }
+
+// ===== SPECIALIST CLASS ABSENCE ALERTS =====
+// When a classroom teacher is absent, check the specialist timetable to see which
+// specialist teachers are affected and auto-notify them before they set up for a lesson.
+async function notifySpecialists(absence) {
+  const date = absence.date_start;
+  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const d = new Date(date + 'T12:00:00');
+  const dayName = dayNames[d.getDay()];
+  const dayIndex = d.getDay(); // 0=Sun, 1=Mon...
+
+  // Get all current specialist timetables
+  const timetables = await dbAll("SELECT * FROM timetables WHERE is_current = 1 AND type = 'specialist'");
+  if (timetables.length === 0) return { alerts: 0 };
+
+  const staffName = absence.staff_name;
+  const classesField = (absence.classes || '').toLowerCase();
+  const areaField = (absence.area || '').toLowerCase();
+  let alertCount = 0;
+
+  for (const tt of timetables) {
+    let data;
+    try { data = JSON.parse(tt.data); } catch(e) { continue; }
+    if (!data || !data.headers || !data.rows) continue;
+
+    const headers = data.headers;
+    const rows = data.rows;
+
+    // The timetable headers are typically: [Time, Staff1, Staff2, ...]
+    // Each row is: [timeSlot, class1, class2, ...]
+    // We need to find rows where the absent teacher's class/area appears in a specialist column
+
+    // Determine which day rows to look at. If timetable has a day structure,
+    // rows may be grouped by day. Common formats:
+    // - Row[0] might contain the day name if it spans multiple days
+    // We look for rows relevant to today's day of the week.
+
+    let inCorrectDay = false;
+    let dayRowStarted = false;
+
+    for (let ri = 0; ri < rows.length; ri++) {
+      const row = rows[ri];
+      const firstCell = (Array.isArray(row) ? row[0] : (row[headers[0]] || '')).toString().trim().toLowerCase();
+
+      // Check if this row marks a day
+      if (['monday','tuesday','wednesday','thursday','friday'].includes(firstCell)) {
+        inCorrectDay = firstCell === dayName.toLowerCase();
+        dayRowStarted = true;
+        continue;
+      }
+
+      // If the timetable has no day markers, include all rows (single-day format)
+      if (!dayRowStarted) inCorrectDay = true;
+
+      if (!inCorrectDay) continue;
+
+      // Scan each specialist column (skip first column which is usually Time)
+      const rowValues = Array.isArray(row) ? row : headers.map(h => row[h] || '');
+      const timeSlot = String(rowValues[0] || '');
+
+      for (let ci = 1; ci < headers.length; ci++) {
+        const cellValue = String(rowValues[ci] || '').toLowerCase();
+        if (!cellValue || cellValue === '-' || cellValue === 'nft' || cellValue === 'planning') continue;
+
+        // Check if this cell references the absent teacher's class/area
+        // Match on: staff name, class name from the classes field, or area keywords
+        const staffFirst = staffName.toLowerCase().split(' ')[0];
+        const areaKey = areaField.replace(/[^a-z0-9]/g, '');
+
+        // Check if the timetable cell contains a class taught by the absent teacher
+        let isMatch = false;
+
+        // Match 1: Cell contains the absent teacher's name
+        if (cellValue.includes(staffFirst) && staffFirst.length > 2) isMatch = true;
+
+        // Match 2: If 'classes' field specifies classes, check each
+        if (classesField) {
+          const classParts = classesField.split(/[,;&]+/).map(c => c.trim()).filter(Boolean);
+          for (const cp of classParts) {
+            if (cp.length > 1 && cellValue.includes(cp)) { isMatch = true; break; }
+            // Also match shortened forms like "Prep G" matching "prep" or "1/2A" matching "1/2"
+            const shortClass = cp.replace(/\s+/g, '').toLowerCase();
+            if (shortClass.length > 1 && cellValue.replace(/\s+/g, '').includes(shortClass)) { isMatch = true; break; }
+          }
+        }
+
+        // Match 3: Area-based match (e.g. "Junior (P-2)" matches cells with "prep", "1/2", "p-2")
+        if (!isMatch && areaField) {
+          if (areaField.includes('junior') && (cellValue.includes('prep') || cellValue.includes('1/2') || cellValue.includes('p-2') || cellValue.match(/\b[12]\b/))) isMatch = true;
+          if (areaField.includes('middle') && (cellValue.includes('3/4') || cellValue.includes('3-4') || cellValue.match(/\b[34]\b/))) isMatch = true;
+          if (areaField.includes('senior') && (cellValue.includes('5/6') || cellValue.includes('5-6') || cellValue.match(/\b[56]\b/))) isMatch = true;
+        }
+
+        if (isMatch) {
+          const specialistName = headers[ci];
+          // Record the alert
+          try {
+            const existing = await dbGet(
+              'SELECT id FROM class_absence_alerts WHERE date = ? AND specialist_name = ? AND time_slot = ? AND absent_staff_id = ?',
+              date, specialistName, timeSlot, absence.staff_id
+            );
+            if (!existing) {
+              await dbRun(
+                'INSERT INTO class_absence_alerts (date, specialist_name, time_slot, class_name, absent_staff_id, absent_staff_name, absence_id, timetable_id) VALUES (?,?,?,?,?,?,?,?)',
+                [date, specialistName, timeSlot, cellValue, absence.staff_id, staffName, absence.id, tt.id]
+              );
+              alertCount++;
+            }
+          } catch(e) { console.log('Alert insert skipped:', e.message); }
+
+          // Send push notification to the specialist teacher (find by name match)
+          try {
+            const specUser = await dbGet(
+              "SELECT id FROM users WHERE LOWER(name) LIKE ? AND active = 1",
+              '%' + specialistName.toLowerCase().split(' ')[0] + '%'
+            );
+            if (specUser) {
+              await sendPushNotification(specUser.id, 'staff',
+                '⚠️ Class Cancelled',
+                `${staffName}'s class (${cellValue}) won't be in for ${specialistName} at ${timeSlot} on ${date}. ${staffName} is away — ${absence.reason}.`
+              );
+            }
+          } catch(e) { /* push is best-effort */ }
+        }
+      }
+    }
+  }
+
+  // Create a single in-app notification summarising the specialist alerts
+  if (alertCount > 0) {
+    await addNotification(
+      `⚠️ ${alertCount} specialist lesson${alertCount > 1 ? 's' : ''} affected — ${staffName} is absent on ${date}`,
+      'urgent', 'leader,staff', absence.id
+    );
+  }
+
+  return { alerts: alertCount };
+}
+
+// Get specialist alerts for a date (used by Daily Zap)
+app.get('/api/class-absence-alerts', auth, wrap(async (req, res) => {
+  const { date } = req.query;
+  if (!date) return res.status(400).json({ error: 'Date required' });
+  const alerts = await dbAll(
+    `SELECT ca.*, a.reason, a.half_day, a.status as absence_status
+     FROM class_absence_alerts ca
+     LEFT JOIN absences a ON ca.absence_id = a.id
+     WHERE ca.date = ? AND (a.status IS NULL OR a.status != 'cancelled')
+     ORDER BY ca.specialist_name, ca.time_slot`,
+    date
+  );
+  res.json(alerts);
+}));
+
+// Delete alerts (when an absence is cancelled)
+app.delete('/api/class-absence-alerts/by-absence/:absenceId', auth, leaderOnly, wrap(async (req, res) => {
+  await dbRun('DELETE FROM class_absence_alerts WHERE absence_id = ?', [parseInt(req.params.absenceId)]);
+  res.json({ ok: true });
+}));
 
 // ===== CALENDAR EVENTS =====
 app.get('/api/calendar-events', auth, wrap(async (req, res) => {
@@ -1484,6 +1661,21 @@ async function start() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`); } catch(e) {}
 
+  // v4.4 table - Specialist class absence alerts
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS class_absence_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    specialist_name TEXT NOT NULL,
+    time_slot TEXT NOT NULL,
+    class_name TEXT NOT NULL,
+    absent_staff_id INTEGER,
+    absent_staff_name TEXT,
+    absence_id INTEGER,
+    timetable_id INTEGER,
+    notified_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (absence_id) REFERENCES absences(id)
+  )`); } catch(e) {}
+
   // Generate VAPID keys if not stored
   try {
     const existingVapid = await dbGet("SELECT value FROM system_settings WHERE key = 'vapid_public_key'");
@@ -1513,7 +1705,7 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`\n  WPS Staff Hub v4.3`);
+    console.log(`\n  WPS Staff Hub v4.4`);
     console.log(`  http://localhost:${PORT}`);
     console.log(`  Database: ${USE_TURSO ? 'Turso (cloud)' : 'sql.js (local)'}`);
     console.log(`  Notifications: ${LIVE ? 'LIVE' : 'SIMULATED'}`);
