@@ -403,7 +403,7 @@
           // Extra notes
           if(z.extra_notes){h+='<div class="cd zap-section"><h4><span class="icon">📌</span> Additional Notes</h4><div class="zap-notes-text">'+this.esc(z.extra_notes)+'</div></div>'}
 
-          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:8px">WPS Staff Hub v4.0 — Daily Zap</div>';
+          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:8px">WPS Staff Hub v4.3 — Daily Zap</div>';
           body.innerHTML=h;
         }catch(e){body.innerHTML='<p class="text-dim" style="text-align:center;padding:20px">Unable to load zap: '+e.message+'</p>'}},
 
@@ -417,10 +417,14 @@
         el.classList.add('open');
         try{
           const tt=await this.fetchAPI('GET','/timetables/'+id);
-          if(!tt.data||!Array.isArray(tt.data)||tt.data.length===0){el.innerHTML='<p class="text-sm text-dim">No data</p>';return}
-          const headers=Object.keys(tt.data[0]);
+          let headers,rows;
+          if(tt.data&&tt.data.headers&&tt.data.rows){
+            headers=tt.data.headers;rows=tt.data.rows;
+          }else if(Array.isArray(tt.data)&&tt.data.length>0){
+            headers=Object.keys(tt.data[0]);rows=tt.data.map(r=>headers.map(k=>r[k]||''));
+          }else{el.innerHTML='<p class="text-sm text-dim">No data</p>';return}
           let h='<table><thead><tr>'+headers.map(h=>'<th>'+this.esc(h)+'</th>').join('')+'</tr></thead><tbody>';
-          tt.data.forEach(row=>{h+='<tr>'+headers.map(k=>'<td>'+this.esc(row[k]||'')+'</td>').join('')+'</tr>'});
+          rows.forEach(row=>{h+='<tr>'+(Array.isArray(row)?row:headers.map(k=>row[k]||'')).map(c=>'<td>'+this.esc(String(c))+'</td>').join('')+'</tr>'});
           h+='</tbody></table>';el.innerHTML=h;
         }catch(e){el.innerHTML='<p style="color:var(--acc)">Error loading timetable</p>'}},
 
@@ -980,7 +984,7 @@
         else h+='<p class="text-sm text-dim" style="padding:8px">Push notifications not supported on this browser.</p>';
         h+='</div><div class="divider"></div>';
 
-        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v4.2</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
+        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v4.3</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
         if(isL)h+='<button class="btn btn-o mb-1" onclick="app.resetDemo()" style="width:100%">🔄 Reset Demo Data</button>';
         h+='<button class="btn btn-d" onclick="app.logout()">🚪 Sign Out</button></div>';
         return h},
