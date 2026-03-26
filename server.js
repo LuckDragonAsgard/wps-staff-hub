@@ -1,4 +1,4 @@
-// WPS Staff Hub - Production Server (Turso + sql.js fallback)
+// WPS Staff Hub - Production Server v4.1 (Turso + sql.js fallback)
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcryptjs');
@@ -220,6 +220,44 @@ async function addNotification(message, type, forRoles, absenceId) {
   } catch (e) { /* push is best-effort */ }
 }
 
+// ===== HEALTH & VERSION =====
+app.get('/api/health', wrap(async (req, res) => {
+  try {
+    await dbGet('SELECT 1 as ok');
+    res.json({ status: 'ok', version: '4.1.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
+  } catch (e) {
+    res.status(503).json({ status: 'error', error: 'Database unreachable' });
+  }
+}));
+
+app.get('/api/version', (req, res) => {
+  res.json({ version: '4.1.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking'] });
+});
+
+// ===== STAFF PROFILE =====
+app.get('/api/staff/me', auth, wrap(async (req, res) => {
+  const user = await dbGet('SELECT id, name, email, phone, role, area FROM users WHERE id = ?', req.user.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  // Get absence stats for this user
+  const totalAbsences = await dbGet("SELECT COUNT(*) as c FROM absences WHERE staff_id = ? AND status != 'cancelled'", user.id);
+  const thisYear = new Date().getFullYear();
+  const yearAbsences = await dbGet("SELECT COUNT(*) as c FROM absences WHERE staff_id = ? AND status != 'cancelled' AND date_start >= ?", user.id, `${thisYear}-01-01`);
+  const pendingAbsences = await dbGet("SELECT COUNT(*) as c FROM absences WHERE staff_id = ? AND status IN ('pending','contacting') AND date_end >= date('now')", user.id);
+  res.json({ ...user, stats: { total: totalAbsences?.c || 0, thisYear: yearAbsences?.c || 0, pending: pendingAbsences?.c || 0 } });
+}));
+
+app.put('/api/staff/me', auth, wrap(async (req, res) => {
+  const { phone, email } = req.body;
+  const updates = [];
+  const params = [];
+  if (phone !== undefined) { updates.push('phone = ?'); params.push(phone); }
+  if (email !== undefined) { updates.push('email = ?'); params.push(email); }
+  if (updates.length === 0) return res.status(400).json({ error: 'Nothing to update' });
+  params.push(req.user.id);
+  await dbRun(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
+  res.json({ ok: true });
+}));
+
 // ===== AUTH ENDPOINTS =====
 app.post('/api/login', rateLimit, wrap(async (req, res) => {
   const { userId, pin } = req.body;
@@ -315,7 +353,10 @@ app.get('/api/absences/month/:year/:month', auth, wrap(async (req, res) => {
   const y = parseInt(req.params.year);
   const m = parseInt(req.params.month);
   const start = `${y}-${String(m).padStart(2, '0')}-01`;
-  const end = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+  // Handle December -> January rollover correctly
+  const nextMonth = m === 12 ? 1 : m + 1;
+  const nextYear = m === 12 ? y + 1 : y;
+  const end = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
   const absences = await dbAll(
     "SELECT a.*, c.name as crt_name FROM absences a LEFT JOIN crts c ON a.assigned_crt_id = c.id WHERE a.date_start < ? AND a.date_end >= ? AND a.status != 'cancelled' ORDER BY a.date_start",
     end, start
@@ -1384,7 +1425,7 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`\n  WPS Staff Hub v4.0`);
+    console.log(`\n  WPS Staff Hub v4.1`);
     console.log(`  http://localhost:${PORT}`);
     console.log(`  Database: ${USE_TURSO ? 'Turso (cloud)' : 'sql.js (local)'}`);
     console.log(`  Notifications: ${LIVE ? 'LIVE' : 'SIMULATED'}`);
