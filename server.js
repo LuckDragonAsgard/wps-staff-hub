@@ -12,7 +12,10 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'wps-dev-secret-change-me';
 const LIVE = process.env.NOTIFICATIONS_LIVE === 'true';
 const DEMO = process.env.DEMO_MODE !== 'false';
-const USE_TURSO = !!(process.env.TURSO_URL && process.env.TURSO_TOKEN);
+// Turso cloud database credentials (env vars override these defaults)
+const TURSO_URL = process.env.TURSO_URL || 'libsql://wps-staff-hub-paddygallivan.aws-us-east-1.turso.io';
+const TURSO_TOKEN = process.env.TURSO_TOKEN || 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzQ0ODQ2MTUsImlkIjoiMDE5ZDI3ODYtNTQwMS03MzM4LWFhZTQtOWI5NThkMjNjYjYyIiwicmlkIjoiYjZmYjczYWYtYmE2MC00YjhmLTkyZDMtZGY4YmI0YzQzNWEzIn0.HbLxuuJ-xkOGrfZ_thQvU3njT499Ng2-GXtz1pwuwUQVexVydvWFaGah5bt5i65VAFUI74b0p4U2Ix6gXiX5DQ';
+const USE_TURSO = !!(TURSO_URL && TURSO_TOKEN);
 
 // ===== DATABASE ABSTRACTION =====
 const DB_PATH = path.join(__dirname, 'wps-absence.db');
@@ -628,8 +631,8 @@ async function start() {
     // Use Turso cloud database
     const { createClient } = require('@libsql/client');
     _tursoDb = createClient({
-      url: process.env.TURSO_URL,
-      authToken: process.env.TURSO_TOKEN,
+      url: TURSO_URL,
+      authToken: TURSO_TOKEN,
     });
     console.log('Connected to Turso database');
 

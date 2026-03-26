@@ -12,22 +12,28 @@ async function setup() {
 
   if (TURSO_MODE) {
     // ===== TURSO CLOUD MODE =====
-    if (!process.env.TURSO_URL || !process.env.TURSO_TOKEN) {
-      console.error('Error: TURSO_URL and TURSO_TOKEN environment variables required for --turso mode');
+    const tursoUrl = process.env.TURSO_URL || 'libsql://wps-staff-hub-paddygallivan.aws-us-east-1.turso.io';
+    const tursoToken = process.env.TURSO_TOKEN || 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzQ0ODQ2MTUsImlkIjoiMDE5ZDI3ODYtNTQwMS03MzM4LWFhZTQtOWI5NThkMjNjYjYyIiwicmlkIjoiYjZmYjczYWYtYmE2MC00YjhmLTkyZDMtZGY4YmI0YzQzNWEzIn0.HbLxuuJ-xkOGrfZ_thQvU3njT499Ng2-GXtz1pwuwUQVexVydvWFaGah5bt5i65VAFUI74b0p4U2Ix6gXiX5DQ';
+    if (!tursoUrl || !tursoToken) {
+      console.error('Error: Turso credentials not available');
       process.exit(1);
     }
     const { createClient } = require('@libsql/client');
     const client = createClient({
-      url: process.env.TURSO_URL,
-      authToken: process.env.TURSO_TOKEN,
+      url: tursoUrl,
+      authToken: tursoToken,
     });
     console.log('Connected to Turso database');
 
-    // Clear existing data
+    // Clear existing data (disable foreign keys to avoid constraint issues)
+    await client.execute('PRAGMA foreign_keys = OFF');
     const tables = ['user_settings', 'email_log', 'sms_log', 'notifications', 'absences', 'crt_unavailable', 'crt_preferences', 'crts', 'users'];
     for (const t of tables) {
       try { await client.execute(`DELETE FROM ${t}`); } catch(e) { /* table may not exist yet */ }
+      // Reset autoincrement counters
+      try { await client.execute(`DELETE FROM sqlite_sequence WHERE name='${t}'`); } catch(e) { /* ok */ }
     }
+    await client.execute('PRAGMA foreign_keys = ON');
 
     db = {
       run: async (sql, params) => await client.execute({ sql, args: params || [] }),
