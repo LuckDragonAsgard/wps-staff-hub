@@ -385,6 +385,10 @@ app.post('/api/absences', auth, wrap(async (req, res) => {
       await addNotification(`${staffUser.name}'s absence awaiting manual CRT assignment`, 'urgent', 'leader', absenceId);
     }
   }
+
+  // Auto-cover yard duty for absent staff
+  try { await autoYardDutyCover(dateStart); } catch(e) { console.log('Yard duty auto-cover skipped:', e.message); }
+
   res.json({ absence, crt: crtResult });
 }));
 
@@ -707,7 +711,7 @@ app.get('/api/health', wrap(async (req, res) => {
   const todayAbs = await dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start <= ? AND date_end >= ? AND status != 'cancelled'", today, today);
   res.json({
     status: 'ok',
-    version: '3.0.0',
+    version: '4.0.0',
     demo: DEMO,
     live: LIVE,
     database: USE_TURSO ? 'turso' : 'local',
@@ -934,6 +938,275 @@ app.get('/api/crts/availability', auth, wrap(async (req, res) => {
   res.json({ crts, unavailable: unavail, bookings, month: mo, year: yr });
 }));
 
+// ===== DAILY ZAP =====
+// Get daily zap with auto-populated data
+app.get('/api/daily-zap/:date', auth, wrap(async (req, res) => {
+  const date = req.params.date;
+  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const d = new Date(date + 'T12:00:00');
+  const dayName = dayNames[d.getDay()];
+
+  // Manual zap content
+  let zap = await dbGet('SELECT * FROM daily_zaps WHERE date = ?', date);
+
+  // Auto-populated: today's absences with CRT assignments
+  const absences = await dbAll(
+    "SELECT a.*, c.name as crt_name FROM absences a LEFT JOIN crts c ON a.assigned_crt_id = c.id WHERE a.date_start <= ? AND a.date_end >= ? AND a.status != 'cancelled' ORDER BY a.staff_name",
+    date, date
+  );
+
+  // Yard duty: base roster for this day + any changes
+  const roster = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY time_slot, location', dayName);
+  const changes = await dbAll('SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY time_slot, location', date);
+
+  // Calendar events for this week and next
+  const weekStart = new Date(d);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 4);
+  const nextWeekEnd = new Date(weekEnd);
+  nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
+
+  const thisWeekEvents = await dbAll('SELECT * FROM calendar_events WHERE date >= ? AND date <= ? ORDER BY date, title',
+    weekStart.toISOString().split('T')[0], weekEnd.toISOString().split('T')[0]);
+  const nextWeekEvents = await dbAll('SELECT * FROM calendar_events WHERE date > ? AND date <= ? ORDER BY date, title',
+    weekEnd.toISOString().split('T')[0], nextWeekEnd.toISOString().split('T')[0]);
+
+  // Current timetables
+  const timetables = await dbAll('SELECT id, name, type, term FROM timetables WHERE is_current = 1 ORDER BY type, name');
+
+  res.json({
+    date, dayName, zap: zap || {},
+    absences, yardDuty: { roster, changes },
+    calendar: { thisWeek: thisWeekEvents, nextWeek: nextWeekEvents },
+    timetables
+  });
+}));
+
+// Create/update daily zap
+app.post('/api/daily-zap/:date', auth, leaderOnly, wrap(async (req, res) => {
+  const date = req.params.date;
+  const { weekly_quote, quote_author, daily_org, es_notes, nft_notes, extra_notes, movements } = req.body;
+  const existing = await dbGet('SELECT id FROM daily_zaps WHERE date = ?', date);
+  if (existing) {
+    await dbRun(`UPDATE daily_zaps SET weekly_quote=?, quote_author=?, daily_org=?, es_notes=?, nft_notes=?, extra_notes=?, movements=?, updated_by=?, updated_at=CURRENT_TIMESTAMP WHERE date=?`,
+      [weekly_quote||'', quote_author||'', daily_org||'', es_notes||'', nft_notes||'', extra_notes||'', movements||'', req.user.id, date]);
+  } else {
+    await dbRun(`INSERT INTO daily_zaps (date, weekly_quote, quote_author, daily_org, es_notes, nft_notes, extra_notes, movements, created_by) VALUES (?,?,?,?,?,?,?,?,?)`,
+      [date, weekly_quote||'', quote_author||'', daily_org||'', es_notes||'', nft_notes||'', extra_notes||'', movements||'', req.user.id]);
+  }
+  res.json({ ok: true });
+}));
+
+// ===== YARD DUTY =====
+// Get full roster
+app.get('/api/yard-duty/roster', auth, wrap(async (req, res) => {
+  const { term } = req.query;
+  let sql = 'SELECT * FROM yard_duty_roster';
+  const params = [];
+  if (term) { sql += ' WHERE term = ?'; params.push(parseInt(term)); }
+  sql += ' ORDER BY CASE day_of_week WHEN "Monday" THEN 1 WHEN "Tuesday" THEN 2 WHEN "Wednesday" THEN 3 WHEN "Thursday" THEN 4 WHEN "Friday" THEN 5 END, time_slot, location';
+  res.json(await dbAll(sql, ...params));
+}));
+
+// Bulk set roster (replace all for a term)
+app.post('/api/yard-duty/roster', auth, leaderOnly, wrap(async (req, res) => {
+  const { term, roster } = req.body;
+  if (!Array.isArray(roster)) return res.status(400).json({ error: 'roster must be array' });
+  await dbRun('DELETE FROM yard_duty_roster WHERE term = ?', [term || 1]);
+  for (const r of roster) {
+    await dbRun('INSERT INTO yard_duty_roster (day_of_week, time_slot, location, staff_name, is_leadership, term) VALUES (?,?,?,?,?,?)',
+      [r.day, r.slot, r.location, r.staff, r.isLeadership ? 1 : 0, term || 1]);
+  }
+  res.json({ ok: true, count: roster.length });
+}));
+
+// Add single roster entry
+app.post('/api/yard-duty/roster/add', auth, leaderOnly, wrap(async (req, res) => {
+  const { day, slot, location, staff, isLeadership, term } = req.body;
+  await dbRun('INSERT INTO yard_duty_roster (day_of_week, time_slot, location, staff_name, is_leadership, term) VALUES (?,?,?,?,?,?)',
+    [day, slot, location, staff, isLeadership ? 1 : 0, term || 1]);
+  res.json({ ok: true, id: await dbLastId() });
+}));
+
+// Delete roster entry
+app.delete('/api/yard-duty/roster/:id', auth, leaderOnly, wrap(async (req, res) => {
+  await dbRun('DELETE FROM yard_duty_roster WHERE id = ?', [parseInt(req.params.id)]);
+  res.json({ ok: true });
+}));
+
+// Get today's yard duty (with auto-changes applied)
+app.get('/api/yard-duty/today', auth, wrap(async (req, res) => {
+  const date = req.query.date || new Date().toISOString().split('T')[0];
+  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const d = new Date(date + 'T12:00:00');
+  const dayName = dayNames[d.getDay()];
+
+  const roster = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY time_slot, location', dayName);
+  const changes = await dbAll('SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY time_slot, location', date);
+
+  // Check which rostered staff are absent today
+  const absences = await dbAll(
+    "SELECT staff_name FROM absences WHERE date_start <= ? AND date_end >= ? AND status != 'cancelled'", date, date);
+  const absentNames = absences.map(a => a.staff_name.toLowerCase());
+
+  // Build combined view
+  const combined = roster.map(r => {
+    const isAway = absentNames.some(n => r.staff_name.toLowerCase().includes(n) || n.includes(r.staff_name.toLowerCase().split(' ')[0]));
+    const change = changes.find(c => c.time_slot === r.time_slot && c.location === r.location);
+    return { ...r, isAway, change: change || null };
+  });
+
+  res.json({ date, dayName, duties: combined, changes });
+}));
+
+// Manual yard duty change/override
+app.post('/api/yard-duty/change', auth, leaderOnly, wrap(async (req, res) => {
+  const { date, time_slot, location, original_staff, replacement, replacement_type } = req.body;
+  // Upsert
+  const existing = await dbGet('SELECT id FROM yard_duty_changes WHERE date=? AND time_slot=? AND location=?', date, time_slot, location);
+  if (existing) {
+    await dbRun('UPDATE yard_duty_changes SET replacement=?, replacement_type=?, auto_assigned=0, overridden_by=? WHERE id=?',
+      [replacement, replacement_type || 'manual', req.user.id, existing.id]);
+  } else {
+    await dbRun('INSERT INTO yard_duty_changes (date, time_slot, location, original_staff, replacement, replacement_type, auto_assigned, overridden_by) VALUES (?,?,?,?,?,?,0,?)',
+      [date, time_slot, location, original_staff, replacement, replacement_type || 'manual', req.user.id]);
+  }
+  res.json({ ok: true });
+}));
+
+// Auto-assign CRT to yard duty when staff is absent
+app.post('/api/yard-duty/auto-cover', auth, wrap(async (req, res) => {
+  const { date } = req.body;
+  const targetDate = date || new Date().toISOString().split('T')[0];
+  const result = await autoYardDutyCover(targetDate);
+  res.json(result);
+}));
+
+async function autoYardDutyCover(date) {
+  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const d = new Date(date + 'T12:00:00');
+  const dayName = dayNames[d.getDay()];
+
+  // Get today's absent staff
+  const absences = await dbAll(
+    "SELECT a.staff_name, c.name as crt_name, a.assigned_crt_id FROM absences a LEFT JOIN crts c ON a.assigned_crt_id = c.id WHERE a.date_start <= ? AND a.date_end >= ? AND a.status != 'cancelled'",
+    date, date);
+  const absentNames = absences.map(a => a.staff_name);
+
+  // Get roster for today
+  const roster = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ?', dayName);
+
+  // Find duties that need cover
+  const needsCover = roster.filter(r => absentNames.some(n => r.staff_name.toLowerCase().includes(n.toLowerCase().split(' ')[0])));
+
+  // Get existing changes (don't override manual ones)
+  const existingChanges = await dbAll('SELECT * FROM yard_duty_changes WHERE date = ? AND auto_assigned = 0', date);
+
+  // Get available CRTs (booked for today)
+  const bookedCrts = await dbAll(
+    "SELECT DISTINCT c.name FROM absences a JOIN crts c ON a.assigned_crt_id = c.id WHERE a.date_start <= ? AND a.date_end >= ? AND a.status IN ('booked','contacting')",
+    date, date);
+  const crtNames = bookedCrts.map(c => c.name);
+
+  let assigned = 0;
+  for (const duty of needsCover) {
+    // Skip if already manually overridden
+    if (existingChanges.find(c => c.time_slot === duty.time_slot && c.location === duty.location)) continue;
+
+    // Find which CRT is covering this person
+    const absence = absences.find(a => duty.staff_name.toLowerCase().includes(a.staff_name.toLowerCase().split(' ')[0]));
+    const crtName = absence && absence.crt_name ? absence.crt_name : (crtNames.length > 0 ? crtNames[0] : null);
+
+    if (crtName) {
+      const existing = await dbGet('SELECT id FROM yard_duty_changes WHERE date=? AND time_slot=? AND location=?', date, duty.time_slot, duty.location);
+      if (existing) {
+        await dbRun('UPDATE yard_duty_changes SET replacement=?, replacement_type=?, auto_assigned=1 WHERE id=?',
+          [crtName, 'crt', existing.id]);
+      } else {
+        await dbRun('INSERT INTO yard_duty_changes (date, time_slot, location, original_staff, replacement, replacement_type, auto_assigned) VALUES (?,?,?,?,?,?,1)',
+          [date, duty.time_slot, duty.location, duty.staff_name, crtName, 'crt']);
+      }
+      assigned++;
+    }
+  }
+  return { assigned, needsCover: needsCover.length };
+}
+
+// ===== CALENDAR EVENTS =====
+app.get('/api/calendar-events', auth, wrap(async (req, res) => {
+  const { from, to, term } = req.query;
+  let sql = 'SELECT * FROM calendar_events WHERE 1=1';
+  const params = [];
+  if (from) { sql += ' AND date >= ?'; params.push(from); }
+  if (to) { sql += ' AND date <= ?'; params.push(to); }
+  if (term) { sql += ' AND term = ?'; params.push(parseInt(term)); }
+  sql += ' ORDER BY date, title';
+  res.json(await dbAll(sql, ...params));
+}));
+
+app.post('/api/calendar-events', auth, leaderOnly, wrap(async (req, res) => {
+  const { date, title, category, term, week_num } = req.body;
+  if (!date || !title) return res.status(400).json({ error: 'Date and title required' });
+  await dbRun('INSERT INTO calendar_events (date, title, category, term, week_num, created_by) VALUES (?,?,?,?,?,?)',
+    [date, title, category || 'general', term || 1, week_num || null, req.user.id]);
+  res.json({ ok: true, id: await dbLastId() });
+}));
+
+app.delete('/api/calendar-events/:id', auth, leaderOnly, wrap(async (req, res) => {
+  await dbRun('DELETE FROM calendar_events WHERE id = ?', [parseInt(req.params.id)]);
+  res.json({ ok: true });
+}));
+
+// Bulk import calendar events
+app.post('/api/calendar-events/bulk', auth, leaderOnly, wrap(async (req, res) => {
+  const { events } = req.body;
+  if (!Array.isArray(events)) return res.status(400).json({ error: 'events must be array' });
+  let count = 0;
+  for (const e of events) {
+    if (!e.date || !e.title) continue;
+    await dbRun('INSERT INTO calendar_events (date, title, category, term, week_num, created_by) VALUES (?,?,?,?,?,?)',
+      [e.date, e.title, e.category || 'general', e.term || 1, e.week_num || null, req.user.id]);
+    count++;
+  }
+  res.json({ ok: true, count });
+}));
+
+// ===== TIMETABLES =====
+app.get('/api/timetables', auth, wrap(async (req, res) => {
+  const { type, current } = req.query;
+  let sql = 'SELECT id, name, type, term, is_current, created_at FROM timetables WHERE 1=1';
+  const params = [];
+  if (type) { sql += ' AND type = ?'; params.push(type); }
+  if (current === '1') { sql += ' AND is_current = 1'; }
+  sql += ' ORDER BY type, name';
+  res.json(await dbAll(sql, ...params));
+}));
+
+app.get('/api/timetables/:id', auth, wrap(async (req, res) => {
+  const tt = await dbGet('SELECT * FROM timetables WHERE id = ?', parseInt(req.params.id));
+  if (!tt) return res.status(404).json({ error: 'Not found' });
+  try { tt.data = JSON.parse(tt.data); } catch(e) { tt.data = []; }
+  res.json(tt);
+}));
+
+app.post('/api/timetables', auth, leaderOnly, wrap(async (req, res) => {
+  const { name, type, term, data, is_current } = req.body;
+  if (!name || !data) return res.status(400).json({ error: 'Name and data required' });
+  // If setting as current, unset others of same type
+  if (is_current) {
+    await dbRun('UPDATE timetables SET is_current = 0 WHERE type = ?', [type || 'general']);
+  }
+  await dbRun('INSERT INTO timetables (name, type, term, data, is_current, uploaded_by) VALUES (?,?,?,?,?,?)',
+    [name, type || 'general', term || 1, typeof data === 'string' ? data : JSON.stringify(data), is_current ? 1 : 0, req.user.id]);
+  res.json({ ok: true, id: await dbLastId() });
+}));
+
+app.delete('/api/timetables/:id', auth, leaderOnly, wrap(async (req, res) => {
+  await dbRun('DELETE FROM timetables WHERE id = ?', [parseInt(req.params.id)]);
+  res.json({ ok: true });
+}));
+
 // ===== SERVE FRONTEND =====
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -1021,6 +1294,67 @@ async function start() {
   try { await dbRun("ALTER TABLE absences ADD COLUMN is_prebooked INTEGER DEFAULT 0"); } catch(e) {}
   try { await dbRun("ALTER TABLE absences ADD COLUMN recurrence TEXT DEFAULT 'none'"); } catch(e) {}
 
+  // v4.0 tables - Daily Zap
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS daily_zaps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL UNIQUE,
+    weekly_quote TEXT DEFAULT '',
+    quote_author TEXT DEFAULT '',
+    daily_org TEXT DEFAULT '',
+    es_notes TEXT DEFAULT '',
+    nft_notes TEXT DEFAULT '',
+    extra_notes TEXT DEFAULT '',
+    movements TEXT DEFAULT '',
+    created_by INTEGER,
+    updated_by INTEGER,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`); } catch(e) {}
+
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS yard_duty_roster (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    day_of_week TEXT NOT NULL,
+    time_slot TEXT NOT NULL,
+    location TEXT NOT NULL,
+    staff_name TEXT NOT NULL,
+    is_leadership INTEGER DEFAULT 0,
+    term INTEGER DEFAULT 1
+  )`); } catch(e) {}
+
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS yard_duty_changes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    time_slot TEXT NOT NULL,
+    location TEXT NOT NULL,
+    original_staff TEXT,
+    replacement TEXT,
+    replacement_type TEXT DEFAULT 'crt',
+    auto_assigned INTEGER DEFAULT 0,
+    overridden_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`); } catch(e) {}
+
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS calendar_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    title TEXT NOT NULL,
+    category TEXT DEFAULT 'general',
+    term INTEGER DEFAULT 1,
+    week_num INTEGER,
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`); } catch(e) {}
+
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS timetables (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT DEFAULT 'general',
+    term INTEGER DEFAULT 1,
+    data TEXT NOT NULL,
+    is_current INTEGER DEFAULT 0,
+    uploaded_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`); } catch(e) {}
+
   // Generate VAPID keys if not stored
   try {
     const existingVapid = await dbGet("SELECT value FROM system_settings WHERE key = 'vapid_public_key'");
@@ -1050,7 +1384,7 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`\n  WPS Staff Hub v3.0`);
+    console.log(`\n  WPS Staff Hub v4.0`);
     console.log(`  http://localhost:${PORT}`);
     console.log(`  Database: ${USE_TURSO ? 'Turso (cloud)' : 'sql.js (local)'}`);
     console.log(`  Notifications: ${LIVE ? 'LIVE' : 'SIMULATED'}`);

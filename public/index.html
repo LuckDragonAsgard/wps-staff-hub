@@ -169,6 +169,48 @@
     .divider{height:1px;background:var(--bdr);margin:16px 0}
     .link{color:var(--blue);text-decoration:none;cursor:pointer;font-weight:600;font-size:.82rem}.link:hover{text-decoration:underline}
     @media(max-width:400px){.wrap{padding:10px 8px 85px}.cd{padding:14px}.st .n{font-size:1.3rem}}
+
+    .zap-header{text-align:center;padding:18px 12px 10px;margin-bottom:0}
+    .zap-header h2{font-size:1.1rem;color:var(--navy);margin-bottom:2px}
+    .zap-header .zap-date{font-size:.82rem;color:var(--dim)}
+    .zap-quote{background:linear-gradient(135deg,#f8f9ff,#eef1ff);border-left:4px solid var(--gold);padding:14px 16px;border-radius:0 var(--r) var(--r) 0;margin-bottom:14px;font-style:italic;color:var(--navy);font-size:.88rem;line-height:1.5}
+    .zap-quote .qa{text-align:right;font-style:normal;font-size:.76rem;color:var(--dim);margin-top:6px}
+    .zap-section{margin-bottom:14px}
+    .zap-section h4{font-size:.82rem;font-weight:700;color:var(--navy);margin-bottom:8px;display:flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:.5px}
+    .zap-section h4 .icon{font-size:1rem}
+    .zap-absence-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--bdr);border-radius:10px;margin-bottom:6px;font-size:.84rem;background:#fff;transition:all .15s}
+    .zap-absence-row:hover{border-color:var(--pl);background:#f8fbff}
+    .zap-absence-row .staff{font-weight:600;color:var(--navy)}
+    .zap-absence-row .reason{color:var(--dim);font-size:.78rem}
+    .zap-absence-row .cover{font-size:.78rem;font-weight:600;padding:3px 10px;border-radius:12px}
+    .zap-absence-row .cover.booked{background:#d4edda;color:#155724}
+    .zap-absence-row .cover.pending{background:#fef3cd;color:#856404}
+    .zap-absence-row .cover.nocrt{background:#f8d7da;color:#721c24}
+    .zap-duty-grid{display:grid;gap:6px}
+    .zap-duty-slot{background:#fff;border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;font-size:.82rem}
+    .zap-duty-slot .slot-label{font-weight:700;font-size:.76rem;color:var(--dim);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px}
+    .zap-duty-slot .duty-item{display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0}
+    .zap-duty-slot .duty-item:last-child{border-bottom:none}
+    .zap-duty-slot .away{text-decoration:line-through;color:var(--acc);opacity:.7}
+    .zap-duty-slot .replacement{color:var(--ok);font-weight:600;font-size:.78rem}
+    .zap-event{padding:8px 12px;border-left:3px solid var(--blue);background:#f8fbff;border-radius:0 8px 8px 0;margin-bottom:6px;font-size:.82rem}
+    .zap-event .ev-date{font-weight:600;color:var(--navy);font-size:.76rem}
+    .zap-event.today{border-left-color:var(--gold);background:#fffef0}
+    .zap-tt-btn{width:100%;text-align:left;padding:12px 16px;border:1px solid var(--bdr);border-radius:10px;background:#fff;cursor:pointer;font-family:inherit;font-size:.84rem;font-weight:600;color:var(--navy);display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;transition:all .15s}
+    .zap-tt-btn:hover{border-color:var(--pl);background:#f8fbff}
+    .zap-tt-content{display:none;overflow-x:auto;margin-bottom:10px}
+    .zap-tt-content.open{display:block}
+    .zap-tt-content table{width:100%;border-collapse:collapse;font-size:.72rem;min-width:500px}
+    .zap-tt-content th{background:var(--navy);color:#fff;padding:6px 8px;text-align:left;font-weight:600;white-space:nowrap;position:sticky;top:0}
+    .zap-tt-content td{padding:5px 8px;border-bottom:1px solid #eee;white-space:nowrap}
+    .zap-tt-content tr:nth-child(even){background:#f8f9fc}
+    .zap-editor textarea{min-height:80px}
+    .zap-editor .fg{margin-bottom:10px}
+    .zap-notes-text{font-size:.84rem;line-height:1.6;white-space:pre-line;color:var(--txt)}
+    .yd-manage-grid{width:100%;border-collapse:collapse;font-size:.78rem}
+    .yd-manage-grid th{background:var(--navy);color:#fff;padding:6px 8px;text-align:left;font-size:.72rem}
+    .yd-manage-grid td{padding:6px 8px;border-bottom:1px solid #eee}
+    .yd-manage-grid tr:nth-child(even){background:#f8f9fc}
   </style>
 </head>
 <body>
@@ -192,11 +234,11 @@
   <div class="wrap" id="content"></div>
 
   <nav class="bnav" id="bottomNav" style="display:none">
-    <button id="navDashboard" class="act" onclick="app.showView('dashboard')">
-      <div class="bi">📊</div><div>Dashboard</div>
+    <button id="navZap" class="act" onclick="app.showView('zap')">
+      <div class="bi">📰</div><div>Zap</div>
     </button>
-    <button id="navAbsences" onclick="app.showView('absences')">
-      <div class="bi">📋</div><div>Cover</div>
+    <button id="navDashboard" onclick="app.showView('dashboard')">
+      <div class="bi">📊</div><div>Dashboard</div>
     </button>
     <button id="navNew" onclick="app.showView('new')">
       <div class="bi">➕</div><div>New</div>
@@ -212,7 +254,7 @@
 
   <script>
     const API='/api';
-    let state={token:null,user:null,currentView:'dashboard',allUsers:[],allCRTs:[],absences:[],notifications:[],stats:{},userSettings:null,systemSettings:{},lastPollTime:new Date().toISOString(),_currentPrefArea:null,_currentPrefs:[],smsLogs:[],emailLogs:[],absenceFilter:'all',_logTab:'sms',pushSupported:false,pushSubscribed:false,reportData:null,reportFilters:{from:'',to:'',area:'',status:'all'}};
+    let state={token:null,user:null,currentView:'zap',allUsers:[],allCRTs:[],absences:[],notifications:[],stats:{},userSettings:null,systemSettings:{},lastPollTime:new Date().toISOString(),_currentPrefArea:null,_currentPrefs:[],smsLogs:[],emailLogs:[],absenceFilter:'all',_logTab:'sms',pushSupported:false,pushSubscribed:false,reportData:null,reportFilters:{from:'',to:'',area:'',status:'all'},zapData:null,zapDate:new Date().toISOString().split('T')[0]};
 
     function toast(msg,type='info',dur=4000){const c=document.getElementById('toasts');const icons={success:'✓',error:'✕',info:'ℹ'};const el=document.createElement('div');el.className='toast '+type;el.innerHTML='<span>'+(icons[type]||'ℹ')+'</span> '+msg;el.onclick=()=>{el.classList.add('hiding');setTimeout(()=>el.remove(),300)};c.appendChild(el);setTimeout(()=>{el.classList.add('hiding');setTimeout(()=>el.remove(),300)},dur)}
 
@@ -220,7 +262,7 @@
       async init(){
         const token=localStorage.getItem('wps_token');
         if(token){state.token=token;try{state.user=JSON.parse(localStorage.getItem('wps_user'))}catch(e){}
-          if(state.user){this.showApp();await this.loadInitialData();this.startPolling();this.checkPushStatus();this.showView('dashboard');return}}
+          if(state.user){this.showApp();await this.loadInitialData();this.startPolling();this.checkPushStatus();this.showView('zap');return}}
         this.showLoginView()},
 
       showApp(){document.getElementById('topNav').style.display='flex';document.getElementById('bottomNav').style.display='flex'},
@@ -267,13 +309,285 @@
         const content=document.getElementById('content');if(!state.user){content.innerHTML='';return}
         document.getElementById('userDisplay').textContent=state.user.name;
         document.getElementById('roleBadge').textContent=state.user.role;
-        const views={dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs(),directory:()=>this.renderDirectory(),reports:()=>this.renderReports(),prebook:()=>this.renderPrebook(),crtcalendar:()=>this.renderCRTCalendar()};
-        content.innerHTML=(views[state.currentView]||views.dashboard)();
+        const views={zap:()=>this.renderZap(),dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs(),directory:()=>this.renderDirectory(),reports:()=>this.renderReports(),prebook:()=>this.renderPrebook(),crtcalendar:()=>this.renderCRTCalendar(),zapedit:()=>this.renderZapEditor(),yardduty:()=>this.renderYardDutyManager(),calendarmanage:()=>this.renderCalendarManager(),timetablemanage:()=>this.renderTimetableManager()};
+        content.innerHTML=(views[state.currentView]||views.zap)();
         if(state.currentView==='settings'){if(state.user.role==='leader'||state.user.role==='admin')this.populateAreaDropdown();if(state.user.role==='crt')this.loadUnavailDates()}
         if(state.currentView==='new')this.setupAbsenceForm();
         if(state.currentView==='prebook')this.setupPrebookForm();
         if(state.currentView==='crtcalendar')this.loadCRTCalendar();
-        if(state.currentView==='reports')this.loadReportSummary()},
+        if(state.currentView==='reports')this.loadReportSummary();
+        if(state.currentView==='zap')this.loadZap();
+        if(state.currentView==='zapedit')this.loadZapForEdit();
+        if(state.currentView==='yardduty')this.loadYardDutyRoster();
+        if(state.currentView==='calendarmanage')this.loadCalendarEvents();
+        if(state.currentView==='timetablemanage')this.loadTimetableList()},
+
+      // ===== DAILY ZAP =====
+      renderZap(){
+        const isLeader = state.user.role==='leader'||state.user.role==='admin';
+        return '<div class="zap-header"><h2>📰 Daily Zap</h2><div class="zap-date" id="zapDateDisplay">Loading...</div>'+(isLeader?'<div style="margin-top:8px;display:flex;gap:6px;justify-content:center"><button class="btn btn-p btn-s" onclick="app.showView(\'zapedit\')">✏️ Edit Zap</button><button class="btn btn-o btn-s" onclick="app.showView(\'yardduty\')">🏃 Yard Duty</button><button class="btn btn-o btn-s" onclick="app.showView(\'calendarmanage\')">📅 Calendar</button></div>':'')+'</div><div id="zapBody"><div class="loading">Loading today\'s zap...</div></div>'},
+
+      async loadZap(){
+        const body=document.getElementById('zapBody');if(!body)return;
+        try{
+          const data=await this.fetchAPI('GET','/daily-zap/'+state.zapDate);
+          state.zapData=data;
+          const dd=document.getElementById('zapDateDisplay');
+          if(dd)dd.textContent=data.dayName+', '+this.formatDate(data.date);
+          let h='';
+
+          // Date nav
+          h+='<div style="display:flex;justify-content:center;gap:12px;margin-bottom:14px"><button class="btn btn-g btn-s" onclick="app.zapNav(-1)">← Prev</button><button class="btn btn-g btn-s" onclick="state.zapDate=new Date().toISOString().split(\'T\')[0];app.loadZap()">Today</button><button class="btn btn-g btn-s" onclick="app.zapNav(1)">Next →</button></div>';
+
+          // Quote
+          const z=data.zap||{};
+          if(z.weekly_quote){h+='<div class="zap-quote">"'+this.esc(z.weekly_quote)+'"<div class="qa">— '+(z.quote_author?this.esc(z.quote_author):'Unknown')+'</div></div>'}
+
+          // Daily Organisation
+          if(z.daily_org){h+='<div class="cd zap-section"><h4><span class="icon">📋</span> Daily Organisation</h4><div class="zap-notes-text">'+this.esc(z.daily_org)+'</div></div>'}
+
+          // Staff Absences & Movements (AUTO)
+          h+='<div class="cd zap-section"><h4><span class="icon">🚶</span> Staff Absences & Movements</h4>';
+          if(z.movements){h+='<div class="zap-notes-text mb-1" style="font-size:.82rem;color:var(--dim)">'+this.esc(z.movements)+'</div>'}
+          if(data.absences.length>0){
+            data.absences.forEach(a=>{
+              const coverClass=a.status==='booked'?'booked':(a.status==='contacting'?'pending':'nocrt');
+              const coverText=a.status==='booked'?(a.crt_name||'CRT booked'):(a.status==='contacting'?'Contacting '+(a.crt_name||'...'):'No cover');
+              h+='<div class="zap-absence-row" onclick="app.showAbsenceDetail('+a.id+')"><div><div class="staff">'+this.esc(a.staff_name)+'</div><div class="reason">'+this.esc(a.reason||'')+(a.half_day&&a.half_day!=='full'?' ('+a.half_day.toUpperCase()+')':'')+'</div></div><div class="cover '+coverClass+'">'+coverText+'</div></div>'});
+          }else{h+='<div style="text-align:center;padding:12px;color:var(--ok);font-size:.88rem;font-weight:600">✓ All staff in today</div>'}
+          h+='</div>';
+
+          // ES Team Notes
+          if(z.es_notes){h+='<div class="cd zap-section"><h4><span class="icon">👷</span> ES Team</h4><div class="zap-notes-text">'+this.esc(z.es_notes)+'</div></div>'}
+
+          // Yard Duty Changes
+          const yd=data.yardDuty;
+          if(yd.roster.length>0){
+            h+='<div class="cd zap-section"><h4><span class="icon">🏃</span> Yard Duty</h4>';
+            const absentNames=data.absences.map(a=>a.staff_name.toLowerCase());
+            const slots={};
+            yd.roster.forEach(r=>{if(!slots[r.time_slot])slots[r.time_slot]=[];slots[r.time_slot].push(r)});
+            const slotLabels={'before_school':'Before School (8:45-9:00)','recess':'Recess (11:10-11:30)','lunch_eating':'Lunch Eating (1:30-1:40)','lunch_1':'Lunch 1 (1:40-2:10)','lunch_2':'Lunch 2 (2:10-2:30)','after_school':'After School (3:30-3:45)'};
+            h+='<div class="zap-duty-grid">';
+            Object.entries(slots).forEach(([slot,duties])=>{
+              h+='<div class="zap-duty-slot"><div class="slot-label">'+(slotLabels[slot]||slot)+'</div>';
+              duties.forEach(d=>{
+                const isAway=absentNames.some(n=>d.staff_name.toLowerCase().includes(n.split(' ')[0]));
+                const change=yd.changes.find(c=>c.time_slot===d.time_slot&&c.location===d.location);
+                h+='<div class="duty-item"><div><span style="font-weight:600;font-size:.78rem">'+this.esc(d.location)+'</span> — '+(isAway?'<span class="away">'+this.esc(d.staff_name)+'</span>':'<span>'+this.esc(d.staff_name)+'</span>')+'</div>';
+                if(change){h+='<span class="replacement">→ '+this.esc(change.replacement)+'</span>'}
+                else if(isAway){h+='<span style="color:var(--acc);font-size:.76rem;font-weight:600">⚠ Needs cover</span>'}
+                h+='</div>'});
+              h+='</div>'});
+            h+='</div></div>'}
+
+          // NFT Notes
+          if(z.nft_notes){h+='<div class="cd zap-section"><h4><span class="icon">📝</span> NFT</h4><div class="zap-notes-text">'+this.esc(z.nft_notes)+'</div></div>'}
+
+          // Calendar
+          if(data.calendar.thisWeek.length>0||data.calendar.nextWeek.length>0){
+            h+='<div class="cd zap-section"><h4><span class="icon">📅</span> Calendar Reminders</h4>';
+            if(data.calendar.thisWeek.length>0){h+='<div class="mb-1" style="font-size:.76rem;font-weight:700;color:var(--dim);text-transform:uppercase">This Week</div>';
+              data.calendar.thisWeek.forEach(e=>{const isToday=e.date===state.zapDate;h+='<div class="zap-event'+(isToday?' today':'')+'"><span class="ev-date">'+this.formatDate(e.date)+(isToday?' — TODAY':'')+'</span> '+this.esc(e.title)+'</div>'})}
+            if(data.calendar.nextWeek.length>0){h+='<div class="mb-1 mt-1" style="font-size:.76rem;font-weight:700;color:var(--dim);text-transform:uppercase">Next Week</div>';
+              data.calendar.nextWeek.forEach(e=>{h+='<div class="zap-event"><span class="ev-date">'+this.formatDate(e.date)+'</span> '+this.esc(e.title)+'</div>'})}
+            h+='</div>'}
+
+          // Timetables
+          if(data.timetables.length>0){
+            h+='<div class="cd zap-section"><h4><span class="icon">📊</span> Timetables</h4>';
+            data.timetables.forEach(tt=>{
+              h+='<button class="zap-tt-btn" onclick="app.toggleTimetable('+tt.id+')"><span>'+this.esc(tt.name)+'</span><span style="font-size:.75rem;color:var(--dim)">▼</span></button><div class="zap-tt-content" id="tt-'+tt.id+'"><div class="loading">Loading...</div></div>'});
+            h+='</div>'}
+
+          // Extra notes
+          if(z.extra_notes){h+='<div class="cd zap-section"><h4><span class="icon">📌</span> Additional Notes</h4><div class="zap-notes-text">'+this.esc(z.extra_notes)+'</div></div>'}
+
+          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:8px">WPS Staff Hub v4.0 — Daily Zap</div>';
+          body.innerHTML=h;
+        }catch(e){body.innerHTML='<p class="text-dim" style="text-align:center;padding:20px">Unable to load zap: '+e.message+'</p>'}},
+
+      zapNav(dir){const d=new Date(state.zapDate+'T12:00:00');d.setDate(d.getDate()+dir);state.zapDate=d.toISOString().split('T')[0];this.loadZap()},
+
+      esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')},
+
+      async toggleTimetable(id){
+        const el=document.getElementById('tt-'+id);if(!el)return;
+        if(el.classList.contains('open')){el.classList.remove('open');return}
+        el.classList.add('open');
+        try{
+          const tt=await this.fetchAPI('GET','/timetables/'+id);
+          if(!tt.data||!Array.isArray(tt.data)||tt.data.length===0){el.innerHTML='<p class="text-sm text-dim">No data</p>';return}
+          const headers=Object.keys(tt.data[0]);
+          let h='<table><thead><tr>'+headers.map(h=>'<th>'+this.esc(h)+'</th>').join('')+'</tr></thead><tbody>';
+          tt.data.forEach(row=>{h+='<tr>'+headers.map(k=>'<td>'+this.esc(row[k]||'')+'</td>').join('')+'</tr>'});
+          h+='</tbody></table>';el.innerHTML=h;
+        }catch(e){el.innerHTML='<p style="color:var(--acc)">Error loading timetable</p>'}},
+
+      // ===== ZAP EDITOR (Leaders) =====
+      renderZapEditor(){
+        return '<div class="cd"><h3>✏️ Edit Daily Zap</h3><div class="fg"><label>Date</label><input type="date" id="zapEditDate" value="'+state.zapDate+'" onchange="state.zapDate=this.value;app.loadZapForEdit()"></div><div id="zapEditForm"><div class="loading">Loading...</div></div></div><button class="btn btn-g" onclick="app.showView(\'zap\')">← Back to Zap</button>'},
+
+      async loadZapForEdit(){
+        const form=document.getElementById('zapEditForm');if(!form)return;
+        try{
+          const data=await this.fetchAPI('GET','/daily-zap/'+state.zapDate);
+          const z=data.zap||{};
+          form.innerHTML='<div class="zap-editor">'+
+            '<div class="fg"><label>Weekly Quote</label><input type="text" id="zeQuote" value="'+this.esc(z.weekly_quote||'')+'" placeholder="Enter a weekly quote..."></div>'+
+            '<div class="fg"><label>Quote Author</label><input type="text" id="zeAuthor" value="'+this.esc(z.quote_author||'')+'" placeholder="Unknown"></div>'+
+            '<div class="fg"><label>Daily Organisation</label><textarea id="zeOrg" placeholder="Willy Kids are Reflective Learners\nYr 2 Local Walk\nPrep & PE Planning Day...">'+this.esc(z.daily_org||'')+'</textarea></div>'+
+            '<div class="fg"><label>Staff Movements (extra notes)</label><textarea id="zeMovements" placeholder="Puhie and Bec in the office.\nMat - GRIP Conference...">'+this.esc(z.movements||'')+'</textarea></div>'+
+            '<div class="fg"><label>ES Team Notes</label><textarea id="zeES" placeholder="Year 2 Local Walk - Michelle to accompany Noah L\nKelly - Zain Lunch 1...">'+this.esc(z.es_notes||'')+'</textarea></div>'+
+            '<div class="fg"><label>NFT Notes</label><textarea id="zeNFT" placeholder="NFT information...">'+this.esc(z.nft_notes||'')+'</textarea></div>'+
+            '<div class="fg"><label>Additional Notes</label><textarea id="zeExtra" placeholder="Any other info for staff...">'+this.esc(z.extra_notes||'')+'</textarea></div>'+
+            '<button class="btn btn-ok" onclick="app.saveZap()">💾 Save Daily Zap</button>'+
+            '<p class="text-sm text-dim mt-1" style="text-align:center">Staff absences & CRT cover are auto-populated from the system.</p></div>';
+        }catch(e){form.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      async saveZap(){
+        try{
+          await this.fetchAPI('POST','/daily-zap/'+state.zapDate,{
+            weekly_quote:document.getElementById('zeQuote')?.value||'',
+            quote_author:document.getElementById('zeAuthor')?.value||'',
+            daily_org:document.getElementById('zeOrg')?.value||'',
+            movements:document.getElementById('zeMovements')?.value||'',
+            es_notes:document.getElementById('zeES')?.value||'',
+            nft_notes:document.getElementById('zeNFT')?.value||'',
+            extra_notes:document.getElementById('zeExtra')?.value||''
+          });
+          toast('Daily Zap saved!','success');
+        }catch(e){toast('Save failed: '+e.message,'error')}},
+
+      // ===== YARD DUTY MANAGER =====
+      renderYardDutyManager(){
+        return '<div class="cd"><h3>🏃 Yard Duty Roster</h3><p class="text-sm text-dim mb-2">Manage the base yard duty roster. When staff are absent, CRTs are auto-assigned to cover unless you override.</p>'+
+          '<div style="display:flex;gap:6px;margin-bottom:12px"><select id="ydTerm" onchange="app.loadYardDutyRoster()"><option value="1">Term 1</option><option value="2">Term 2</option><option value="3">Term 3</option><option value="4">Term 4</option></select>'+
+          '<button class="btn btn-p btn-s" onclick="app.showYardDutyAdd()">+ Add Entry</button></div>'+
+          '<div id="ydAddForm" style="display:none" class="cd" style="background:var(--bg)"><h4 style="font-size:.85rem;margin-bottom:8px">Add Roster Entry</h4>'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+
+          '<div class="fg"><label>Day</label><select id="ydDay"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option></select></div>'+
+          '<div class="fg"><label>Time Slot</label><select id="ydSlot"><option value="before_school">Before School</option><option value="recess">Recess</option><option value="lunch_eating">Lunch Eating</option><option value="lunch_1">Lunch 1</option><option value="lunch_2">Lunch 2</option><option value="after_school">After School</option></select></div>'+
+          '<div class="fg"><label>Location</label><input type="text" id="ydLocation" placeholder="e.g. Front-Blue North"></div>'+
+          '<div class="fg"><label>Staff Name</label><input type="text" id="ydStaff" placeholder="e.g. Paddy"></div></div>'+
+          '<button class="btn btn-ok btn-s" onclick="app.addYardDutyEntry()">Add</button></div>'+
+          '<div id="ydRosterBody"><div class="loading">Loading...</div></div></div>'+
+          '<button class="btn btn-g" onclick="app.showView(\'zap\')">← Back</button>'},
+
+      showYardDutyAdd(){const f=document.getElementById('ydAddForm');if(f)f.style.display=f.style.display==='none'?'block':'none'},
+
+      async loadYardDutyRoster(){
+        const body=document.getElementById('ydRosterBody');if(!body)return;
+        const term=document.getElementById('ydTerm')?.value||1;
+        try{
+          const roster=await this.fetchAPI('GET','/yard-duty/roster?term='+term);
+          if(roster.length===0){body.innerHTML='<div class="empty"><div class="ei">🏃</div><p>No yard duty entries yet. Add entries above.</p></div>';return}
+          const days={};roster.forEach(r=>{if(!days[r.day_of_week])days[r.day_of_week]=[];days[r.day_of_week].push(r)});
+          let h='';
+          Object.entries(days).forEach(([day,entries])=>{
+            h+='<h4 style="font-size:.85rem;color:var(--navy);margin:12px 0 6px">'+day+'</h4><table class="yd-manage-grid"><thead><tr><th>Time</th><th>Location</th><th>Staff</th><th></th></tr></thead><tbody>';
+            entries.forEach(e=>{
+              const slotLabels={'before_school':'Before School','recess':'Recess','lunch_eating':'Lunch Eating','lunch_1':'Lunch 1','lunch_2':'Lunch 2','after_school':'After School'};
+              h+='<tr><td>'+(slotLabels[e.time_slot]||e.time_slot)+'</td><td>'+this.esc(e.location)+'</td><td>'+this.esc(e.staff_name)+'</td><td><button onclick="app.deleteYardDutyEntry('+e.id+')" style="background:none;border:none;color:var(--acc);cursor:pointer;font-size:.9rem">✕</button></td></tr>'});
+            h+='</tbody></table>'});
+          body.innerHTML=h;
+        }catch(e){body.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      async addYardDutyEntry(){
+        const term=document.getElementById('ydTerm')?.value||1;
+        try{
+          await this.fetchAPI('POST','/yard-duty/roster/add',{
+            day:document.getElementById('ydDay').value,
+            slot:document.getElementById('ydSlot').value,
+            location:document.getElementById('ydLocation').value,
+            staff:document.getElementById('ydStaff').value,
+            term:parseInt(term)
+          });
+          toast('Entry added!','success');
+          document.getElementById('ydLocation').value='';document.getElementById('ydStaff').value='';
+          this.loadYardDutyRoster();
+        }catch(e){toast('Error: '+e.message,'error')}},
+
+      async deleteYardDutyEntry(id){
+        if(!confirm('Remove this entry?'))return;
+        try{await this.fetchAPI('DELETE','/yard-duty/roster/'+id);toast('Removed','info');this.loadYardDutyRoster()}catch(e){toast('Error: '+e.message,'error')}},
+
+      // ===== CALENDAR MANAGER =====
+      renderCalendarManager(){
+        return '<div class="cd"><h3>📅 Calendar Events</h3><p class="text-sm text-dim mb-2">Add events that show on the Daily Zap calendar section.</p>'+
+          '<div id="calAddForm" class="mb-2"><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+
+          '<div class="fg"><label>Date</label><input type="date" id="calDate"></div>'+
+          '<div class="fg"><label>Category</label><select id="calCat"><option value="general">General</option><option value="excursion">Excursion</option><option value="sport">Sport</option><option value="planning">Planning Day</option><option value="meeting">Meeting</option><option value="event">Event</option></select></div></div>'+
+          '<div class="fg"><label>Title</label><input type="text" id="calTitle" placeholder="e.g. Year 2 Local Walk"></div>'+
+          '<button class="btn btn-ok btn-s" onclick="app.addCalendarEvent()">+ Add Event</button></div>'+
+          '<div class="divider"></div>'+
+          '<div id="calBody"><div class="loading">Loading...</div></div></div>'+
+          '<button class="btn btn-g" onclick="app.showView(\'zap\')">← Back</button>'},
+
+      async loadCalendarEvents(){
+        const body=document.getElementById('calBody');if(!body)return;
+        const today=new Date().toISOString().split('T')[0];
+        const futureDate=new Date();futureDate.setDate(futureDate.getDate()+60);
+        try{
+          const events=await this.fetchAPI('GET','/calendar-events?from='+today+'&to='+futureDate.toISOString().split('T')[0]);
+          if(events.length===0){body.innerHTML='<div class="empty"><div class="ei">📅</div><p>No upcoming events. Add some above.</p></div>';return}
+          let h='';
+          events.forEach(e=>{
+            h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bdr)"><div><div style="font-weight:600;font-size:.84rem">'+this.esc(e.title)+'</div><div style="font-size:.76rem;color:var(--dim)">'+this.formatDate(e.date)+' — '+this.esc(e.category||'general')+'</div></div><button onclick="app.deleteCalendarEvent('+e.id+')" style="background:none;border:none;color:var(--acc);cursor:pointer;font-size:1rem">✕</button></div>'});
+          body.innerHTML=h;
+        }catch(e){body.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      async addCalendarEvent(){
+        const date=document.getElementById('calDate')?.value;
+        const title=document.getElementById('calTitle')?.value;
+        if(!date||!title){toast('Date and title required','error');return}
+        try{
+          await this.fetchAPI('POST','/calendar-events',{date,title,category:document.getElementById('calCat')?.value||'general'});
+          toast('Event added!','success');document.getElementById('calTitle').value='';this.loadCalendarEvents();
+        }catch(e){toast('Error: '+e.message,'error')}},
+
+      async deleteCalendarEvent(id){
+        if(!confirm('Remove this event?'))return;
+        try{await this.fetchAPI('DELETE','/calendar-events/'+id);toast('Removed','info');this.loadCalendarEvents()}catch(e){toast('Error: '+e.message,'error')}},
+
+      // ===== TIMETABLE MANAGER =====
+      renderTimetableManager(){
+        return '<div class="cd"><h3>📊 Timetable Manager</h3><p class="text-sm text-dim mb-2">Upload timetable data as JSON. Staff can view these on the Daily Zap.</p>'+
+          '<div id="ttAddForm" class="mb-2"><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+
+          '<div class="fg"><label>Name</label><input type="text" id="ttName" placeholder="e.g. Specialist Timetable"></div>'+
+          '<div class="fg"><label>Type</label><select id="ttType"><option value="specialist">Specialist</option><option value="es">ES Timetable</option><option value="planning">Planning</option><option value="support">Support Program</option><option value="general">General</option></select></div></div>'+
+          '<div class="fg"><label>Data (JSON array of rows)</label><textarea id="ttData" style="min-height:120px;font-family:monospace;font-size:.75rem" placeholder=\'[{"Time":"9:00","Monday":"PE 1K","Tuesday":"Music 2W"}]\'></textarea></div>'+
+          '<label style="display:flex;align-items:center;gap:6px;font-size:.82rem;margin-bottom:10px"><input type="checkbox" id="ttCurrent" checked> Set as current</label>'+
+          '<button class="btn btn-ok btn-s" onclick="app.addTimetable()">+ Upload Timetable</button></div>'+
+          '<div class="divider"></div>'+
+          '<div id="ttListBody"><div class="loading">Loading...</div></div></div>'+
+          '<button class="btn btn-g" onclick="app.showView(\'zap\')">← Back</button>'},
+
+      async loadTimetableList(){
+        const body=document.getElementById('ttListBody');if(!body)return;
+        try{
+          const tts=await this.fetchAPI('GET','/timetables');
+          if(tts.length===0){body.innerHTML='<div class="empty"><div class="ei">📊</div><p>No timetables uploaded yet.</p></div>';return}
+          let h='';tts.forEach(tt=>{
+            h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bdr)"><div><div style="font-weight:600;font-size:.84rem">'+this.esc(tt.name)+(tt.is_current?' <span style="color:var(--ok);font-size:.72rem">● CURRENT</span>':'')+'</div><div style="font-size:.76rem;color:var(--dim)">'+this.esc(tt.type)+' — Term '+tt.term+'</div></div><button onclick="app.deleteTimetable('+tt.id+')" style="background:none;border:none;color:var(--acc);cursor:pointer;font-size:1rem">✕</button></div>'});
+          body.innerHTML=h;
+        }catch(e){body.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      async addTimetable(){
+        const name=document.getElementById('ttName')?.value;
+        const dataStr=document.getElementById('ttData')?.value;
+        if(!name||!dataStr){toast('Name and data required','error');return}
+        try{
+          const data=JSON.parse(dataStr);
+          await this.fetchAPI('POST','/timetables',{name,type:document.getElementById('ttType')?.value||'general',term:1,data,is_current:document.getElementById('ttCurrent')?.checked});
+          toast('Timetable uploaded!','success');document.getElementById('ttName').value='';document.getElementById('ttData').value='';this.loadTimetableList();
+        }catch(e){
+          if(e.message.includes('JSON')){toast('Invalid JSON data','error')}
+          else toast('Error: '+e.message,'error')}},
+
+      async deleteTimetable(id){
+        if(!confirm('Remove this timetable?'))return;
+        try{await this.fetchAPI('DELETE','/timetables/'+id);toast('Removed','info');this.loadTimetableList()}catch(e){toast('Error: '+e.message,'error')}},
 
       // ===== DASHBOARD =====
       renderDashboard(){
@@ -291,7 +605,7 @@
 
         let h='<div class="stats"><div class="st '+(s.absentToday>0?'alert':'')+'"><div class="n">'+(s.absentToday||0)+'</div><div class="l">Away Today</div></div><div class="st ok"><div class="n">'+(s.crtsBooked||0)+'</div><div class="l">CRTs Booked</div></div><div class="st '+(s.needAction>0?'alert':'')+'"><div class="n">'+(s.needAction||0)+'</div><div class="l">Need Action</div></div><div class="st"><div class="n">'+(s.totalTerm||0)+'</div><div class="l">This Term</div></div></div>';
 
-        h+='<div class="qa"><button onclick="app.showView(\'new\')"><div class="qi">🆕</div><div class="ql">Report Absence</div><div class="qd">Lodge new</div></button><button onclick="app.showView(\'prebook\')"><div class="qi">📅</div><div class="ql">Pre-book Leave</div><div class="qd">PD, camps, etc</div></button><button onclick="app.showView(\'report\')"><div class="qi">📄</div><div class="ql">Cover Report</div><div class="qd">Today\'s sheet</div></button></div><div class="qa"><button onclick="app.showView(\'crtcalendar\')"><div class="qi">🗓️</div><div class="ql">CRT Calendar</div><div class="qd">Availability</div></button><button onclick="app.showView(\'reports\')"><div class="qi">📊</div><div class="ql">Reports</div><div class="qd">Export data</div></button><button onclick="app.showView(\'logs\')"><div class="qi">📨</div><div class="ql">Activity Log</div><div class="qd">SMS & Email</div></button></div><div class="qa"><button onclick="app.showView(\'directory\')"><div class="qi">👥</div><div class="ql">Staff Directory</div><div class="qd">All staff & CRTs</div></button><button onclick="app.startTour()"><div class="qi">🎓</div><div class="ql">Guided Tour</div><div class="qd">How it works</div></button><button onclick="app.showView(\'settings\')"><div class="qi">⚙️</div><div class="ql">Settings</div><div class="qd">Preferences</div></button></div>';
+        h+='<div class="qa"><button onclick="app.showView(\'zapedit\')" style="border-color:var(--gold)"><div class="qi">✏️</div><div class="ql">Edit Daily Zap</div><div class="qd">Today\'s bulletin</div></button><button onclick="app.showView(\'new\')"><div class="qi">🆕</div><div class="ql">Report Absence</div><div class="qd">Lodge new</div></button><button onclick="app.showView(\'report\')"><div class="qi">📄</div><div class="ql">Cover Report</div><div class="qd">Today\'s sheet</div></button></div><div class="qa"><button onclick="app.showView(\'yardduty\')"><div class="qi">🏃</div><div class="ql">Yard Duty</div><div class="qd">Manage roster</div></button><button onclick="app.showView(\'calendarmanage\')"><div class="qi">📅</div><div class="ql">Calendar</div><div class="qd">Add events</div></button><button onclick="app.showView(\'timetablemanage\')"><div class="qi">📊</div><div class="ql">Timetables</div><div class="qd">Upload/manage</div></button></div><div class="qa"><button onclick="app.showView(\'prebook\')"><div class="qi">📅</div><div class="ql">Pre-book Leave</div><div class="qd">PD, camps, etc</div></button><button onclick="app.showView(\'crtcalendar\')"><div class="qi">🗓️</div><div class="ql">CRT Calendar</div><div class="qd">Availability</div></button><button onclick="app.showView(\'reports\')"><div class="qi">📊</div><div class="ql">Reports</div><div class="qd">Export data</div></button></div><div class="qa"><button onclick="app.showView(\'logs\')"><div class="qi">📨</div><div class="ql">Activity Log</div><div class="qd">SMS & Email</div></button><button onclick="app.showView(\'directory\')"><div class="qi">👥</div><div class="ql">Staff Directory</div><div class="qd">All staff & CRTs</div></button><button onclick="app.showView(\'settings\')"><div class="qi">⚙️</div><div class="ql">Settings</div><div class="qd">Preferences</div></button></div>';
 
         if(contacting.length>0){h+='<div class="cd" style="border-left:4px solid var(--blue)"><h3 style="color:var(--blue)">⏳ Contacting CRTs...</h3>';
           contacting.forEach(a=>{h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div><div class="nm">'+a.staff_name+'</div><div class="dt">'+a.area+' — '+a.reason+'</div></div><span class="sb s-contacting" style="animation:pulse 1.5s infinite">⟳ Contacting</span></div>'+(a.crt_name?'<div class="dt mt-1">Contacting: <strong>'+a.crt_name+'</strong></div>':'')+'</div>'});h+='</div>'}
@@ -587,7 +901,7 @@
         else h+='<p class="text-sm text-dim" style="padding:8px">Push notifications not supported on this browser.</p>';
         h+='</div><div class="divider"></div>';
 
-        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v3.0</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
+        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v4.0</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
         if(isL)h+='<button class="btn btn-o mb-1" onclick="app.resetDemo()" style="width:100%">🔄 Reset Demo Data</button>';
         h+='<button class="btn btn-d" onclick="app.logout()">🚪 Sign Out</button></div>';
         return h},
