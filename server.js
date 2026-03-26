@@ -336,24 +336,43 @@ app.post('/api/absences', auth, wrap(async (req, res) => {
   const halfLabel = halfDay === 'am' ? ' (AM only)' : halfDay === 'pm' ? ' (PM only)' : '';
   const byLeader = staffUser.id !== req.user.id ? ` (lodged by ${req.user.name})` : '';
 
-  await addNotification(`New absence: ${staffUser.name} (${staffUser.area}) \u2013 ${reason}${halfLabel}${byLeader}`, 'urgent', 'leader', absenceId);
+  // Check system settings for notification preferences
+  const notifyLeaders = await getSettingBool('notify_leaders_absence', true);
+  const leaderSms = await getSettingBool('leader_notify_sms', true);
+  const leaderEmail = await getSettingBool('leader_notify_email', true);
+  const leaderApp = await getSettingBool('leader_notify_app', true);
+  const autoContact = await getSettingBool('auto_contact_crts', true);
 
-  const leaders = await dbAll("SELECT * FROM users WHERE role = 'leader' AND active = 1");
-  for (const leader of leaders) {
-    if (leader.phone) {
-      await sendSMS(leader.phone, `WPS ABSENCE: ${staffUser.name} (${staffUser.area}) is absent ${dateStart}${halfLabel}. Reason: ${reason}. CRT auto-booking in progress.`);
-    }
-    if (leader.email) {
-      await sendEmail(leader.email, `Staff Absence: ${staffUser.name}`,
-        `<h2>New Staff Absence</h2><p><strong>${staffUser.name}</strong> (${staffUser.area}) has reported an absence.</p>
-        <p>Date: ${dateStart}${dateEnd && dateEnd !== dateStart ? ' to ' + dateEnd : ''}${halfLabel}</p>
-        <p>Reason: ${reason}</p>${classes ? '<p>Classes: ' + classes + '</p>' : ''}
-        <p>CRT auto-booking is in progress.</p>`
-      );
+  if (leaderApp) {
+    await addNotification(`New absence: ${staffUser.name} (${staffUser.area}) \u2013 ${reason}${halfLabel}${byLeader}`, 'urgent', 'leader', absenceId);
+  }
+
+  if (notifyLeaders) {
+    const leaders = await dbAll("SELECT * FROM users WHERE role = 'leader' AND active = 1");
+    for (const leader of leaders) {
+      if (leaderSms && leader.phone) {
+        await sendSMS(leader.phone, `WPS ABSENCE: ${staffUser.name} (${staffUser.area}) is absent ${dateStart}${halfLabel}. Reason: ${reason}.${autoContact ? ' CRT auto-booking in progress.' : ' Manual CRT assignment needed.'}`);
+      }
+      if (leaderEmail && leader.email) {
+        await sendEmail(leader.email, `Staff Absence: ${staffUser.name}`,
+          `<h2>New Staff Absence</h2><p><strong>${staffUser.name}</strong> (${staffUser.area}) has reported an absence.</p>
+          <p>Date: ${dateStart}${dateEnd && dateEnd !== dateStart ? ' to ' + dateEnd : ''}${halfLabel}</p>
+          <p>Reason: ${reason}</p>${classes ? '<p>Classes: ' + classes + '</p>' : ''}
+          <p>${autoContact ? 'CRT auto-booking is in progress.' : 'Manual CRT assignment needed.'}</p>`
+        );
+      }
     }
   }
 
-  const crtResult = await autoBookCRT(absence);
+  let crtResult = null;
+  if (autoContact) {
+    crtResult = await autoBookCRT(absence);
+  } else {
+    // Leave as pending for leadership to manually assign
+    if (leaderApp) {
+      await addNotification(`${staffUser.name}'s absence awaiting manual CRT assignment`, 'urgent', 'leader', absenceId);
+    }
+  }
   res.json({ absence, crt: crtResult });
 }));
 
@@ -425,10 +444,8 @@ app.put('/api/absences/:id/confirm', auth, wrap(async (req, res) => {
   const crt = await dbGet('SELECT * FROM crts WHERE id = ?', absence.assigned_crt_id);
   await addNotification(`${crt ? crt.name : 'CRT'} CONFIRMED for ${absence.staff_name} on ${absence.date_start}`, 'success', 'leader', absence.id);
 
-  const staff = await dbGet('SELECT * FROM users WHERE id = ?', absence.staff_id);
-  if (staff && staff.phone) {
-    await sendSMS(staff.phone, `WPS: ${crt ? crt.name : 'A CRT'} is confirmed to cover your ${absence.area} classes on ${absence.date_start}.`);
-  }
+  // Use system settings to notify staff
+  await notifyStaffBooked(absence, crt ? crt.name : 'A CRT');
   res.json({ ok: true });
 }));
 
@@ -445,59 +462,130 @@ app.put('/api/absences/:id/decline', auth, wrap(async (req, res) => {
 }));
 
 async function autoBookCRT(absence, skipCrtId) {
-  const areaPrefs = await dbAll('SELECT cp.crt_id, c.name, c.phone, c.email FROM crt_preferences cp JOIN crts c ON cp.crt_id = c.id WHERE cp.area = ? AND c.active = 1 ORDER BY cp.priority', absence.area);
-  const allPrefs = areaPrefs.length > 0 ? areaPrefs :
-    await dbAll('SELECT cp.crt_id, c.name, c.phone, c.email FROM crt_preferences cp JOIN crts c ON cp.crt_id = c.id WHERE c.active = 1 ORDER BY cp.priority LIMIT 10');
+  const autoApprove = await getSettingBool('auto_approve_crts', false);
 
-  for (const pref of allPrefs) {
+  // Smart CRT matching: area preferences first, then specialty match, then any available
+  const areaPrefs = await dbAll('SELECT cp.crt_id, c.name, c.phone, c.email, c.specialties FROM crt_preferences cp JOIN crts c ON cp.crt_id = c.id WHERE cp.area = ? AND c.active = 1 ORDER BY cp.priority', absence.area);
+
+  // Fallback: find CRTs whose specialties match the area
+  let specialtyMatch = [];
+  if (areaPrefs.length === 0) {
+    const allCrts = await dbAll('SELECT id as crt_id, name, phone, email, specialties FROM crts WHERE active = 1');
+    specialtyMatch = allCrts.filter(c => {
+      if (!c.specialties) return false;
+      try {
+        const specs = JSON.parse(c.specialties);
+        return specs.some(s => absence.area.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(absence.area.split(' ')[0].toLowerCase()));
+      } catch (e) { return false; }
+    });
+  }
+
+  // Final fallback: any CRT by general preference
+  const generalFallback = (areaPrefs.length === 0 && specialtyMatch.length === 0) ?
+    await dbAll('SELECT cp.crt_id, c.name, c.phone, c.email, c.specialties FROM crt_preferences cp JOIN crts c ON cp.crt_id = c.id WHERE c.active = 1 ORDER BY cp.priority LIMIT 10') : [];
+
+  const allPrefs = [...areaPrefs, ...specialtyMatch, ...generalFallback];
+  // Deduplicate by crt_id
+  const seen = new Set();
+  const uniquePrefs = allPrefs.filter(p => { if (seen.has(p.crt_id)) return false; seen.add(p.crt_id); return true; });
+
+  for (const pref of uniquePrefs) {
     if (skipCrtId && pref.crt_id === skipCrtId) continue;
     const unavail = await dbGet('SELECT 1 as found FROM crt_unavailable WHERE crt_id = ? AND date = ?', pref.crt_id, absence.date_start);
     if (unavail) continue;
     const alreadyBooked = await dbGet("SELECT 1 as found FROM absences WHERE assigned_crt_id = ? AND date_start <= ? AND date_end >= ? AND status IN ('contacting','booked')", pref.crt_id, absence.date_start, absence.date_start);
     if (alreadyBooked) continue;
 
-    await dbRun('UPDATE absences SET assigned_crt_id = ?, status = ? WHERE id = ?', [pref.crt_id, 'contacting', absence.id]);
-    await addNotification(`Auto-contacting ${pref.name} for ${absence.staff_name}'s absence (${absence.area})`, 'info', 'leader', absence.id);
+    if (autoApprove) {
+      // Auto-approve: book immediately, just notify CRT
+      await dbRun('UPDATE absences SET assigned_crt_id = ?, status = ? WHERE id = ?', [pref.crt_id, 'booked', absence.id]);
+      await addNotification(`Auto-booked ${pref.name} for ${absence.staff_name}'s absence (${absence.area})`, 'success', 'leader', absence.id);
 
-    const msg = `WPS BOOKING: Can you cover ${absence.staff_name}'s ${absence.area} classes on ${absence.date_start}?${absence.classes ? ' Classes: ' + absence.classes : ''} Log in to confirm.`;
-    await sendSMS(pref.phone, msg);
-    if (pref.email) {
-      await sendEmail(pref.email, `CRT Booking Request - ${absence.date_start}`,
-        `<h2>Booking Request</h2><p>Can you cover <strong>${absence.staff_name}'s</strong> ${absence.area} classes?</p>
-        <p>Date: ${absence.date_start}</p>${absence.classes ? '<p>Classes: ' + absence.classes + '</p>' : ''}
-        <p>Please log in to confirm or decline.</p>`
-      );
+      const msg = `WPS BOOKED: You've been assigned to cover ${absence.staff_name}'s ${absence.area} classes on ${absence.date_start}.${absence.classes ? ' Classes: ' + absence.classes : ''}`;
+      await sendSMS(pref.phone, msg);
+      if (pref.email) {
+        await sendEmail(pref.email, `CRT Booking Confirmed - ${absence.date_start}`,
+          `<h2>Booking Confirmed</h2><p>You've been assigned to cover <strong>${absence.staff_name}'s</strong> ${absence.area} classes.</p>
+          <p>Date: ${absence.date_start}</p>${absence.classes ? '<p>Classes: ' + absence.classes + '</p>' : ''}
+          <p>This booking was auto-confirmed. Log into the WPS Staff Hub for details.</p>`
+        );
+      }
+
+      // Notify staff their CRT is booked
+      await notifyStaffBooked(absence, pref.name);
+      return { crtId: pref.crt_id, name: pref.name, status: 'booked' };
+    } else {
+      // Standard flow: contact CRT and wait for confirmation
+      await dbRun('UPDATE absences SET assigned_crt_id = ?, status = ? WHERE id = ?', [pref.crt_id, 'contacting', absence.id]);
+      await addNotification(`Auto-contacting ${pref.name} for ${absence.staff_name}'s absence (${absence.area})`, 'info', 'leader', absence.id);
+
+      const msg = `WPS BOOKING: Can you cover ${absence.staff_name}'s ${absence.area} classes on ${absence.date_start}?${absence.classes ? ' Classes: ' + absence.classes : ''} Log in to confirm.`;
+      await sendSMS(pref.phone, msg);
+      if (pref.email) {
+        await sendEmail(pref.email, `CRT Booking Request - ${absence.date_start}`,
+          `<h2>Booking Request</h2><p>Can you cover <strong>${absence.staff_name}'s</strong> ${absence.area} classes?</p>
+          <p>Date: ${absence.date_start}</p>${absence.classes ? '<p>Classes: ' + absence.classes + '</p>' : ''}
+          <p>Please log in to confirm or decline.</p>`
+        );
+      }
+
+      if (DEMO) {
+        const absId = absence.id;
+        const crtName = pref.name;
+        const staffName = absence.staff_name;
+        const dateStr = absence.date_start;
+        setTimeout(async () => {
+          try {
+            const cur = await dbGet('SELECT status FROM absences WHERE id = ?', absId);
+            if (cur && cur.status === 'contacting') {
+              await dbRun('UPDATE absences SET status = ? WHERE id = ?', ['booked', absId]);
+              await addNotification(`${crtName} CONFIRMED for ${staffName} on ${dateStr}`, 'success', 'leader', absId);
+              // Notify staff
+              const abs = await dbGet('SELECT * FROM absences WHERE id = ?', absId);
+              if (abs) await notifyStaffBooked(abs, crtName);
+            }
+          } catch (e) { console.error('Demo auto-confirm error:', e.message); }
+        }, 5000);
+      }
+
+      return { crtId: pref.crt_id, name: pref.name, status: 'contacting' };
     }
-
-    if (DEMO) {
-      const absId = absence.id;
-      const crtName = pref.name;
-      const staffName = absence.staff_name;
-      const dateStr = absence.date_start;
-      setTimeout(async () => {
-        try {
-          const cur = await dbGet('SELECT status FROM absences WHERE id = ?', absId);
-          if (cur && cur.status === 'contacting') {
-            await dbRun('UPDATE absences SET status = ? WHERE id = ?', ['booked', absId]);
-            await addNotification(`${crtName} CONFIRMED for ${staffName} on ${dateStr}`, 'success', 'leader', absId);
-          }
-        } catch (e) { console.error('Demo auto-confirm error:', e.message); }
-      }, 5000);
-    }
-
-    return { crtId: pref.crt_id, name: pref.name, status: 'contacting' };
   }
 
   await dbRun('UPDATE absences SET status = ? WHERE id = ?', ['nocrt', absence.id]);
-  await addNotification(`No preferred CRT available for ${absence.staff_name}. Manual booking needed.`, 'urgent', 'leader', absence.id);
+  await addNotification(`No CRT available for ${absence.staff_name} (${absence.area}). Manual booking needed.`, 'urgent', 'leader', absence.id);
 
-  const leaders = await dbAll("SELECT * FROM users WHERE role = 'leader' AND active = 1");
-  for (const leader of leaders) {
-    if (leader.phone) {
-      await sendSMS(leader.phone, `WPS ALERT: No CRT available for ${absence.staff_name} (${absence.area}) on ${absence.date_start}. Manual booking required.`);
+  const leaderSms = await getSettingBool('leader_notify_sms', true);
+  if (leaderSms) {
+    const leaders = await dbAll("SELECT * FROM users WHERE role = 'leader' AND active = 1");
+    for (const leader of leaders) {
+      if (leader.phone) {
+        await sendSMS(leader.phone, `WPS ALERT: No CRT available for ${absence.staff_name} (${absence.area}) on ${absence.date_start}. Manual booking required.`);
+      }
     }
   }
   return { crtId: null, name: null, status: 'nocrt' };
+}
+
+// Notify the absent staff member that their CRT has been booked
+async function notifyStaffBooked(absence, crtName) {
+  const notifyStaff = await getSettingBool('notify_staff_booked', true);
+  if (!notifyStaff) return;
+  const staff = await dbGet('SELECT * FROM users WHERE id = ?', absence.staff_id);
+  if (!staff) return;
+
+  const staffSms = await getSettingBool('staff_notify_sms', false);
+  const staffEmail = await getSettingBool('staff_notify_email', true);
+
+  if (staffSms && staff.phone) {
+    await sendSMS(staff.phone, `WPS: ${crtName} is confirmed to cover your ${absence.area} classes on ${absence.date_start}.`);
+  }
+  if (staffEmail && staff.email) {
+    await sendEmail(staff.email, `CRT Confirmed: ${crtName}`,
+      `<h2>CRT Confirmed</h2><p><strong>${crtName}</strong> will cover your ${absence.area} classes on ${absence.date_start}.</p>
+      ${absence.classes ? '<p>Classes: ' + absence.classes + '</p>' : ''}`
+    );
+  }
 }
 
 // ===== NOTIFICATIONS =====
@@ -510,6 +598,45 @@ app.get('/api/notifications', auth, wrap(async (req, res) => {
   sql += ' ORDER BY created_at DESC LIMIT ?';
   params.push(parseInt(limit) || 50);
   res.json(await dbAll(sql, ...params));
+}));
+
+// ===== SYSTEM SETTINGS (leadership configurable) =====
+async function getSetting(key, defaultVal) {
+  const row = await dbGet('SELECT value FROM system_settings WHERE key = ?', key);
+  if (!row) return defaultVal;
+  return row.value;
+}
+async function getSettingBool(key, defaultVal) {
+  const v = await getSetting(key, defaultVal ? '1' : '0');
+  return v === '1' || v === 'true';
+}
+
+app.get('/api/system-settings', auth, leaderOnly, wrap(async (req, res) => {
+  const rows = await dbAll('SELECT key, value FROM system_settings');
+  const settings = {};
+  for (const r of rows) settings[r.key] = r.value;
+  res.json(settings);
+}));
+
+app.put('/api/system-settings', auth, leaderOnly, wrap(async (req, res) => {
+  const allowed = [
+    'auto_contact_crts', 'auto_approve_crts',
+    'notify_leaders_absence', 'leader_notify_sms', 'leader_notify_email', 'leader_notify_app',
+    'notify_staff_booked', 'staff_notify_sms', 'staff_notify_email'
+  ];
+  for (const [key, value] of Object.entries(req.body)) {
+    if (!allowed.includes(key)) continue;
+    const existing = await dbGet('SELECT key FROM system_settings WHERE key = ?', key);
+    if (existing) {
+      await dbRun('UPDATE system_settings SET value = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ? WHERE key = ?', [String(value), req.user.id, key]);
+    } else {
+      await dbRun('INSERT INTO system_settings (key, value, updated_by) VALUES (?, ?, ?)', [key, String(value), req.user.id]);
+    }
+  }
+  const rows = await dbAll('SELECT key, value FROM system_settings');
+  const settings = {};
+  for (const r of rows) settings[r.key] = r.value;
+  res.json(settings);
 }));
 
 // ===== NOTIFICATION SETTINGS =====
@@ -567,7 +694,7 @@ app.get('/api/health', wrap(async (req, res) => {
   const todayAbs = await dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start <= ? AND date_end >= ? AND status != 'cancelled'", today, today);
   res.json({
     status: 'ok',
-    version: '2.0.0',
+    version: '2.1.0',
     demo: DEMO,
     live: LIVE,
     database: USE_TURSO ? 'turso' : 'local',
@@ -661,6 +788,19 @@ async function start() {
   }
 
   // Ensure schema is up to date
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS system_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by INTEGER,
+    FOREIGN KEY (updated_by) REFERENCES users(id)
+  )`); } catch(e) {}
+  // Seed defaults if empty
+  const settingsCount = await dbGet('SELECT COUNT(*) as c FROM system_settings');
+  if (!settingsCount || settingsCount.c === 0) {
+    const defaults = [['auto_contact_crts','1'],['auto_approve_crts','0'],['notify_leaders_absence','1'],['leader_notify_sms','1'],['leader_notify_email','1'],['leader_notify_app','1'],['notify_staff_booked','1'],['staff_notify_sms','0'],['staff_notify_email','1']];
+    for (const [k,v] of defaults) { try { await dbRun('INSERT INTO system_settings (key, value) VALUES (?, ?)', [k, v]); } catch(e) {} }
+  }
   try { await dbRun('CREATE INDEX IF NOT EXISTS idx_absences_status ON absences(status)'); } catch(e) {}
   try { await dbRun("ALTER TABLE absences ADD COLUMN half_day TEXT DEFAULT 'full'"); } catch(e) {}
   try { await dbRun("ALTER TABLE crts ADD COLUMN pin_hash TEXT"); } catch(e) {}
@@ -682,7 +822,7 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`\n  WPS Staff Hub v2.0`);
+    console.log(`\n  WPS Staff Hub v2.1`);
     console.log(`  http://localhost:${PORT}`);
     console.log(`  Database: ${USE_TURSO ? 'Turso (cloud)' : 'sql.js (local)'}`);
     console.log(`  Notifications: ${LIVE ? 'LIVE' : 'SIMULATED'}`);

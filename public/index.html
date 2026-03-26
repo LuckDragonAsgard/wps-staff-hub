@@ -212,7 +212,7 @@
 
   <script>
     const API='/api';
-    let state={token:null,user:null,currentView:'dashboard',allUsers:[],allCRTs:[],absences:[],notifications:[],stats:{},userSettings:null,lastPollTime:new Date().toISOString(),_currentPrefArea:null,_currentPrefs:[],smsLogs:[],emailLogs:[],absenceFilter:'all',_logTab:'sms'};
+    let state={token:null,user:null,currentView:'dashboard',allUsers:[],allCRTs:[],absences:[],notifications:[],stats:{},userSettings:null,systemSettings:{},lastPollTime:new Date().toISOString(),_currentPrefArea:null,_currentPrefs:[],smsLogs:[],emailLogs:[],absenceFilter:'all',_logTab:'sms'};
 
     function toast(msg,type='info',dur=4000){const c=document.getElementById('toasts');const icons={success:'✓',error:'✕',info:'ℹ'};const el=document.createElement('div');el.className='toast '+type;el.innerHTML='<span>'+(icons[type]||'ℹ')+'</span> '+msg;el.onclick=()=>{el.classList.add('hiding');setTimeout(()=>el.remove(),300)};c.appendChild(el);setTimeout(()=>{el.classList.add('hiding');setTimeout(()=>el.remove(),300)},dur)}
 
@@ -243,6 +243,7 @@
             this.fetchAPI('GET','/notifications?role='+state.user.role+'&limit=30')]);
           state.allUsers=users||[];state.allCRTs=crts||[];state.absences=absences||[];state.stats=stats||{};state.notifications=notif||[];
           try{state.userSettings=await this.fetchAPI('GET','/settings')}catch(e){}
+          if(state.user.role==='leader'||state.user.role==='admin'){try{state.systemSettings=await this.fetchAPI('GET','/system-settings')}catch(e){}}
           this.updateNotifBadge();this.render()
         }catch(err){console.error('Init error:',err)}},
 
@@ -483,22 +484,67 @@
       renderSettings(){
         const s=state.userSettings||{};const notifOn=s.notifications_enabled!==0;const smsOn=s.notify_sms!==0;const emailOn=s.notify_email!==0;const appOn=s.notify_app!==0;const qStart=s.quiet_start||'21:00';const qEnd=s.quiet_end||'06:00';
         const isL=state.user.role==='leader'||state.user.role==='admin';
+        const sys=state.systemSettings||{};
         let h='<div class="cd"><h3>⚙️ Settings</h3><div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:16px"><div style="width:44px;height:44px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--gold);font-weight:700;font-size:1.1rem">'+state.user.name.charAt(0)+'</div><div><div style="font-weight:600;font-size:.95rem">'+state.user.name+'</div><div class="text-sm text-dim">'+(state.user.area||state.user.role)+' · '+state.user.role+'</div></div></div>';
 
         if(isL){
+          // SYSTEM SETTINGS - CRT Automation
+          const autoContact=sys.auto_contact_crts==='1';
+          const autoApprove=sys.auto_approve_crts==='1';
+          const notifyLeadersAbs=sys.notify_leaders_absence==='1';
+          const lSms=sys.leader_notify_sms==='1';
+          const lEmail=sys.leader_notify_email==='1';
+          const lApp=sys.leader_notify_app==='1';
+          const notifyStaff=sys.notify_staff_booked==='1';
+          const sSms=sys.staff_notify_sms==='1';
+          const sEmail=sys.staff_notify_email==='1';
+
+          h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:10px;font-size:.88rem">🤖 CRT Automation</h4>';
+          h+=this.sysToggle('Auto-contact CRTs','When staff report absent, system automatically finds and contacts the best CRT','auto_contact_crts',autoContact);
+          h+=this.sysToggle('Auto-approve bookings','Automatically book CRT without waiting for their confirmation','auto_approve_crts',autoApprove);
+          h+='</div><div class="divider"></div>';
+
+          // SYSTEM SETTINGS - Leader Notifications
+          h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:10px;font-size:.88rem">🔔 Leader Notifications</h4>';
+          h+=this.sysToggle('Notify on new absence','Get notified when staff report absent','notify_leaders_absence',notifyLeadersAbs);
+          if(notifyLeadersAbs){
+            h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px"><div style="font-weight:600;font-size:.85rem;margin-bottom:8px">Notify leaders via</div><div style="display:flex;gap:6px">';
+            h+='<button class="btn '+(lSms?'btn-p':'btn-o')+' btn-s" style="flex:1" onclick="app.updateSysSetting(\'leader_notify_sms\',\''+(lSms?'0':'1')+'\')">📱 SMS '+(lSms?'✓':'')+'</button>';
+            h+='<button class="btn '+(lEmail?'btn-p':'btn-o')+' btn-s" style="flex:1" onclick="app.updateSysSetting(\'leader_notify_email\',\''+(lEmail?'0':'1')+'\')">📧 Email '+(lEmail?'✓':'')+'</button>';
+            h+='<button class="btn '+(lApp?'btn-p':'btn-o')+' btn-s" style="flex:1" onclick="app.updateSysSetting(\'leader_notify_app\',\''+(lApp?'0':'1')+'\')">🔔 App '+(lApp?'✓':'')+'</button>';
+            h+='</div></div>'}
+          h+='</div><div class="divider"></div>';
+
+          // SYSTEM SETTINGS - Staff Notifications
+          h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:10px;font-size:.88rem">👩‍🏫 Staff Notifications</h4>';
+          h+=this.sysToggle('Notify staff when CRT booked','Staff get told when their cover is confirmed','notify_staff_booked',notifyStaff);
+          if(notifyStaff){
+            h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px"><div style="font-weight:600;font-size:.85rem;margin-bottom:8px">Notify staff via</div><div style="display:flex;gap:6px">';
+            h+='<button class="btn '+(sSms?'btn-p':'btn-o')+' btn-s" style="flex:1" onclick="app.updateSysSetting(\'staff_notify_sms\',\''+(sSms?'0':'1')+'\')">📱 SMS '+(sSms?'✓':'')+'</button>';
+            h+='<button class="btn '+(sEmail?'btn-p':'btn-o')+' btn-s" style="flex:1" onclick="app.updateSysSetting(\'staff_notify_email\',\''+(sEmail?'0':'1')+'\')">📧 Email '+(sEmail?'✓':'')+'</button>';
+            h+='</div></div>'}
+          h+='</div><div class="divider"></div>';
+
+          // CRT Preference Order
           h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:8px;font-size:.88rem">📋 CRT Preference Order</h4><p class="text-sm text-dim mb-1">When staff are absent, CRTs are contacted in this order. Tap arrows to reorder.</p><select id="prefArea" onchange="app.loadAreaPrefs(this.value)" style="width:100%;padding:10px;border:1px solid var(--bdr);border-radius:8px;font-size:.88rem;background:var(--bg);color:var(--txt);margin-bottom:8px"><option value="">Select area...</option></select><div id="prefList"></div></div><div class="divider"></div>';
 
-          h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:10px;font-size:.88rem">🔔 Notification Preferences</h4><div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px"><div><div style="font-weight:600;font-size:.9rem">Notifications</div><div class="text-sm text-dim">Receive alerts for absences & bookings</div></div><label style="position:relative;width:50px;height:28px;display:inline-block;cursor:pointer"><input type="checkbox" '+(notifOn?'checked':'')+' onchange="app.updateSetting(\'notifications_enabled\',this.checked?1:0)" style="opacity:0;width:0;height:0;position:absolute"><span style="position:absolute;top:0;left:0;right:0;bottom:0;background:'+(notifOn?'var(--ok)':'#ccc')+';transition:.3s;border-radius:28px"></span><span style="position:absolute;height:22px;width:22px;left:'+(notifOn?'25px':'3px')+';bottom:3px;background:white;transition:.3s;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span></label></div>';
+          // Personal notification preferences
+          h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:10px;font-size:.88rem">👤 Your Personal Notifications</h4><div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px"><div><div style="font-weight:600;font-size:.9rem">Notifications</div><div class="text-sm text-dim">Receive alerts for absences & bookings</div></div><label style="position:relative;width:50px;height:28px;display:inline-block;cursor:pointer"><input type="checkbox" '+(notifOn?'checked':'')+' onchange="app.updateSetting(\'notifications_enabled\',this.checked?1:0)" style="opacity:0;width:0;height:0;position:absolute"><span style="position:absolute;top:0;left:0;right:0;bottom:0;background:'+(notifOn?'var(--ok)':'#ccc')+';transition:.3s;border-radius:28px"></span><span style="position:absolute;height:22px;width:22px;left:'+(notifOn?'25px':'3px')+';bottom:3px;background:white;transition:.3s;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span></label></div>';
           if(notifOn){h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px"><div style="font-weight:600;font-size:.85rem;margin-bottom:8px">Notify me via</div><div style="display:flex;gap:6px"><button class="btn '+(smsOn?'btn-p':'btn-o')+' btn-s" style="flex:1" onclick="app.updateSetting(\'notify_sms\','+(smsOn?0:1)+')">📱 SMS '+(smsOn?'✓':'')+'</button><button class="btn '+(emailOn?'btn-p':'btn-o')+' btn-s" style="flex:1" onclick="app.updateSetting(\'notify_email\','+(emailOn?0:1)+')">📧 Email '+(emailOn?'✓':'')+'</button><button class="btn '+(appOn?'btn-p':'btn-o')+' btn-s" style="flex:1" onclick="app.updateSetting(\'notify_app\','+(appOn?0:1)+')">🔔 App '+(appOn?'✓':'')+'</button></div></div><div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px"><div style="font-weight:600;font-size:.85rem;margin-bottom:4px">🌙 Quiet Hours</div><div class="text-sm text-dim mb-1">No notifications during these times</div><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><label class="text-sm text-dim">From</label><input type="time" value="'+qStart+'" onchange="app.updateSetting(\'quiet_start\',this.value)" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:.88rem;background:#fff"></div><div style="padding-top:16px;color:var(--dim)">to</div><div style="flex:1"><label class="text-sm text-dim">Until</label><input type="time" value="'+qEnd+'" onchange="app.updateSetting(\'quiet_end\',this.value)" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:.88rem;background:#fff"></div></div></div>'}
           h+='</div>'}
 
         if(state.user.role==='crt'){h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:8px;font-size:.88rem">Your Details</h4><div style="padding:12px;background:var(--bg);border-radius:10px"><div class="text-sm mb-1"><strong>Phone:</strong> '+(state.user.phone||'Not set')+'</div><div class="text-sm mb-1"><strong>Email:</strong> '+(state.user.email||'Not set')+'</div><div class="text-sm"><strong>Specialties:</strong> '+(state.user.specialties||[]).join(', ')+'</div></div></div>';
           h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:8px;font-size:.88rem">📅 Unavailable Dates</h4><p class="text-sm text-dim mb-1">Mark dates you can\'t work so the system skips you.</p><div style="display:flex;gap:6px;margin-bottom:10px"><input type="date" id="unavailDate" style="flex:1;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:.85rem"><input type="text" id="unavailReason" placeholder="Reason (optional)" style="flex:1;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:.85rem"><button class="btn btn-p btn-s" onclick="app.addUnavailDate()">Add</button></div><div id="unavailList"></div></div>'}
 
-        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v1.1</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
+        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v2.1</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
         if(isL)h+='<button class="btn btn-o mb-1" onclick="app.resetDemo()" style="width:100%">🔄 Reset Demo Data</button>';
         h+='<button class="btn btn-d" onclick="app.logout()">🚪 Sign Out</button></div>';
         return h},
+
+      sysToggle(title,desc,key,on){
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px"><div style="flex:1"><div style="font-weight:600;font-size:.9rem">'+title+'</div><div class="text-sm text-dim">'+desc+'</div></div><label style="position:relative;width:50px;height:28px;display:inline-block;cursor:pointer;flex-shrink:0;margin-left:8px"><input type="checkbox" '+(on?'checked':'')+' onchange="app.updateSysSetting(\''+key+'\',this.checked?\'1\':\'0\')" style="opacity:0;width:0;height:0;position:absolute"><span style="position:absolute;top:0;left:0;right:0;bottom:0;background:'+(on?'var(--ok)':'#ccc')+';transition:.3s;border-radius:28px"></span><span style="position:absolute;height:22px;width:22px;left:'+(on?'25px':'3px')+';bottom:3px;background:white;transition:.3s;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span></label></div>'},
+
+      async updateSysSetting(k,v){try{const b={};b[k]=v;state.systemSettings=await this.fetchAPI('PUT','/system-settings',b);toast('System setting updated','success');this.render()}catch(e){toast('Error: '+e.message,'error')}},
 
       async updateSetting(k,v){try{const b={};b[k]=v;state.userSettings=await this.fetchAPI('PUT','/settings',b);toast('Setting updated','success');this.render()}catch(e){toast('Error: '+e.message,'error')}},
 

@@ -27,7 +27,7 @@ async function setup() {
 
     // Clear existing data (disable foreign keys to avoid constraint issues)
     await client.execute('PRAGMA foreign_keys = OFF');
-    const tables = ['user_settings', 'email_log', 'sms_log', 'notifications', 'absences', 'crt_unavailable', 'crt_preferences', 'crts', 'users'];
+    const tables = ['system_settings', 'user_settings', 'email_log', 'sms_log', 'notifications', 'absences', 'crt_unavailable', 'crt_preferences', 'crts', 'users'];
     for (const t of tables) {
       try { await client.execute(`DELETE FROM ${t}`); } catch(e) { /* table may not exist yet */ }
       // Reset autoincrement counters
@@ -327,9 +327,26 @@ async function setup() {
     await db.run('INSERT INTO sms_log (to_phone, message, status) VALUES (?, ?, ?)', s);
   }
 
+  // ===== SYSTEM SETTINGS =====
+  const systemSettings = [
+    ['auto_contact_crts', '1'],       // Auto-contact CRTs when absence reported
+    ['auto_approve_crts', '0'],       // Auto-book CRT without waiting for confirmation
+    ['notify_leaders_absence', '1'],  // Notify leaders when absence is reported
+    ['leader_notify_sms', '1'],       // Send SMS to leaders
+    ['leader_notify_email', '1'],     // Send email to leaders
+    ['leader_notify_app', '1'],       // In-app notifications for leaders
+    ['notify_staff_booked', '1'],     // Notify staff when CRT is confirmed
+    ['staff_notify_sms', '0'],        // SMS to staff when CRT booked
+    ['staff_notify_email', '1'],      // Email to staff when CRT booked
+  ];
+  for (const [key, value] of systemSettings) {
+    await db.run('INSERT INTO system_settings (key, value) VALUES (?, ?)', [key, value]);
+  }
+
   console.log(`  ${demoAbsences.length} demo absences (past, today, upcoming)`);
   console.log(`  ${demoNotifications.length} demo notifications`);
-  console.log(`  ${demoSMS.length} demo SMS log entries\n`);
+  console.log(`  ${demoSMS.length} demo SMS log entries`);
+  console.log(`  ${systemSettings.length} system settings\n`);
 
   db.close();
 
