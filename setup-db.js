@@ -160,6 +160,14 @@ async function setup() {
         FOREIGN KEY (user_id) REFERENCES users(id)
       );
 
+      CREATE TABLE IF NOT EXISTS system_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_by INTEGER,
+        FOREIGN KEY (updated_by) REFERENCES users(id)
+      );
+
       CREATE INDEX IF NOT EXISTS idx_absences_date ON absences(date_start, date_end);
       CREATE INDEX IF NOT EXISTS idx_absences_staff ON absences(staff_id);
       CREATE INDEX IF NOT EXISTS idx_absences_status ON absences(status);
