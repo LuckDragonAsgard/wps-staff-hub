@@ -1,4 +1,4 @@
-// WPS Staff Hub - Production Server v6.1 (Turso + sql.js fallback)
+// WPS Staff Hub - Production Server v7.0 (Turso + sql.js fallback)
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcryptjs');
@@ -224,14 +224,14 @@ async function addNotification(message, type, forRoles, absenceId) {
 app.get('/api/health', wrap(async (req, res) => {
   try {
     await dbGet('SELECT 1 as ok');
-    res.json({ status: 'ok', version: '6.2.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
+    res.json({ status: 'ok', version: '7.0.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
   } catch (e) {
     res.status(503).json({ status: 'error', error: 'Database unreachable' });
   }
 }));
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: '6.2.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard', 'lessonlab', 'crt-portal', 'yard-duty-swaps', 'nft-tracking', 'specialist-alerts', 'analytics', 'school-info', 'staff-directory', 'announcements', 'wellbeing', 'incidents', 'quick-status', 'pd-log', 'cover-summary'] });
+  res.json({ version: '7.0.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard', 'lessonlab', 'crt-portal', 'yard-duty-swaps', 'nft-tracking', 'specialist-alerts', 'analytics', 'school-info', 'staff-directory', 'announcements', 'wellbeing', 'incidents', 'quick-status', 'pd-log', 'cover-summary', 'csv-timetable-upload', 'lesson-plan-edit'] });
 });
 
 // ===== STAFF PROFILE =====
@@ -859,7 +859,7 @@ app.get('/api/dashboard', auth, wrap(async (req, res) => {
   const weekAbs = await dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start >= ? AND status != 'cancelled'", weekStart);
   const recentNotifs = await dbAll("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 5");
   res.json({
-    version: '5.1.0',
+    version: '7.0.0',
     demo: DEMO,
     live: LIVE,
     database: USE_TURSO ? 'turso' : 'local',
@@ -1529,6 +1529,57 @@ app.delete('/api/timetables/:id', auth, leaderOnly, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// CSV/Tab paste → JSON timetable converter
+app.post('/api/timetables/from-csv', auth, leaderOnly, wrap(async (req, res) => {
+  const { name, type, term, csvText, is_current } = req.body;
+  if (!name || !csvText) return res.status(400).json({ error: 'Name and CSV text required' });
+  // Parse CSV/tab-separated text into {headers, rows}
+  const lines = csvText.trim().split('\n').map(l => l.split(/\t|,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c => c.replace(/^"|"$/g, '').trim()));
+  if (lines.length < 2) return res.status(400).json({ error: 'Need at least a header row and one data row' });
+  const headers = lines[0];
+  const rows = lines.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = row[i] || ''; });
+    return obj;
+  });
+  const data = JSON.stringify({ headers, rows });
+  if (is_current) {
+    await dbRun('UPDATE timetables SET is_current = 0 WHERE type = ?', [type || 'general']);
+  }
+  await dbRun('INSERT INTO timetables (name, type, term, data, is_current, uploaded_by) VALUES (?,?,?,?,?,?)',
+    [name, type || 'general', term || 1, data, is_current ? 1 : 0, req.user.id]);
+  res.json({ ok: true, id: await dbLastId(), headers, rowCount: rows.length });
+}));
+
+// Get all staff lesson plans (leader view)
+app.get('/api/lessonlab/all-plans', auth, leaderOnly, wrap(async (req, res) => {
+  const { dayOfWeek, date } = req.query;
+  let sql = `SELECT lp.*, u.name as teacher_name, u.area as teacher_area
+    FROM lesson_plans lp LEFT JOIN users u ON lp.teacher_id = u.id WHERE 1=1`;
+  const params = [];
+  if (dayOfWeek) { sql += ' AND lp.day_of_week = ?'; params.push(dayOfWeek); }
+  if (date) { sql += ' AND (lp.specific_date = ? OR (lp.specific_date IS NULL AND lp.day_of_week = ?))'; params.push(date); const d = new Date(date + 'T12:00:00'); params.push(['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()]); }
+  sql += ' ORDER BY u.name, lp.day_of_week, lp.period_slot';
+  res.json(await dbAll(sql, ...params));
+}));
+
+// Duplicate a lesson plan (copy for another day/week)
+app.post('/api/lessonlab/plans/:id/duplicate', auth, wrap(async (req, res) => {
+  const plan = await dbGet('SELECT * FROM lesson_plans WHERE id = ?', parseInt(req.params.id));
+  if (!plan) return res.status(404).json({ error: 'Plan not found' });
+  if (plan.teacher_id !== req.user.id && req.user.role !== 'leader' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Not authorised' });
+  }
+  const { dayOfWeek, specificDate } = req.body;
+  await dbRun(
+    `INSERT INTO lesson_plans (teacher_id, day_of_week, specific_date, period_slot, subject, class_name, plan_title, plan_content, resources, notes, updated_by)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    [plan.teacher_id, dayOfWeek || plan.day_of_week, specificDate || null, plan.period_slot, plan.subject, plan.class_name,
+     plan.plan_title, plan.plan_content, plan.resources, plan.notes, req.user.id]
+  );
+  res.json({ ok: true, id: await dbLastId() });
+}));
+
 // ===== LESSONLAB — Lesson Plan Storage & Auto-Pull =====
 // Store lesson plans per teacher, per day/period. When a teacher calls in sick,
 // the system auto-pulls their plans for the CRT covering their classes.
@@ -1588,6 +1639,12 @@ app.put('/api/lessonlab/plans/:id', auth, wrap(async (req, res) => {
 }));
 
 app.delete('/api/lessonlab/plans/:id', auth, wrap(async (req, res) => {
+  const plan = await dbGet('SELECT * FROM lesson_plans WHERE id = ?', parseInt(req.params.id));
+  if (!plan) return res.status(404).json({ error: 'Plan not found' });
+  // Only the teacher or a leader can delete
+  if (plan.teacher_id !== req.user.id && req.user.role !== 'leader' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Not authorised — only the plan owner or a leader can delete' });
+  }
   await dbRun('DELETE FROM lesson_plans WHERE id = ?', [parseInt(req.params.id)]);
   res.json({ ok: true });
 }));
@@ -1616,11 +1673,16 @@ app.get('/api/lessonlab/crt-pack/:absenceId', auth, wrap(async (req, res) => {
   let timetableSlots = [];
   try {
     const timetables = await dbAll("SELECT * FROM timetables WHERE is_current = 1");
+    const staffName = absence.staff_name.toLowerCase();
+    const staffFirst = staffName.split(' ')[0];
+    const staffLast = staffName.split(' ').slice(1).join(' ');
     for (const tt of timetables) {
       let data; try { data = JSON.parse(tt.data); } catch(e) { continue; }
       if (!data || !data.headers || !data.rows) continue;
-      const staffFirst = absence.staff_name.toLowerCase().split(' ')[0];
-      const colIdx = data.headers.findIndex(h => h.toLowerCase().includes(staffFirst));
+      // Match by full name first, then first name, then last name
+      let colIdx = data.headers.findIndex(h => h.toLowerCase() === staffName);
+      if (colIdx === -1) colIdx = data.headers.findIndex(h => h.toLowerCase().includes(staffFirst) && (staffLast ? h.toLowerCase().includes(staffLast) : true));
+      if (colIdx === -1) colIdx = data.headers.findIndex(h => h.toLowerCase().includes(staffFirst));
       if (colIdx === -1) continue;
       let inDay = false, dayStarted = false;
       for (const row of data.rows) {
@@ -1643,8 +1705,9 @@ app.get('/api/lessonlab/crt-pack/:absenceId', auth, wrap(async (req, res) => {
   let yardDuties = [];
   try {
     const roster = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ?', dayName);
-    const staffFirst = absence.staff_name.toLowerCase().split(' ')[0];
-    yardDuties = roster.filter(r => r.staff_name.toLowerCase().includes(staffFirst));
+    const staffLower = absence.staff_name.toLowerCase();
+    // Match by full name first, then partial
+    yardDuties = roster.filter(r => r.staff_name.toLowerCase() === staffLower || r.staff_name.toLowerCase().includes(staffLower.split(' ')[0]));
     // Check for changes/covers
     const changes = await dbAll('SELECT * FROM yard_duty_changes WHERE date = ?', date);
     yardDuties = yardDuties.map(yd => {
@@ -1781,7 +1844,11 @@ app.post('/api/yard-duty/swap-request', auth, wrap(async (req, res) => {
 
   // Notify the requested staff member (or all staff if open swap)
   if (requestedStaffName) {
-    const target = await dbGet("SELECT id FROM users WHERE LOWER(name) LIKE ? AND active = 1", '%' + requestedStaffName.toLowerCase().split(' ')[0] + '%');
+    // Try exact name match first, then partial match as fallback
+    let target = await dbGet("SELECT id FROM users WHERE LOWER(name) = ? AND active = 1", requestedStaffName.toLowerCase());
+    if (!target) {
+      target = await dbGet("SELECT id FROM users WHERE LOWER(name) LIKE ? AND active = 1", '%' + requestedStaffName.toLowerCase() + '%');
+    }
     if (target) {
       await sendPushNotification(target.id, 'staff', 'Yard Duty Swap Request',
         `${req.user.name} wants to swap yard duty on ${date} (${timeSlot} at ${location}). ${reason ? 'Reason: ' + reason : ''}`);
@@ -1826,6 +1893,7 @@ app.put('/api/yard-duty/swap-request/:id/accept', auth, wrap(async (req, res) =>
 app.put('/api/yard-duty/swap-request/:id/decline', auth, wrap(async (req, res) => {
   const swap = await dbGet('SELECT * FROM yard_duty_swaps WHERE id = ?', parseInt(req.params.id));
   if (!swap) return res.status(404).json({ error: 'Swap not found' });
+  if (swap.status !== 'pending') return res.status(400).json({ error: 'Swap already ' + swap.status });
   await dbRun('UPDATE yard_duty_swaps SET status = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ?', ['declined', swap.id]);
   await sendPushNotification(swap.requester_id, 'staff', 'Swap Declined',
     `${req.user.name} declined the yard duty swap for ${swap.date} (${swap.time_slot}).`);
@@ -2660,7 +2728,7 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`\n  WPS Staff Hub v6.1`);
+    console.log(`\n  WPS Staff Hub v7.0`);
     console.log(`  http://localhost:${PORT}`);
     console.log(`  Database: ${USE_TURSO ? 'Turso (cloud)' : 'sql.js (local)'}`);
     console.log(`  Notifications: ${LIVE ? 'LIVE' : 'SIMULATED'}`);

@@ -155,27 +155,44 @@
     @media(min-width:768px){
       .wrap{max-width:720px;padding:20px 16px 85px}
       .qa{grid-template-columns:repeat(3,1fr);gap:10px}
-      .qa button{padding:20px 12px}
+      .qa button{padding:20px 12px;min-height:90px}
       .qa .qi{font-size:1.6rem}
       .qa .ql{font-size:.88rem}
       .stats{grid-template-columns:repeat(4,1fr);gap:10px}
+      .st{padding:18px 12px}
+      .st .n{font-size:1.8rem}
+      .st .l{font-size:.74rem}
       .btn{padding:14px 24px;font-size:.92rem}
+      .btn-s{padding:10px 16px;font-size:.82rem}
       .fg input,.fg select,.fg textarea{padding:12px 14px;font-size:.92rem}
+      .fg label{font-size:.84rem;margin-bottom:5px}
       .cd{padding:22px;margin-bottom:16px;border-radius:16px}
-      .li{padding:16px}
-      .bnav{padding:4px 0;padding-bottom:env(safe-area-inset-bottom)}
-      .bnav button{padding:10px 6px;font-size:.74rem}
+      .cd h3{font-size:1.05rem}
+      .li{padding:16px;border-radius:14px}
+      .li .nm{font-size:.96rem}
+      .li .dt{font-size:.82rem}
+      .bnav{padding:6px 0;padding-bottom:env(safe-area-inset-bottom)}
+      .bnav button{padding:10px 6px;font-size:.76rem;min-height:54px}
       .bnav button .bi{font-size:1.4rem}
       .mo .mc{max-width:600px;padding:24px 22px 36px}
-      .tog button{padding:9px 8px;font-size:.82rem}
+      .tog{flex-wrap:wrap}
+      .tog button{padding:10px 12px;font-size:.84rem;min-height:40px}
       .nav{height:60px}
       .nav .logo{font-size:1.05rem}
+      .nav .logo-i{width:40px;height:40px}
+      .flex{gap:12px}
+      .half-opts button{padding:14px;font-size:.88rem}
+      .report-table th,.report-table td{padding:10px 12px;font-size:.86rem}
+      .nf{padding:12px 16px;font-size:.88rem}
+      .timeline-item{font-size:.88rem}
     }
     @media(min-width:1024px){
       .wrap{max-width:880px;padding:24px 20px 90px}
-      .qa{grid-template-columns:repeat(3,1fr);gap:12px}
+      .qa{grid-template-columns:repeat(4,1fr);gap:12px}
       .qa button{padding:22px 16px}
       .cd{padding:24px}
+      .stats{grid-template-columns:repeat(4,1fr);gap:14px}
+      .st{padding:20px 14px}
     }
     @media print{
       .nav,.bnav,.demo-banner,.toast-container,.no-print{display:none!important}
@@ -486,7 +503,7 @@
           // Extra notes
           if(z.extra_notes){h+='<div class="cd zap-section"><h4><span class="icon">📌</span> Additional Notes</h4><div class="zap-notes-text">'+this.esc(z.extra_notes)+'</div></div>'}
 
-          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:8px">WPS Staff Hub v6.2 — Daily Zap</div>';
+          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:8px">WPS Staff Hub v7.0 — Daily Zap</div>';
           body.innerHTML=h;
         }catch(e){body.innerHTML='<p class="text-dim" style="text-align:center;padding:20px">Unable to load zap: '+e.message+'</p>'}},
 
@@ -639,11 +656,14 @@
 
       // ===== TIMETABLE MANAGER =====
       renderTimetableManager(){
-        return '<div class="cd"><h3>📊 Timetable Manager</h3><p class="text-sm text-dim mb-2">Upload timetable data as JSON. Staff can view these on the Daily Zap.</p>'+
+        return '<div class="cd"><h3>📊 Timetable Manager</h3><p class="text-sm text-dim mb-2">Upload timetables by pasting from a spreadsheet (CSV/tab) or as JSON.</p>'+
+          '<div class="tog mb-1"><button class="'+(state._ttMode!=='json'?'act':'')+'" onclick="state._ttMode=\'csv\';app.render()">📋 Paste from Spreadsheet</button><button class="'+(state._ttMode==='json'?'act':'')+'" onclick="state._ttMode=\'json\';app.render()">{ } JSON</button></div>'+
           '<div id="ttAddForm" class="mb-2"><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+
           '<div class="fg"><label>Name</label><input type="text" id="ttName" placeholder="e.g. Specialist Timetable"></div>'+
           '<div class="fg"><label>Type</label><select id="ttType"><option value="specialist">Specialist</option><option value="es">ES Timetable</option><option value="planning">Planning</option><option value="support">Support Program</option><option value="general">General</option></select></div></div>'+
-          '<div class="fg"><label>Data (JSON array of rows)</label><textarea id="ttData" style="min-height:120px;font-family:monospace;font-size:.75rem" placeholder=\'[{"Time":"9:00","Monday":"PE 1K","Tuesday":"Music 2W"}]\'></textarea></div>'+
+          (state._ttMode==='json'
+            ?'<div class="fg"><label>Data (JSON)</label><textarea id="ttData" style="min-height:120px;font-family:monospace;font-size:.75rem" placeholder=\'{"headers":["Time","Paddy","Sarah"],"rows":[{"Time":"9:00","Paddy":"3/4A","Sarah":"Prep B"}]}\'></textarea></div>'
+            :'<div class="fg"><label>Paste from Excel / Google Sheets (tab or comma separated)</label><textarea id="ttCSV" style="min-height:120px;font-family:monospace;font-size:.75rem" placeholder="Time\tPaddy\tSarah\n9:00\t3/4A\tPrep B\n10:00\tPrep C\t1/2A"></textarea></div><p class="text-sm text-dim mb-1">First row = headers (Time, Staff Names). Copy directly from your spreadsheet.</p>')+
           '<label style="display:flex;align-items:center;gap:6px;font-size:.82rem;margin-bottom:10px"><input type="checkbox" id="ttCurrent" checked> Set as current</label>'+
           '<button class="btn btn-ok btn-s" onclick="app.addTimetable()">+ Upload Timetable</button></div>'+
           '<div class="divider"></div>'+
@@ -662,14 +682,28 @@
 
       async addTimetable(){
         const name=document.getElementById('ttName')?.value;
-        const dataStr=document.getElementById('ttData')?.value;
-        if(!name||!dataStr){toast('Name and data required','error');return}
+        const type=document.getElementById('ttType')?.value||'general';
+        const isCurrent=document.getElementById('ttCurrent')?.checked;
+        if(!name){toast('Name required','error');return}
         try{
-          const data=JSON.parse(dataStr);
-          await this.fetchAPI('POST','/timetables',{name,type:document.getElementById('ttType')?.value||'general',term:1,data,is_current:document.getElementById('ttCurrent')?.checked});
-          toast('Timetable uploaded!','success');document.getElementById('ttName').value='';document.getElementById('ttData').value='';this.loadTimetableList();
+          if(state._ttMode==='json'){
+            const dataStr=document.getElementById('ttData')?.value;
+            if(!dataStr){toast('JSON data required','error');return}
+            const data=JSON.parse(dataStr);
+            await this.fetchAPI('POST','/timetables',{name,type,term:1,data,is_current:isCurrent});
+          }else{
+            const csvText=document.getElementById('ttCSV')?.value;
+            if(!csvText){toast('Paste your spreadsheet data','error');return}
+            const result=await this.fetchAPI('POST','/timetables/from-csv',{name,type,term:1,csvText,is_current:isCurrent});
+            toast(result.rowCount+' rows with '+result.headers.length+' columns imported!','info');
+          }
+          toast('Timetable uploaded!','success');
+          if(document.getElementById('ttName'))document.getElementById('ttName').value='';
+          if(document.getElementById('ttData'))document.getElementById('ttData').value='';
+          if(document.getElementById('ttCSV'))document.getElementById('ttCSV').value='';
+          this.loadTimetableList();
         }catch(e){
-          if(e.message.includes('JSON')){toast('Invalid JSON data','error')}
+          if(e.message.includes('JSON')){toast('Invalid JSON data — check format','error')}
           else toast('Error: '+e.message,'error')}},
 
       async viewTimetable(id){
@@ -1121,7 +1155,7 @@
         else h+='<p class="text-sm text-dim" style="padding:8px">Push notifications not supported on this browser.</p>';
         h+='</div><div class="divider"></div>';
 
-        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v5.1</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
+        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v7.0</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
         if(isL)h+='<button class="btn btn-o mb-1" onclick="app.resetDemo()" style="width:100%">🔄 Reset Demo Data</button>';
         h+='<button class="btn btn-d" onclick="app.logout()">🚪 Sign Out</button></div>';
         return h},
@@ -1333,30 +1367,53 @@
       renderLessonLab(){
         const isL=state.user.role==='leader'||state.user.role==='admin';
         let h='<div class="cd"><h3>📚 LessonLab — Lesson Plans</h3><p class="text-sm text-dim mb-2">Upload lesson plans so CRTs have them ready when you are away. Plans are matched to your timetable automatically.</p>';
-        h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><button class="btn btn-p btn-s" onclick="app.showAddLessonPlanForm()">+ Add Plan</button><button class="btn btn-o btn-s" onclick="app.showAddLessonPlanForm(\'pe\')">🏃 PE Template</button><button class="btn btn-o btn-s" onclick="app.showAddLessonPlanForm(\'art\')">🎨 Art Template</button><button class="btn btn-o btn-s" onclick="app.showAddLessonPlanForm(\'music\')">🎵 Music Template</button>';
+        h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><button class="btn btn-p btn-s" onclick="app.showAddLessonPlanForm()">+ Add Plan</button><button class="btn btn-o btn-s" onclick="app.showAddLessonPlanForm(\'pe\')">🏃 PE</button><button class="btn btn-o btn-s" onclick="app.showAddLessonPlanForm(\'art\')">🎨 Art</button><button class="btn btn-o btn-s" onclick="app.showAddLessonPlanForm(\'music\')">🎵 Music</button>';
         if(isL)h+='<button class="btn btn-g btn-s" onclick="app.showBulkLessonUpload()">📤 Bulk Upload</button>';
         h+='</div>';
         h+='<div id="lessonPlanForm"></div>';
-        h+='<div class="tog mb-1"><button class="'+(state._llDay!=='all'?'':'act')+'" onclick="state._llDay=null;app.loadLessonPlans()">All</button><button class="'+(state._llDay==='Monday'?'act':'')+'" onclick="state._llDay=\'Monday\';app.loadLessonPlans()">Mon</button><button class="'+(state._llDay==='Tuesday'?'act':'')+'" onclick="state._llDay=\'Tuesday\';app.loadLessonPlans()">Tue</button><button class="'+(state._llDay==='Wednesday'?'act':'')+'" onclick="state._llDay=\'Wednesday\';app.loadLessonPlans()">Wed</button></div>';
-        h+='<div class="tog mb-1"><button class="'+(state._llDay==='Thursday'?'act':'')+'" onclick="state._llDay=\'Thursday\';app.loadLessonPlans()">Thu</button><button class="'+(state._llDay==='Friday'?'act':'')+'" onclick="state._llDay=\'Friday\';app.loadLessonPlans()">Fri</button></div>';
+        if(isL){
+          h+='<div class="tog mb-1"><button class="'+(state._llView!=='all'?'act':'')+'" onclick="state._llView=\'mine\';app.loadLessonPlans()">My Plans</button><button class="'+(state._llView==='all'?'act':'')+'" onclick="state._llView=\'all\';app.loadAllStaffPlans()">All Staff Plans</button></div>';
+        }
+        h+='<div class="tog mb-1"><button class="'+(!state._llDay?'act':'')+'" onclick="state._llDay=null;app.loadLessonPlans()">All</button><button class="'+(state._llDay==='Monday'?'act':'')+'" onclick="state._llDay=\'Monday\';app.loadLessonPlans()">Mon</button><button class="'+(state._llDay==='Tuesday'?'act':'')+'" onclick="state._llDay=\'Tuesday\';app.loadLessonPlans()">Tue</button><button class="'+(state._llDay==='Wednesday'?'act':'')+'" onclick="state._llDay=\'Wednesday\';app.loadLessonPlans()">Wed</button><button class="'+(state._llDay==='Thursday'?'act':'')+'" onclick="state._llDay=\'Thursday\';app.loadLessonPlans()">Thu</button><button class="'+(state._llDay==='Friday'?'act':'')+'" onclick="state._llDay=\'Friday\';app.loadLessonPlans()">Fri</button></div>';
         h+='<div id="lessonPlansList"><div class="loading">Loading plans...</div></div>';
         return h+'</div><button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>'},
 
       async loadLessonPlans(){
+        state._llView='mine';
         const el=document.getElementById('lessonPlansList');if(!el)return;
         try{
           let url='/lessonlab/plans?teacherId='+state.user.id;
           if(state._llDay)url+='&dayOfWeek='+state._llDay;
           const plans=await this.fetchAPI('GET',url);
           if(plans.length===0){el.innerHTML='<div class="empty"><div class="ei">📝</div><p>No lesson plans yet. Add your first one!</p></div>';return}
-          const grouped={};plans.forEach(p=>{const day=p.day_of_week||p.specific_date||'General';if(!grouped[day])grouped[day]=[];grouped[day].push(p)});
+          el.innerHTML=this.renderPlanCards(plans,true)
+        }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      async loadAllStaffPlans(){
+        const el=document.getElementById('lessonPlansList');if(!el)return;
+        try{
+          let url='/lessonlab/all-plans';
+          if(state._llDay)url+='?dayOfWeek='+state._llDay;
+          const plans=await this.fetchAPI('GET',url);
+          if(plans.length===0){el.innerHTML='<div class="empty"><div class="ei">📝</div><p>No lesson plans from any staff yet.</p></div>';return}
+          // Group by teacher
+          const byTeacher={};plans.forEach(p=>{const tn=p.teacher_name||'Unknown';if(!byTeacher[tn])byTeacher[tn]=[];byTeacher[tn].push(p)});
           let h='';
-          Object.entries(grouped).forEach(([day,dayPlans])=>{
-            h+='<h4 style="font-size:.85rem;color:var(--navy);margin:12px 0 8px;padding:6px 10px;background:linear-gradient(90deg,rgba(30,42,94,.08),transparent);border-radius:8px">'+this.esc(day)+'</h4>';
-            dayPlans.forEach(p=>{
-              h+='<div class="li" style="border-left:3px solid var(--blue)"><div class="li-row"><div style="flex:1"><div class="nm" style="font-size:.88rem">'+this.esc(p.plan_title||p.subject)+'</div><div class="dt">'+this.esc(p.subject)+(p.class_name?' — '+this.esc(p.class_name):'')+(p.period_slot?' · '+this.esc(p.period_slot):'')+'</div><div class="dt" style="margin-top:4px;white-space:pre-line;max-height:60px;overflow:hidden">'+this.esc(p.plan_content.substring(0,150))+(p.plan_content.length>150?'...':'')+'</div>'+(p.resources?'<div class="dt" style="color:var(--blue);margin-top:2px">📎 '+this.esc(p.resources)+'</div>':'')+'</div><button onclick="app.deleteLessonPlan('+p.id+')" style="background:none;border:none;color:var(--acc);cursor:pointer;font-size:.9rem;padding:4px">✕</button></div></div>'})});
+          Object.entries(byTeacher).forEach(([teacher,tPlans])=>{
+            const area=tPlans[0].teacher_area||'';
+            h+='<h4 style="font-size:.88rem;color:var(--navy);margin:14px 0 8px;padding:8px 12px;background:linear-gradient(90deg,rgba(30,42,94,.1),transparent);border-radius:10px">'+this.esc(teacher)+(area?' <span style="font-weight:400;font-size:.76rem;color:var(--dim)">— '+this.esc(area)+'</span>':'')+'<span style="float:right;font-size:.72rem;font-weight:400;color:var(--dim)">'+tPlans.length+' plans</span></h4>';
+            h+=this.renderPlanCards(tPlans,false)});
           el.innerHTML=h
         }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      renderPlanCards(plans,showActions){
+        const grouped={};plans.forEach(p=>{const day=p.day_of_week||p.specific_date||'General';if(!grouped[day])grouped[day]=[];grouped[day].push(p)});
+        let h='';
+        Object.entries(grouped).forEach(([day,dayPlans])=>{
+          h+='<h4 style="font-size:.82rem;color:var(--navy);margin:10px 0 6px;padding:5px 10px;background:linear-gradient(90deg,rgba(30,42,94,.06),transparent);border-radius:8px">'+this.esc(day)+'</h4>';
+          dayPlans.forEach(p=>{
+            h+='<div class="li" style="border-left:3px solid var(--blue)"><div class="li-row"><div style="flex:1"><div class="nm" style="font-size:.88rem">'+this.esc(p.plan_title||p.subject)+'</div><div class="dt">'+this.esc(p.subject)+(p.class_name?' — '+this.esc(p.class_name):'')+(p.period_slot?' · '+this.esc(p.period_slot):'')+'</div><div class="dt" style="margin-top:4px;white-space:pre-line;max-height:60px;overflow:hidden">'+this.esc((p.plan_content||'').substring(0,150))+((p.plan_content||'').length>150?'...':'')+'</div>'+(p.resources?'<div class="dt" style="color:var(--blue);margin-top:2px">📎 '+this.esc(p.resources)+'</div>':'')+'</div>'+(showActions?'<div style="display:flex;flex-direction:column;gap:4px;margin-left:8px"><button onclick="app.editLessonPlan('+p.id+')" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:.78rem;padding:4px" title="Edit">✏️</button><button onclick="app.duplicateLessonPlan('+p.id+')" style="background:none;border:none;color:var(--navy);cursor:pointer;font-size:.78rem;padding:4px" title="Copy to another day">📋</button><button onclick="app.deleteLessonPlan('+p.id+')" style="background:none;border:none;color:var(--acc);cursor:pointer;font-size:.78rem;padding:4px" title="Delete">✕</button></div>':'')+'</div></div>'})});
+        return h},
 
       showAddLessonPlanForm(template){
         const el=document.getElementById('lessonPlanForm');if(!el)return;
@@ -1386,6 +1443,30 @@
         const lines=raw.trim().split('\n').filter(l=>l.trim());
         const plans=lines.map(l=>{const parts=l.split('|').map(s=>s.trim());return{teacherId:parseInt(tid),dayOfWeek:parts[0]||'',periodSlot:parts[1]||'',subject:parts[2]||'General',className:parts[3]||'',planTitle:parts[2]||'General',planContent:parts[4]||parts[2]||''}}).filter(p=>p.planContent);
         try{const r=await this.fetchAPI('POST','/lessonlab/plans/bulk',{plans});toast(r.count+' plans uploaded!','success');document.getElementById('lessonPlanForm').innerHTML='';this.loadLessonPlans()
+        }catch(e){toast('Error: '+e.message,'error')}},
+
+      async editLessonPlan(id){
+        try{
+          const p=await this.fetchAPI('GET','/lessonlab/plans/'+id);
+          const el=document.getElementById('lessonPlanForm');if(!el)return;
+          const days=['Monday','Tuesday','Wednesday','Thursday','Friday'];
+          el.innerHTML='<div style="padding:16px;background:var(--bg);border-radius:12px;margin-bottom:12px"><h4 style="margin-bottom:10px;font-size:.88rem">Edit Lesson Plan</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="fg"><label>Day</label><select id="lpDay">'+days.map(d=>'<option value="'+d+'"'+(d===p.day_of_week?' selected':'')+'>'+d+'</option>').join('')+'</select></div><div class="fg"><label>Period/Time</label><input type="text" id="lpPeriod" value="'+this.esc(p.period_slot||'')+'"></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="fg"><label>Subject</label><input type="text" id="lpSubject" value="'+this.esc(p.subject)+'"></div><div class="fg"><label>Class</label><input type="text" id="lpClass" value="'+this.esc(p.class_name||'')+'"></div></div><div class="fg"><label>Plan Title</label><input type="text" id="lpTitle" value="'+this.esc(p.plan_title||'')+'"></div><div class="fg"><label>Lesson Plan Content</label><textarea id="lpContent" style="min-height:150px">'+this.esc(p.plan_content)+'</textarea></div><div class="fg"><label>Resources / Equipment</label><input type="text" id="lpResources" value="'+this.esc(p.resources||'')+'"></div><div class="fg"><label>Notes for CRT</label><textarea id="lpNotes">'+this.esc(p.notes||'')+'</textarea></div><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.saveLessonPlanEdit('+id+')">Save Changes</button><button class="btn btn-g" style="flex:1" onclick="document.getElementById(\'lessonPlanForm\').innerHTML=\'\'">Cancel</button></div></div>';
+          el.scrollIntoView({behavior:'smooth'})
+        }catch(e){toast('Error loading plan: '+e.message,'error')}},
+
+      async saveLessonPlanEdit(id){
+        try{await this.fetchAPI('PUT','/lessonlab/plans/'+id,{dayOfWeek:document.getElementById('lpDay')?.value,periodSlot:document.getElementById('lpPeriod')?.value,subject:document.getElementById('lpSubject')?.value,className:document.getElementById('lpClass')?.value,planTitle:document.getElementById('lpTitle')?.value,planContent:document.getElementById('lpContent')?.value,resources:document.getElementById('lpResources')?.value,notes:document.getElementById('lpNotes')?.value});
+          toast('Plan updated!','success');document.getElementById('lessonPlanForm').innerHTML='';this.loadLessonPlans()
+        }catch(e){toast('Error: '+e.message,'error')}},
+
+      async duplicateLessonPlan(id){
+        const days=['Monday','Tuesday','Wednesday','Thursday','Friday'];
+        const dayPick=prompt('Copy this plan to which day?\n\n'+days.join(', '));
+        if(!dayPick)return;
+        const matched=days.find(d=>d.toLowerCase()===dayPick.trim().toLowerCase());
+        if(!matched){toast('Invalid day — use Monday through Friday','error');return}
+        try{await this.fetchAPI('POST','/lessonlab/plans/'+id+'/duplicate',{dayOfWeek:matched});
+          toast('Plan copied to '+matched+'!','success');this.loadLessonPlans()
         }catch(e){toast('Error: '+e.message,'error')}},
 
       async deleteLessonPlan(id){if(!confirm('Delete this plan?'))return;try{await this.fetchAPI('DELETE','/lessonlab/plans/'+id);toast('Plan deleted','info');this.loadLessonPlans()}catch(e){toast('Error: '+e.message,'error')}},
@@ -1543,8 +1624,10 @@
 
       showSwapRequestForm(){
         const el=document.getElementById('swapForm');if(!el)return;
-        const staffNames=state.allUsers.filter(u=>u.name!==state.user.name).map(u=>u.name);
-        el.innerHTML='<div style="padding:16px;background:var(--bg);border-radius:12px;margin-bottom:12px"><h4 style="margin-bottom:10px;font-size:.88rem">Request Yard Duty Swap</h4><div class="flex"><div class="fg"><label>Date</label><input type="date" id="swapDate" value="'+new Date().toISOString().split('T')[0]+'"></div><div class="fg"><label>Time Slot</label><input type="text" id="swapSlot" placeholder="e.g. Lunch 1"></div></div><div class="fg"><label>Location</label><input type="text" id="swapLocation" placeholder="e.g. Oval, Front Gate"></div><div class="fg"><label>Ask specific person (optional)</label><select id="swapTarget"><option value="">Open to anyone</option>'+staffNames.map(n=>'<option value="'+n+'">'+n+'</option>').join('')+'</select></div><div class="fg"><label>Reason</label><input type="text" id="swapReason" placeholder="e.g. Meeting, appointment"></div><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.submitSwapRequest()">Send Request</button><button class="btn btn-g" style="flex:1" onclick="document.getElementById(\'swapForm\').innerHTML=\'\'">Cancel</button></div></div>'},
+        const staffNames=state.allUsers.filter(u=>u.name!==state.user.name&&(u.role==='staff'||u.role==='leader')).map(u=>u.name).sort();
+        const slots=['before_school','recess','lunch_eating','lunch_1','lunch_2','after_school'];
+        const slotLabels={'before_school':'Before School','recess':'Recess','lunch_eating':'Lunch Eating','lunch_1':'Lunch 1','lunch_2':'Lunch 2','after_school':'After School'};
+        el.innerHTML='<div style="padding:16px;background:var(--bg);border-radius:12px;margin-bottom:12px"><h4 style="margin-bottom:10px;font-size:.88rem">Request Yard Duty Swap</h4><div class="flex"><div class="fg"><label>Date</label><input type="date" id="swapDate" value="'+new Date().toISOString().split('T')[0]+'"></div><div class="fg"><label>Time Slot</label><select id="swapSlot">'+slots.map(s=>'<option value="'+s+'">'+slotLabels[s]+'</option>').join('')+'</select></div></div><div class="fg"><label>Location</label><input type="text" id="swapLocation" placeholder="e.g. Oval, Front Gate"></div><div class="fg"><label>Ask specific person (optional)</label><select id="swapTarget"><option value="">Open to anyone</option>'+staffNames.map(n=>'<option value="'+this.esc(n)+'">'+this.esc(n)+'</option>').join('')+'</select></div><div class="fg"><label>Reason</label><input type="text" id="swapReason" placeholder="e.g. Meeting, appointment"></div><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.submitSwapRequest()">Send Request</button><button class="btn btn-g" style="flex:1" onclick="document.getElementById(\'swapForm\').innerHTML=\'\'">Cancel</button></div></div>'},
 
       async submitSwapRequest(){
         const date=document.getElementById('swapDate')?.value;const slot=document.getElementById('swapSlot')?.value;const loc=document.getElementById('swapLocation')?.value;
@@ -1555,6 +1638,7 @@
 
       async loadSwapRequests(){
         const el=document.getElementById('swapsList');if(!el)return;
+        const slotLabels={'before_school':'Before School','recess':'Recess','lunch_eating':'Lunch Eating','lunch_1':'Lunch 1','lunch_2':'Lunch 2','after_school':'After School'};
         try{
           const swaps=await this.fetchAPI('GET','/yard-duty/swap-requests');
           const filtered=state._swapTab==='mine'?swaps.filter(s=>s.requester_id===state.user.id):swaps;
@@ -1562,9 +1646,10 @@
           let h='';
           filtered.forEach(s=>{
             const isPending=s.status==='pending';const isMine=s.requester_id===state.user.id;
-            const canAccept=isPending&&!isMine&&(!s.requested_staff_name||s.requested_staff_name.toLowerCase().includes(state.user.name.toLowerCase().split(' ')[0]));
+            const canAccept=isPending&&!isMine&&(!s.requested_staff_name||s.requested_staff_name.toLowerCase()===state.user.name.toLowerCase()||s.requested_staff_name.toLowerCase().includes(state.user.name.toLowerCase()));
             const sc={pending:'s-pending',accepted:'s-booked',declined:'s-nocrt'}[s.status]||'s-pending';
-            h+='<div class="li"><div class="li-row"><div style="flex:1"><div class="nm">'+this.esc(s.requester_name)+(s.requested_staff_name?' → '+this.esc(s.requested_staff_name):' → Open')+'</div><div class="dt">'+this.esc(s.date)+' · '+this.esc(s.time_slot)+' at '+this.esc(s.location)+'</div>'+(s.reason?'<div class="dt">'+this.esc(s.reason)+'</div>':'')+(s.accepted_by_name?'<div class="dt" style="color:var(--ok)">Accepted by: '+this.esc(s.accepted_by_name)+'</div>':'')+'</div><span class="sb '+sc+'">'+s.status+'</span></div>'+(canAccept?'<div style="display:flex;gap:6px;margin-top:8px"><button class="btn btn-ok btn-s" style="flex:1" onclick="app.acceptSwap('+s.id+')">✓ Accept</button><button class="btn btn-d btn-s" style="flex:1" onclick="app.declineSwap('+s.id+')">✕ Decline</button></div>':'')+'</div>'});
+            const slotLabel=slotLabels[s.time_slot]||s.time_slot;
+            h+='<div class="li"><div class="li-row"><div style="flex:1"><div class="nm">'+this.esc(s.requester_name)+(s.requested_staff_name?' → '+this.esc(s.requested_staff_name):' → <span style="color:var(--blue)">Open to anyone</span>')+'</div><div class="dt">'+this.formatDate(s.date)+' · '+this.esc(slotLabel)+' at '+this.esc(s.location)+'</div>'+(s.reason?'<div class="dt" style="margin-top:2px">Reason: '+this.esc(s.reason)+'</div>':'')+(s.accepted_by_name?'<div class="dt" style="color:var(--ok);margin-top:2px">Accepted by: '+this.esc(s.accepted_by_name)+'</div>':'')+'</div><span class="sb '+sc+'">'+s.status+'</span></div>'+(canAccept?'<div style="display:flex;gap:6px;margin-top:8px"><button class="btn btn-ok btn-s" style="flex:1" onclick="app.acceptSwap('+s.id+')">Accept</button><button class="btn btn-d btn-s" style="flex:1" onclick="app.declineSwap('+s.id+')">Decline</button></div>':'')+'</div>'});
           el.innerHTML=h
         }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
 
@@ -2077,7 +2162,7 @@
               h+='</div>'});
             h+='</div>'}
 
-          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:12px;border-top:1px solid var(--bdr);margin-top:16px">Generated by WPS Staff Hub v6.2 · '+new Date().toLocaleString()+'</div>';
+          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:12px;border-top:1px solid var(--bdr);margin-top:16px">Generated by WPS Staff Hub v7.0 · '+new Date().toLocaleString()+'</div>';
           el.innerHTML=h
         }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
 
