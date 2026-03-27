@@ -1,4 +1,4 @@
-// WPS Staff Hub - Production Server v6.0 (Turso + sql.js fallback)
+// WPS Staff Hub - Production Server v6.1 (Turso + sql.js fallback)
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcryptjs');
@@ -224,14 +224,14 @@ async function addNotification(message, type, forRoles, absenceId) {
 app.get('/api/health', wrap(async (req, res) => {
   try {
     await dbGet('SELECT 1 as ok');
-    res.json({ status: 'ok', version: '6.0.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
+    res.json({ status: 'ok', version: '6.1.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
   } catch (e) {
     res.status(503).json({ status: 'error', error: 'Database unreachable' });
   }
 }));
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: '6.0.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard', 'lessonlab', 'crt-portal', 'yard-duty-swaps', 'nft-tracking', 'specialist-alerts', 'analytics', 'school-info', 'staff-directory', 'announcements', 'wellbeing', 'incidents'] });
+  res.json({ version: '6.1.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard', 'lessonlab', 'crt-portal', 'yard-duty-swaps', 'nft-tracking', 'specialist-alerts', 'analytics', 'school-info', 'staff-directory', 'announcements', 'wellbeing', 'incidents'] });
 });
 
 // ===== STAFF PROFILE =====
@@ -2553,7 +2553,7 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`\n  WPS Staff Hub v6.0`);
+    console.log(`\n  WPS Staff Hub v6.1`);
     console.log(`  http://localhost:${PORT}`);
     console.log(`  Database: ${USE_TURSO ? 'Turso (cloud)' : 'sql.js (local)'}`);
     console.log(`  Notifications: ${LIVE ? 'LIVE' : 'SIMULATED'}`);

@@ -161,13 +161,21 @@
       .stats{grid-template-columns:repeat(4,1fr);gap:10px}
       .btn{padding:14px 24px;font-size:.92rem}
       .fg input,.fg select,.fg textarea{padding:12px 14px;font-size:.92rem}
-      .cd{padding:20px;margin-bottom:16px}
+      .cd{padding:22px;margin-bottom:16px;border-radius:16px}
       .li{padding:16px}
-      .bnav button{padding:10px 6px;font-size:.72rem}
+      .bnav{padding:4px 0;padding-bottom:env(safe-area-inset-bottom)}
+      .bnav button{padding:10px 6px;font-size:.74rem}
       .bnav button .bi{font-size:1.4rem}
+      .mo .mc{max-width:600px;padding:24px 22px 36px}
+      .tog button{padding:9px 8px;font-size:.82rem}
+      .nav{height:60px}
+      .nav .logo{font-size:1.05rem}
     }
     @media(min-width:1024px){
-      .wrap{max-width:880px}
+      .wrap{max-width:880px;padding:24px 20px 90px}
+      .qa{grid-template-columns:repeat(3,1fr);gap:12px}
+      .qa button{padding:22px 16px}
+      .cd{padding:24px}
     }
     @media print{
       .nav,.bnav,.demo-banner,.toast-container,.no-print{display:none!important}
@@ -354,6 +362,7 @@
         if(state.currentView==='calendarmanage')this.loadCalendarEvents();
         if(state.currentView==='timetablemanage')this.loadTimetableList();
         if(state.currentView==='dashboard'&&(state.user.role==='leader'||state.user.role==='admin'))this.loadLeaderIntel();
+        if(state.currentView==='dashboard'&&state.user.role==='staff')this.loadWellbeingNudge();
         if(state.currentView==='analytics')this.loadAnalytics();
         if(state.currentView==='schoolinfo')this.loadSchoolInfo();
         if(state.currentView==='directory')this.loadDirectory();
@@ -382,6 +391,16 @@
           // Quote
           const z=data.zap||{};
           if(z.weekly_quote){h+='<div class="zap-quote">"'+this.esc(z.weekly_quote)+'"<div class="qa">— '+(z.quote_author?this.esc(z.quote_author):'Unknown')+'</div></div>'}
+
+          // Pinned announcements on today's zap
+          try{
+            const anns=await this.fetchAPI('GET','/announcements?limit=5');
+            const pinned=anns.filter(a=>a.pinned||a.priority==='urgent');
+            if(pinned.length>0){
+              pinned.forEach(a=>{
+                const isUrg=a.priority==='urgent';
+                h+='<div class="cd" style="border-left:4px solid '+(isUrg?'var(--acc)':'var(--gold)')+';background:'+(isUrg?'#fff5f5':'#fffbf0')+'"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:.85rem">'+(isUrg?'🚨':'📢')+'</span><span style="font-weight:700;font-size:.88rem">'+this.esc(a.title)+'</span></div><div style="font-size:.84rem;line-height:1.5;white-space:pre-line">'+this.esc(a.content)+'</div></div>'})}
+          }catch(e){}
 
           // Daily Organisation
           if(z.daily_org){h+='<div class="cd zap-section"><h4><span class="icon">📋</span> Daily Organisation</h4><div class="zap-notes-text">'+this.esc(z.daily_org)+'</div></div>'}
@@ -465,7 +484,7 @@
           // Extra notes
           if(z.extra_notes){h+='<div class="cd zap-section"><h4><span class="icon">📌</span> Additional Notes</h4><div class="zap-notes-text">'+this.esc(z.extra_notes)+'</div></div>'}
 
-          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:8px">WPS Staff Hub v5.1 — Daily Zap</div>';
+          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:8px">WPS Staff Hub v6.1 — Daily Zap</div>';
           body.innerHTML=h;
         }catch(e){body.innerHTML='<p class="text-dim" style="text-align:center;padding:20px">Unable to load zap: '+e.message+'</p>'}},
 
@@ -635,7 +654,7 @@
           const tts=await this.fetchAPI('GET','/timetables');
           if(tts.length===0){body.innerHTML='<div class="empty"><div class="ei">📊</div><p>No timetables uploaded yet.</p></div>';return}
           let h='';tts.forEach(tt=>{
-            h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bdr)"><div><div style="font-weight:600;font-size:.84rem">'+this.esc(tt.name)+(tt.is_current?' <span style="color:var(--ok);font-size:.72rem">● CURRENT</span>':'')+'</div><div style="font-size:.76rem;color:var(--dim)">'+this.esc(tt.type)+' — Term '+tt.term+'</div></div><button onclick="app.deleteTimetable('+tt.id+')" style="background:none;border:none;color:var(--acc);cursor:pointer;font-size:1rem">✕</button></div>'});
+            h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bdr)"><div><div style="font-weight:600;font-size:.84rem">'+this.esc(tt.name)+(tt.is_current?' <span style="color:var(--ok);font-size:.72rem">● CURRENT</span>':'')+'</div><div style="font-size:.76rem;color:var(--dim)">'+this.esc(tt.type)+' — Term '+tt.term+'</div></div><div style="display:flex;gap:6px"><button onclick="app.viewTimetable('+tt.id+')" class="btn btn-o btn-s" style="width:auto">View</button><button onclick="app.deleteTimetable('+tt.id+')" style="background:none;border:none;color:var(--acc);cursor:pointer;font-size:1rem">✕</button></div></div>'});
           body.innerHTML=h;
         }catch(e){body.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
 
@@ -650,6 +669,27 @@
         }catch(e){
           if(e.message.includes('JSON')){toast('Invalid JSON data','error')}
           else toast('Error: '+e.message,'error')}},
+
+      async viewTimetable(id){
+        try{
+          const tt=await this.fetchAPI('GET','/timetables/'+id);
+          let data=tt.data;if(typeof data==='string')try{data=JSON.parse(data)}catch(e){}
+          let h='<div class="mo" onclick="if(event.target===this)this.remove()"><div class="mc" style="max-width:90vw"><div class="handle"></div><h3 style="font-size:1rem;margin-bottom:14px">📊 '+this.esc(tt.name)+'</h3>';
+          if(data&&data.headers&&data.rows){
+            h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.78rem">';
+            h+='<thead><tr>';data.headers.forEach(col=>{h+='<th style="padding:10px 8px;background:var(--navy);color:#fff;font-weight:700;white-space:nowrap;text-align:left;border:1px solid var(--pd)">'+this.esc(col)+'</th>'});h+='</tr></thead><tbody>';
+            data.rows.forEach((row,ri)=>{h+='<tr style="background:'+(ri%2===0?'#fff':'var(--bg)')+'">'; data.headers.forEach(col=>{const cell=row[col]||'';const hasClass=cell&&cell.length>0&&col!=='Time'&&col!=='Period';h+='<td style="padding:8px;border:1px solid var(--bdr);'+(hasClass?'font-weight:600;color:var(--navy)':'color:var(--dim)')+'">'+this.esc(cell)+'</td>'});h+='</tr>'});
+            h+='</tbody></table></div>'}
+          else if(Array.isArray(data)&&data.length>0){
+            const cols=Object.keys(data[0]);
+            h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.78rem">';
+            h+='<thead><tr>';cols.forEach(col=>{h+='<th style="padding:10px 8px;background:var(--navy);color:#fff;font-weight:700;white-space:nowrap;text-align:left;border:1px solid var(--pd)">'+this.esc(col)+'</th>'});h+='</tr></thead><tbody>';
+            data.forEach((row,ri)=>{h+='<tr style="background:'+(ri%2===0?'#fff':'var(--bg)')+'">'; cols.forEach(col=>{const cell=row[col]||'';const isTime=col.toLowerCase().includes('time')||col.toLowerCase().includes('period');h+='<td style="padding:8px;border:1px solid var(--bdr);'+(isTime?'font-weight:700;color:var(--navy)':'')+'">'+this.esc(String(cell))+'</td>'});h+='</tr>'});
+            h+='</tbody></table></div>'}
+          else h+='<pre style="font-size:.78rem;overflow-x:auto;background:var(--bg);padding:12px;border-radius:8px">'+this.esc(JSON.stringify(data,null,2))+'</pre>';
+          h+='<button class="btn btn-g" style="margin-top:14px" onclick="this.closest(\'.mo\').remove()">Close</button></div></div>';
+          document.body.insertAdjacentHTML('beforeend',h)
+        }catch(e){toast('Error: '+e.message,'error')}},
 
       async deleteTimetable(id){
         if(!confirm('Remove this timetable?'))return;
@@ -720,7 +760,11 @@
 
       renderStaffDashboard(){
         const mine=state.absences.filter(a=>a.staff_id===state.user.id);
-        let h='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><p class="text-sm text-dim mb-2">Use this app to report when you\'ll be away. The system will automatically find a CRT to cover your classes.</p><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.showView(\'new\')">➕ Report Absence</button><button class="btn btn-o" style="flex:1" onclick="app.showView(\'prebook\')">📅 Pre-book Leave</button></div><div class="qa" style="margin-top:12px"><button onclick="app.showView(\'lessonlab\')"><div class="qi">📚</div><div class="ql">LessonLab</div><div class="qd">My lesson plans</div></button><button onclick="app.showView(\'yardswaps\')"><div class="qi">🔄</div><div class="ql">Duty Swaps</div><div class="qd">Request a swap</div></button></div><div class="qa"><button onclick="app.showView(\'schoolinfo\')"><div class="qi">🏫</div><div class="ql">School Info</div><div class="qd">Bell times, contacts</div></button><button onclick="app.showView(\'nft\')"><div class="qi">⏱️</div><div class="ql">My NFT</div><div class="qd">Non-face-to-face</div></button></div><div class="qa"><button onclick="app.showView(\'announcements\')"><div class="qi">📢</div><div class="ql">Announcements</div><div class="qd">School news</div></button><button onclick="app.showView(\'wellbeing\')"><div class="qi">💚</div><div class="ql">Wellbeing</div><div class="qd">Daily check-in</div></button><button onclick="app.showView(\'incidents\')"><div class="qi">🚨</div><div class="ql">Incidents</div><div class="qd">Report issue</div></button></div></div>';
+        let h='';
+        // Quick wellbeing nudge
+        h+='<div id="wbNudge"></div>';
+        // Welcome card
+        h+='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><p class="text-sm text-dim mb-2">Use this app to report when you\'ll be away. The system will automatically find a CRT to cover your classes.</p><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.showView(\'new\')">➕ Report Absence</button><button class="btn btn-o" style="flex:1" onclick="app.showView(\'prebook\')">📅 Pre-book Leave</button></div><div class="qa" style="margin-top:12px"><button onclick="app.showView(\'lessonlab\')"><div class="qi">📚</div><div class="ql">LessonLab</div><div class="qd">My lesson plans</div></button><button onclick="app.showView(\'yardswaps\')"><div class="qi">🔄</div><div class="ql">Duty Swaps</div><div class="qd">Request a swap</div></button></div><div class="qa"><button onclick="app.showView(\'schoolinfo\')"><div class="qi">🏫</div><div class="ql">School Info</div><div class="qd">Bell times, contacts</div></button><button onclick="app.showView(\'nft\')"><div class="qi">⏱️</div><div class="ql">My NFT</div><div class="qd">Non-face-to-face</div></button></div><div class="qa"><button onclick="app.showView(\'announcements\')"><div class="qi">📢</div><div class="ql">Announcements</div><div class="qd">School news</div></button><button onclick="app.showView(\'wellbeing\')"><div class="qi">💚</div><div class="ql">Wellbeing</div><div class="qd">Daily check-in</div></button><button onclick="app.showView(\'incidents\')"><div class="qi">🚨</div><div class="ql">Incidents</div><div class="qd">Report issue</div></button></div></div>';
         if(mine.length>0){h+='<div class="cd"><h3>📋 Your Absences</h3>';
           mine.forEach(a=>{const sc={pending:'s-pending',booked:'s-booked',contacting:'s-contacting',nocrt:'s-nocrt',cancelled:'s-cancelled'}[a.status]||'s-pending';
             h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div style="flex:1"><div class="nm">'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+'</div><div class="dt">'+a.reason+(a.half_day&&a.half_day!=='full'?' ('+a.half_day.toUpperCase()+')':'')+'</div>'+(a.crt_name?'<div class="dt" style="color:var(--ok)">CRT: '+a.crt_name+'</div>':'')+'</div><span class="sb '+sc+'">'+a.status+'</span></div></div>'});
@@ -1287,8 +1331,9 @@
       renderLessonLab(){
         const isL=state.user.role==='leader'||state.user.role==='admin';
         let h='<div class="cd"><h3>📚 LessonLab — Lesson Plans</h3><p class="text-sm text-dim mb-2">Upload lesson plans so CRTs have them ready when you are away. Plans are matched to your timetable automatically.</p>';
-        h+='<button class="btn btn-p btn-s mb-2" onclick="app.showAddLessonPlanForm()">+ Add Lesson Plan</button>';
-        if(isL)h+=' <button class="btn btn-o btn-s mb-2" onclick="app.showBulkLessonUpload()">📤 Bulk Upload</button>';
+        h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><button class="btn btn-p btn-s" onclick="app.showAddLessonPlanForm()">+ Add Plan</button><button class="btn btn-o btn-s" onclick="app.showAddLessonPlanForm(\'pe\')">🏃 PE Template</button><button class="btn btn-o btn-s" onclick="app.showAddLessonPlanForm(\'art\')">🎨 Art Template</button><button class="btn btn-o btn-s" onclick="app.showAddLessonPlanForm(\'music\')">🎵 Music Template</button>';
+        if(isL)h+='<button class="btn btn-g btn-s" onclick="app.showBulkLessonUpload()">📤 Bulk Upload</button>';
+        h+='</div>';
         h+='<div id="lessonPlanForm"></div>';
         h+='<div class="tog mb-1"><button class="'+(state._llDay!=='all'?'':'act')+'" onclick="state._llDay=null;app.loadLessonPlans()">All</button><button class="'+(state._llDay==='Monday'?'act':'')+'" onclick="state._llDay=\'Monday\';app.loadLessonPlans()">Mon</button><button class="'+(state._llDay==='Tuesday'?'act':'')+'" onclick="state._llDay=\'Tuesday\';app.loadLessonPlans()">Tue</button><button class="'+(state._llDay==='Wednesday'?'act':'')+'" onclick="state._llDay=\'Wednesday\';app.loadLessonPlans()">Wed</button></div>';
         h+='<div class="tog mb-1"><button class="'+(state._llDay==='Thursday'?'act':'')+'" onclick="state._llDay=\'Thursday\';app.loadLessonPlans()">Thu</button><button class="'+(state._llDay==='Friday'?'act':'')+'" onclick="state._llDay=\'Friday\';app.loadLessonPlans()">Fri</button></div>';
@@ -1311,10 +1356,16 @@
           el.innerHTML=h
         }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
 
-      showAddLessonPlanForm(){
+      showAddLessonPlanForm(template){
         const el=document.getElementById('lessonPlanForm');if(!el)return;
         const days=['Monday','Tuesday','Wednesday','Thursday','Friday'];
-        el.innerHTML='<div style="padding:16px;background:var(--bg);border-radius:12px;margin-bottom:12px"><h4 style="margin-bottom:10px;font-size:.88rem">Add Lesson Plan</h4><div class="flex"><div class="fg"><label>Day</label><select id="lpDay">'+days.map(d=>'<option value="'+d+'">'+d+'</option>').join('')+'</select></div><div class="fg"><label>Period/Time</label><input type="text" id="lpPeriod" placeholder="e.g. Period 3, 11:30am"></div></div><div class="flex"><div class="fg"><label>Subject</label><input type="text" id="lpSubject" placeholder="e.g. PE, Art, Music"></div><div class="fg"><label>Class</label><input type="text" id="lpClass" placeholder="e.g. 3/4A, Prep B"></div></div><div class="fg"><label>Plan Title</label><input type="text" id="lpTitle" placeholder="e.g. Ball Skills — Week 9"></div><div class="fg"><label>Lesson Plan Content</label><textarea id="lpContent" placeholder="Write the full lesson plan here. Include warm-up, main activity, cool-down, equipment needed..." style="min-height:120px"></textarea></div><div class="fg"><label>Resources / Equipment</label><input type="text" id="lpResources" placeholder="e.g. Basketballs, cones, whistle"></div><div class="fg"><label>Notes for CRT</label><textarea id="lpNotes" placeholder="Any tips for the CRT covering this class..."></textarea></div><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.submitLessonPlan()">Save Plan</button><button class="btn btn-g" style="flex:1" onclick="document.getElementById(\'lessonPlanForm\').innerHTML=\'\'">Cancel</button></div></div>'},
+        const templates={
+          pe:{subject:'PE',title:'',content:'WARM UP (5 min):\n- Jog laps / free play\n\nMAIN ACTIVITY (20 min):\n- \n\nSKILL FOCUS:\n- \n\nGAME (10 min):\n- \n\nCOOL DOWN (5 min):\n- Stretch and discussion\n\nSAFETY NOTES:\n- ',resources:'Cones, bibs, whistles',notes:'Students to wear sport uniform. Check for medical conditions on class list.'},
+          art:{subject:'Art',title:'',content:'INTRODUCTION (5 min):\n- Discuss artwork/technique of the day\n\nDEMONSTRATION (5 min):\n- Show technique step by step\n\nSTUDENT ACTIVITY (25 min):\n- \n\nCLEAN UP (5 min):\n- Wash brushes, return materials\n\nSHARING (5 min):\n- Gallery walk / show and tell',resources:'Paper, paints, brushes, water cups, newspaper for tables',notes:'Aprons required. Art room layout map on wall.'},
+          music:{subject:'Music',title:'',content:'WARM UP (5 min):\n- Vocal warm-up / rhythm echo clapping\n\nLISTENING (5 min):\n- \n\nMAIN ACTIVITY (20 min):\n- \n\nPERFORMANCE (10 min):\n- Group performance / practice\n\nPACK UP (5 min):\n- Return instruments to storage',resources:'',notes:'Instruments stored in cupboard. Music stands in corner.'}
+        };
+        const t=templates[template]||{subject:'',title:'',content:'',resources:'',notes:''};
+        el.innerHTML='<div style="padding:16px;background:var(--bg);border-radius:12px;margin-bottom:12px"><h4 style="margin-bottom:10px;font-size:.88rem">'+(template?'📋 '+template.toUpperCase()+' Template':'Add Lesson Plan')+'</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="fg"><label>Day</label><select id="lpDay">'+days.map(d=>'<option value="'+d+'">'+d+'</option>').join('')+'</select></div><div class="fg"><label>Period/Time</label><input type="text" id="lpPeriod" placeholder="e.g. Period 3, 11:30am"></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="fg"><label>Subject</label><input type="text" id="lpSubject" placeholder="e.g. PE, Art, Music" value="'+this.esc(t.subject)+'"></div><div class="fg"><label>Class</label><input type="text" id="lpClass" placeholder="e.g. 3/4A, Prep B"></div></div><div class="fg"><label>Plan Title</label><input type="text" id="lpTitle" placeholder="e.g. Ball Skills — Week 9" value="'+this.esc(t.title)+'"></div><div class="fg"><label>Lesson Plan Content</label><textarea id="lpContent" placeholder="Write the full lesson plan here..." style="min-height:150px">'+this.esc(t.content)+'</textarea></div><div class="fg"><label>Resources / Equipment</label><input type="text" id="lpResources" placeholder="e.g. Basketballs, cones, whistle" value="'+this.esc(t.resources)+'"></div><div class="fg"><label>Notes for CRT</label><textarea id="lpNotes" placeholder="Any tips for the CRT covering this class...">'+this.esc(t.notes)+'</textarea></div><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.submitLessonPlan()">Save Plan</button><button class="btn btn-g" style="flex:1" onclick="document.getElementById(\'lessonPlanForm\').innerHTML=\'\'">Cancel</button></div></div>'},
 
       showBulkLessonUpload(){
         const el=document.getElementById('lessonPlanForm');if(!el)return;
@@ -1841,6 +1892,15 @@
               h+='</div>'}}
           el.innerHTML=h
         }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      async loadWellbeingNudge(){
+        const el=document.getElementById('wbNudge');if(!el)return;
+        try{
+          const d=await this.fetchAPI('GET','/wellbeing');
+          if(!d.todayDone){
+            el.innerHTML='<div class="cd" style="border-left:4px solid var(--ok);background:linear-gradient(90deg,rgba(39,174,96,.04),transparent);cursor:pointer" onclick="app.showView(\'wellbeing\')"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:1.5rem">💚</span><div><div style="font-weight:700;font-size:.88rem;color:var(--navy)">Daily Wellbeing Check-in</div><div style="font-size:.78rem;color:var(--dim)">Take 10 seconds to check in — it helps your leadership team support you better</div></div><span style="color:var(--ok);font-size:1.2rem">→</span></div></div>'}
+          else el.innerHTML=''
+        }catch(e){el.innerHTML=''}},
 
       setWellbeingRating(cat,val){
         if(!state._wb)state._wb={};state._wb[cat]=val;
