@@ -1,4 +1,4 @@
-// WPS Staff Hub - Production Server v5.1 (Turso + sql.js fallback)
+// WPS Staff Hub - Production Server v6.0 (Turso + sql.js fallback)
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcryptjs');
@@ -224,14 +224,14 @@ async function addNotification(message, type, forRoles, absenceId) {
 app.get('/api/health', wrap(async (req, res) => {
   try {
     await dbGet('SELECT 1 as ok');
-    res.json({ status: 'ok', version: '5.1.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
+    res.json({ status: 'ok', version: '6.0.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
   } catch (e) {
     res.status(503).json({ status: 'error', error: 'Database unreachable' });
   }
 }));
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: '5.1.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard', 'lessonlab', 'crt-portal', 'yard-duty-swaps', 'nft-tracking', 'specialist-alerts', 'analytics', 'school-info'] });
+  res.json({ version: '6.0.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard', 'lessonlab', 'crt-portal', 'yard-duty-swaps', 'nft-tracking', 'specialist-alerts', 'analytics', 'school-info', 'staff-directory', 'announcements', 'wellbeing', 'incidents'] });
 });
 
 // ===== STAFF PROFILE =====
@@ -2102,6 +2102,163 @@ app.get('/api/dashboard/leadership', auth, leaderOnly, wrap(async (req, res) => 
   });
 }));
 
+// ===== STAFF DIRECTORY (enhanced) =====
+app.get('/api/directory', auth, wrap(async (req, res) => {
+  const staff = await dbAll("SELECT id, name, email, phone, role, area, active FROM users ORDER BY name");
+  const crts = await dbAll("SELECT id, name, phone, email, specialties, active FROM crts ORDER BY name");
+  // Get absence stats for each staff
+  const thisYear = new Date().getFullYear();
+  const enriched = [];
+  for (const s of staff) {
+    const absCount = await dbGet("SELECT COUNT(*) as c FROM absences WHERE staff_id = ? AND status != 'cancelled' AND date_start >= ?", s.id, `${thisYear}-01-01`);
+    const isAway = await dbGet("SELECT id FROM absences WHERE staff_id = ? AND date_start <= date('now') AND date_end >= date('now') AND status != 'cancelled'", s.id);
+    enriched.push({ ...s, absencesThisYear: absCount?.c || 0, isAwayToday: !!isAway });
+  }
+  res.json({ staff: enriched, crts });
+}));
+
+// ===== ANNOUNCEMENTS =====
+app.get('/api/announcements', auth, wrap(async (req, res) => {
+  const limit = parseInt(req.query.limit) || 20;
+  const rows = await dbAll(
+    "SELECT * FROM announcements WHERE (expires_at IS NULL OR expires_at >= date('now')) ORDER BY pinned DESC, created_at DESC LIMIT ?", limit
+  );
+  res.json(rows);
+}));
+
+app.post('/api/announcements', auth, leaderOnly, wrap(async (req, res) => {
+  const { title, content, priority, category, pinned, expires_at } = req.body;
+  if (!title || !content) return res.status(400).json({ error: 'Title and content required' });
+  await dbRun(
+    'INSERT INTO announcements (title, content, priority, category, pinned, created_by, author_name, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [title, content, priority || 'normal', category || 'general', pinned ? 1 : 0, req.user.id, req.user.name, expires_at || null]
+  );
+  const id = await dbLastId();
+  // Create notification for all staff
+  await dbRun("INSERT INTO notifications (message, type, for_roles) VALUES (?, ?, ?)",
+    [`📢 ${title}`, priority === 'urgent' ? 'urgent' : 'info', 'all']);
+  try { await sendPushToAll(`📢 ${title}`, content.substring(0, 100)); } catch(e) {}
+  res.json({ success: true, id });
+}));
+
+app.delete('/api/announcements/:id', auth, leaderOnly, wrap(async (req, res) => {
+  await dbRun('DELETE FROM announcements WHERE id = ?', [req.params.id]);
+  res.json({ success: true });
+}));
+
+// ===== WELLBEING CHECK-INS =====
+app.get('/api/wellbeing', auth, wrap(async (req, res) => {
+  if (req.user.role === 'leader' || req.user.role === 'admin') {
+    // Leaders see aggregate data
+    const today = new Date().toISOString().split('T')[0];
+    const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0];
+    const recent = await dbAll(
+      "SELECT * FROM wellbeing_checkins WHERE date >= ? ORDER BY date DESC", weekAgo
+    );
+    // Aggregate averages
+    const todayCheckins = recent.filter(c => c.date === today);
+    const avgMood = todayCheckins.length ? (todayCheckins.reduce((s,c) => s + c.mood, 0) / todayCheckins.length).toFixed(1) : null;
+    const avgEnergy = todayCheckins.length ? (todayCheckins.reduce((s,c) => s + c.energy, 0) / todayCheckins.length).toFixed(1) : null;
+    const avgWorkload = todayCheckins.length ? (todayCheckins.reduce((s,c) => s + c.workload, 0) / todayCheckins.length).toFixed(1) : null;
+    // Weekly trend
+    const dailyAvg = {};
+    recent.forEach(c => {
+      if (!dailyAvg[c.date]) dailyAvg[c.date] = { mood: [], energy: [], workload: [], count: 0 };
+      dailyAvg[c.date].mood.push(c.mood);
+      dailyAvg[c.date].energy.push(c.energy);
+      dailyAvg[c.date].workload.push(c.workload);
+      dailyAvg[c.date].count++;
+    });
+    const trend = Object.entries(dailyAvg).map(([date, d]) => ({
+      date,
+      avgMood: (d.mood.reduce((a,b) => a+b, 0) / d.mood.length).toFixed(1),
+      avgEnergy: (d.energy.reduce((a,b) => a+b, 0) / d.energy.length).toFixed(1),
+      avgWorkload: (d.workload.reduce((a,b) => a+b, 0) / d.workload.length).toFixed(1),
+      responses: d.count
+    })).sort((a,b) => a.date.localeCompare(b.date));
+    // Flags: anyone consistently low
+    const staffFlags = [];
+    const byStaff = {};
+    recent.filter(c => !c.is_anonymous).forEach(c => {
+      if (!byStaff[c.staff_id]) byStaff[c.staff_id] = { name: c.staff_name, moods: [] };
+      byStaff[c.staff_id].moods.push(c.mood);
+    });
+    Object.entries(byStaff).forEach(([id, d]) => {
+      const avg = d.moods.reduce((a,b) => a+b, 0) / d.moods.length;
+      if (avg <= 2 && d.moods.length >= 2) staffFlags.push({ staffId: parseInt(id), name: d.name, avgMood: avg.toFixed(1), checkins: d.moods.length });
+    });
+    // Anonymous notes from today
+    const notes = todayCheckins.filter(c => c.note).map(c => ({ note: c.note, mood: c.mood, anonymous: c.is_anonymous }));
+    res.json({ today: { avgMood, avgEnergy, avgWorkload, responses: todayCheckins.length }, trend, staffFlags, notes, totalStaff: (await dbAll("SELECT id FROM users WHERE role != 'crt' AND active = 1")).length });
+  } else {
+    // Staff see their own history
+    const mine = await dbAll("SELECT * FROM wellbeing_checkins WHERE staff_id = ? ORDER BY date DESC LIMIT 14", req.user.id);
+    const today = mine.find(c => c.date === new Date().toISOString().split('T')[0]);
+    res.json({ history: mine, todayDone: !!today });
+  }
+}));
+
+app.post('/api/wellbeing', auth, wrap(async (req, res) => {
+  const { mood, energy, workload, note, anonymous } = req.body;
+  if (!mood || !energy || !workload) return res.status(400).json({ error: 'Mood, energy, and workload ratings required (1-5)' });
+  const today = new Date().toISOString().split('T')[0];
+  // Check if already checked in today
+  const existing = await dbGet("SELECT id FROM wellbeing_checkins WHERE staff_id = ? AND date = ?", req.user.id, today);
+  if (existing) {
+    await dbRun("UPDATE wellbeing_checkins SET mood = ?, energy = ?, workload = ?, note = ?, is_anonymous = ? WHERE id = ?",
+      [mood, energy, workload, note || null, anonymous ? 1 : 0, existing.id]);
+  } else {
+    await dbRun("INSERT INTO wellbeing_checkins (staff_id, staff_name, date, mood, energy, workload, note, is_anonymous) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [req.user.id, req.user.name, today, mood, energy, workload, note || null, anonymous ? 1 : 0]);
+  }
+  res.json({ success: true });
+}));
+
+// ===== INCIDENT REPORTS =====
+app.get('/api/incidents', auth, wrap(async (req, res) => {
+  const { status, limit } = req.query;
+  let sql = 'SELECT * FROM incidents';
+  const params = [];
+  if (status) { sql += ' WHERE status = ?'; params.push(status); }
+  sql += ' ORDER BY created_at DESC LIMIT ?';
+  params.push(parseInt(limit) || 30);
+  const rows = await dbAll(sql, ...params);
+  res.json(rows);
+}));
+
+app.get('/api/incidents/:id', auth, wrap(async (req, res) => {
+  const inc = await dbGet('SELECT * FROM incidents WHERE id = ?', parseInt(req.params.id));
+  if (!inc) return res.status(404).json({ error: 'Not found' });
+  res.json(inc);
+}));
+
+app.post('/api/incidents', auth, wrap(async (req, res) => {
+  const { date, time, location, type, severity, description, students_involved, witnesses, action_taken, follow_up } = req.body;
+  if (!date || !type || !description) return res.status(400).json({ error: 'Date, type, and description required' });
+  await dbRun(
+    'INSERT INTO incidents (date, time, location, type, severity, description, students_involved, witnesses, action_taken, follow_up, reported_by, reporter_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [date, time || null, location || null, type, severity || 'minor', description, students_involved || null, witnesses || null, action_taken || null, follow_up || null, req.user.id, req.user.name]
+  );
+  const id = await dbLastId();
+  // Notify leaders
+  await dbRun("INSERT INTO notifications (message, type, for_roles) VALUES (?, ?, ?)",
+    [`🚨 Incident: ${type} reported by ${req.user.name}`, severity === 'critical' ? 'urgent' : 'info', 'leader']);
+  try { await sendPushToAll(`🚨 Incident Report: ${type}`, `${req.user.name} reported a ${severity} incident`); } catch(e) {}
+  res.json({ success: true, id });
+}));
+
+app.put('/api/incidents/:id', auth, wrap(async (req, res) => {
+  const { status, action_taken, follow_up } = req.body;
+  const inc = await dbGet('SELECT * FROM incidents WHERE id = ?', parseInt(req.params.id));
+  if (!inc) return res.status(404).json({ error: 'Not found' });
+  if (action_taken !== undefined) await dbRun('UPDATE incidents SET action_taken = ? WHERE id = ?', [action_taken, inc.id]);
+  if (follow_up !== undefined) await dbRun('UPDATE incidents SET follow_up = ? WHERE id = ?', [follow_up, inc.id]);
+  if (status) {
+    await dbRun('UPDATE incidents SET status = ?, resolved_by = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ?', [status, req.user.id, inc.id]);
+  }
+  res.json({ success: true });
+}));
+
 // ===== SERVE FRONTEND =====
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -2316,6 +2473,57 @@ async function start() {
     FOREIGN KEY (absence_id) REFERENCES absences(id)
   )`); } catch(e) {}
 
+  // v6.0 tables - Announcements
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS announcements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    priority TEXT DEFAULT 'normal',
+    category TEXT DEFAULT 'general',
+    pinned INTEGER DEFAULT 0,
+    created_by INTEGER,
+    author_name TEXT,
+    expires_at TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`); } catch(e) {}
+
+  // v6.0 tables - Wellbeing check-ins
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS wellbeing_checkins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    staff_id INTEGER NOT NULL,
+    staff_name TEXT,
+    date TEXT NOT NULL,
+    mood INTEGER NOT NULL,
+    energy INTEGER NOT NULL,
+    workload INTEGER NOT NULL,
+    note TEXT,
+    is_anonymous INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (staff_id) REFERENCES users(id)
+  )`); } catch(e) {}
+
+  // v6.0 tables - Incident reports
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS incidents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    time TEXT,
+    location TEXT,
+    type TEXT NOT NULL,
+    severity TEXT DEFAULT 'minor',
+    description TEXT NOT NULL,
+    students_involved TEXT,
+    witnesses TEXT,
+    action_taken TEXT,
+    follow_up TEXT,
+    status TEXT DEFAULT 'open',
+    reported_by INTEGER,
+    reporter_name TEXT,
+    resolved_by INTEGER,
+    resolved_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (reported_by) REFERENCES users(id)
+  )`); } catch(e) {}
+
   // Generate VAPID keys if not stored
   try {
     const existingVapid = await dbGet("SELECT value FROM system_settings WHERE key = 'vapid_public_key'");
@@ -2345,7 +2553,7 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`\n  WPS Staff Hub v5.0`);
+    console.log(`\n  WPS Staff Hub v6.0`);
     console.log(`  http://localhost:${PORT}`);
     console.log(`  Database: ${USE_TURSO ? 'Turso (cloud)' : 'sql.js (local)'}`);
     console.log(`  Notifications: ${LIVE ? 'LIVE' : 'SIMULATED'}`);

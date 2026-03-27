@@ -337,7 +337,7 @@
         const content=document.getElementById('content');if(!state.user){content.innerHTML='';return}
         document.getElementById('userDisplay').textContent=state.user.name;
         document.getElementById('roleBadge').textContent=state.user.role;
-        const views={zap:()=>this.renderZap(),dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs(),directory:()=>this.renderDirectory(),reports:()=>this.renderReports(),prebook:()=>this.renderPrebook(),crtcalendar:()=>this.renderCRTCalendar(),zapedit:()=>this.renderZapEditor(),yardduty:()=>this.renderYardDutyManager(),calendarmanage:()=>this.renderCalendarManager(),timetablemanage:()=>this.renderTimetableManager(),staffmanage:()=>this.renderStaffManage(),lessonlab:()=>this.renderLessonLab(),crtportal:()=>this.renderCRTPortal(),yardswaps:()=>this.renderYardDutySwaps(),nft:()=>this.renderNFTTracking(),crtpack:()=>this.renderCRTPack(),analytics:()=>this.renderAnalytics(),schoolinfo:()=>this.renderSchoolInfo()};
+        const views={zap:()=>this.renderZap(),dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs(),directory:()=>this.renderDirectory(),reports:()=>this.renderReports(),prebook:()=>this.renderPrebook(),crtcalendar:()=>this.renderCRTCalendar(),zapedit:()=>this.renderZapEditor(),yardduty:()=>this.renderYardDutyManager(),calendarmanage:()=>this.renderCalendarManager(),timetablemanage:()=>this.renderTimetableManager(),staffmanage:()=>this.renderStaffManage(),lessonlab:()=>this.renderLessonLab(),crtportal:()=>this.renderCRTPortal(),yardswaps:()=>this.renderYardDutySwaps(),nft:()=>this.renderNFTTracking(),crtpack:()=>this.renderCRTPack(),analytics:()=>this.renderAnalytics(),schoolinfo:()=>this.renderSchoolInfo(),announcements:()=>this.renderAnnouncements(),wellbeing:()=>this.renderWellbeing(),incidents:()=>this.renderIncidents()};
         content.innerHTML=(views[state.currentView]||views.zap)();
         if(state.currentView==='settings'){if(state.user.role==='leader'||state.user.role==='admin')this.populateAreaDropdown();if(state.user.role==='crt')this.loadUnavailDates()}
         if(state.currentView==='new')this.setupAbsenceForm();
@@ -355,7 +355,12 @@
         if(state.currentView==='timetablemanage')this.loadTimetableList();
         if(state.currentView==='dashboard'&&(state.user.role==='leader'||state.user.role==='admin'))this.loadLeaderIntel();
         if(state.currentView==='analytics')this.loadAnalytics();
-        if(state.currentView==='schoolinfo')this.loadSchoolInfo()},
+        if(state.currentView==='schoolinfo')this.loadSchoolInfo();
+        if(state.currentView==='directory')this.loadDirectory();
+        if(state.currentView==='announcements')this.loadAnnouncements();
+        if(state.currentView==='wellbeing')this.loadWellbeing();
+        if(state.currentView==='incidents')this.loadIncidents();
+        if(state.currentView==='logs')this.loadActivityLogs()},
 
       // ===== DAILY ZAP =====
       renderZap(){
@@ -666,7 +671,7 @@
 
         let h='<div class="stats"><div class="st '+(s.absentToday>0?'alert':'')+'"><div class="n">'+(s.absentToday||0)+'</div><div class="l">Away Today</div></div><div class="st ok"><div class="n">'+(s.crtsBooked||0)+'</div><div class="l">CRTs Booked</div></div><div class="st '+(s.needAction>0?'alert':'')+'"><div class="n">'+(s.needAction||0)+'</div><div class="l">Need Action</div></div><div class="st"><div class="n">'+(s.totalTerm||0)+'</div><div class="l">This Term</div></div></div>';
 
-        h+='<div class="qa"><button onclick="app.showView(\'zapedit\')" style="border-color:var(--gold)"><div class="qi">✏️</div><div class="ql">Edit Daily Zap</div><div class="qd">Today\'s bulletin</div></button><button onclick="app.showView(\'new\')"><div class="qi">🆕</div><div class="ql">Report Absence</div><div class="qd">Lodge new</div></button><button onclick="app.showView(\'report\')"><div class="qi">📄</div><div class="ql">Cover Report</div><div class="qd">Today\'s sheet</div></button></div><div class="qa"><button onclick="app.showView(\'yardduty\')"><div class="qi">🏃</div><div class="ql">Yard Duty</div><div class="qd">Manage roster</div></button><button onclick="app.showView(\'calendarmanage\')"><div class="qi">📅</div><div class="ql">Calendar</div><div class="qd">Add events</div></button><button onclick="app.showView(\'timetablemanage\')"><div class="qi">📊</div><div class="ql">Timetables</div><div class="qd">Upload/manage</div></button></div><div class="qa"><button onclick="app.showView(\'prebook\')"><div class="qi">📅</div><div class="ql">Pre-book Leave</div><div class="qd">PD, camps, etc</div></button><button onclick="app.showView(\'crtcalendar\')"><div class="qi">🗓️</div><div class="ql">CRT Calendar</div><div class="qd">Availability</div></button><button onclick="app.showView(\'reports\')"><div class="qi">📊</div><div class="ql">Reports</div><div class="qd">Export data</div></button></div><div class="qa"><button onclick="app.showView(\'logs\')"><div class="qi">📨</div><div class="ql">Activity Log</div><div class="qd">SMS & Email</div></button><button onclick="app.showView(\'directory\')"><div class="qi">👥</div><div class="ql">Staff Directory</div><div class="qd">All staff & CRTs</div></button><button onclick="app.showView(\'staffmanage\')"><div class="qi">👤</div><div class="ql">Manage Staff</div><div class="qd">Add/edit people</div></button></div><div class="qa"><button onclick="app.showView(\'settings\')"><div class="qi">⚙️</div><div class="ql">Settings</div><div class="qd">Preferences</div></button></div><div class="qa"><button onclick="app.showView(\'lessonlab\')"><div class="qi">📚</div><div class="ql">LessonLab</div><div class="qd">Lesson plans</div></button><button onclick="app.showView(\'yardswaps\')"><div class="qi">🔄</div><div class="ql">Duty Swaps</div><div class="qd">Swap requests</div></button><button onclick="app.showView(\'nft\')"><div class="qi">⏱️</div><div class="ql">NFT Tracking</div><div class="qd">Non-face-to-face</div></button></div><div class="qa"><button onclick="app.showView(\'analytics\')" style="border-color:var(--blue)"><div class="qi">📈</div><div class="ql">Analytics</div><div class="qd">Trends & insights</div></button><button onclick="app.showView(\'schoolinfo\')"><div class="qi">🏫</div><div class="ql">School Info</div><div class="qd">Bell times, contacts</div></button></div>';
+        h+='<div class="qa"><button onclick="app.showView(\'zapedit\')" style="border-color:var(--gold)"><div class="qi">✏️</div><div class="ql">Edit Daily Zap</div><div class="qd">Today\'s bulletin</div></button><button onclick="app.showView(\'new\')"><div class="qi">🆕</div><div class="ql">Report Absence</div><div class="qd">Lodge new</div></button><button onclick="app.showView(\'report\')"><div class="qi">📄</div><div class="ql">Cover Report</div><div class="qd">Today\'s sheet</div></button></div><div class="qa"><button onclick="app.showView(\'yardduty\')"><div class="qi">🏃</div><div class="ql">Yard Duty</div><div class="qd">Manage roster</div></button><button onclick="app.showView(\'calendarmanage\')"><div class="qi">📅</div><div class="ql">Calendar</div><div class="qd">Add events</div></button><button onclick="app.showView(\'timetablemanage\')"><div class="qi">📊</div><div class="ql">Timetables</div><div class="qd">Upload/manage</div></button></div><div class="qa"><button onclick="app.showView(\'prebook\')"><div class="qi">📅</div><div class="ql">Pre-book Leave</div><div class="qd">PD, camps, etc</div></button><button onclick="app.showView(\'crtcalendar\')"><div class="qi">🗓️</div><div class="ql">CRT Calendar</div><div class="qd">Availability</div></button><button onclick="app.showView(\'reports\')"><div class="qi">📊</div><div class="ql">Reports</div><div class="qd">Export data</div></button></div><div class="qa"><button onclick="app.showView(\'logs\')"><div class="qi">📨</div><div class="ql">Activity Log</div><div class="qd">SMS & Email</div></button><button onclick="app.showView(\'directory\')"><div class="qi">👥</div><div class="ql">Staff Directory</div><div class="qd">All staff & CRTs</div></button><button onclick="app.showView(\'staffmanage\')"><div class="qi">👤</div><div class="ql">Manage Staff</div><div class="qd">Add/edit people</div></button></div><div class="qa"><button onclick="app.showView(\'settings\')"><div class="qi">⚙️</div><div class="ql">Settings</div><div class="qd">Preferences</div></button></div><div class="qa"><button onclick="app.showView(\'lessonlab\')"><div class="qi">📚</div><div class="ql">LessonLab</div><div class="qd">Lesson plans</div></button><button onclick="app.showView(\'yardswaps\')"><div class="qi">🔄</div><div class="ql">Duty Swaps</div><div class="qd">Swap requests</div></button><button onclick="app.showView(\'nft\')"><div class="qi">⏱️</div><div class="ql">NFT Tracking</div><div class="qd">Non-face-to-face</div></button></div><div class="qa"><button onclick="app.showView(\'analytics\')" style="border-color:var(--blue)"><div class="qi">📈</div><div class="ql">Analytics</div><div class="qd">Trends & insights</div></button><button onclick="app.showView(\'schoolinfo\')"><div class="qi">🏫</div><div class="ql">School Info</div><div class="qd">Bell times, contacts</div></button></div><div class="qa"><button onclick="app.showView(\'announcements\')" style="border-color:var(--warn)"><div class="qi">📢</div><div class="ql">Announcements</div><div class="qd">Post & view</div></button><button onclick="app.showView(\'wellbeing\')" style="border-color:var(--ok)"><div class="qi">💚</div><div class="ql">Wellbeing</div><div class="qd">Staff pulse check</div></button><button onclick="app.showView(\'incidents\')"><div class="qi">🚨</div><div class="ql">Incidents</div><div class="qd">Report & track</div></button></div>';
 
         if(contacting.length>0){h+='<div class="cd" style="border-left:4px solid var(--blue)"><h3 style="color:var(--blue)">⏳ Contacting CRTs...</h3>';
           contacting.forEach(a=>{h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div><div class="nm">'+a.staff_name+'</div><div class="dt">'+a.area+' — '+a.reason+'</div></div><span class="sb s-contacting" style="animation:pulse 1.5s infinite">⟳ Contacting</span></div>'+(a.crt_name?'<div class="dt mt-1">Contacting: <strong>'+a.crt_name+'</strong></div>':'')+'</div>'});h+='</div>'}
@@ -715,7 +720,7 @@
 
       renderStaffDashboard(){
         const mine=state.absences.filter(a=>a.staff_id===state.user.id);
-        let h='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><p class="text-sm text-dim mb-2">Use this app to report when you\'ll be away. The system will automatically find a CRT to cover your classes.</p><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.showView(\'new\')">➕ Report Absence</button><button class="btn btn-o" style="flex:1" onclick="app.showView(\'prebook\')">📅 Pre-book Leave</button></div><div class="qa" style="margin-top:12px"><button onclick="app.showView(\'lessonlab\')"><div class="qi">📚</div><div class="ql">LessonLab</div><div class="qd">My lesson plans</div></button><button onclick="app.showView(\'yardswaps\')"><div class="qi">🔄</div><div class="ql">Duty Swaps</div><div class="qd">Request a swap</div></button></div><div class="qa"><button onclick="app.showView(\'schoolinfo\')"><div class="qi">🏫</div><div class="ql">School Info</div><div class="qd">Bell times, contacts</div></button><button onclick="app.showView(\'nft\')"><div class="qi">⏱️</div><div class="ql">My NFT</div><div class="qd">Non-face-to-face</div></button></div></div>';
+        let h='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><p class="text-sm text-dim mb-2">Use this app to report when you\'ll be away. The system will automatically find a CRT to cover your classes.</p><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.showView(\'new\')">➕ Report Absence</button><button class="btn btn-o" style="flex:1" onclick="app.showView(\'prebook\')">📅 Pre-book Leave</button></div><div class="qa" style="margin-top:12px"><button onclick="app.showView(\'lessonlab\')"><div class="qi">📚</div><div class="ql">LessonLab</div><div class="qd">My lesson plans</div></button><button onclick="app.showView(\'yardswaps\')"><div class="qi">🔄</div><div class="ql">Duty Swaps</div><div class="qd">Request a swap</div></button></div><div class="qa"><button onclick="app.showView(\'schoolinfo\')"><div class="qi">🏫</div><div class="ql">School Info</div><div class="qd">Bell times, contacts</div></button><button onclick="app.showView(\'nft\')"><div class="qi">⏱️</div><div class="ql">My NFT</div><div class="qd">Non-face-to-face</div></button></div><div class="qa"><button onclick="app.showView(\'announcements\')"><div class="qi">📢</div><div class="ql">Announcements</div><div class="qd">School news</div></button><button onclick="app.showView(\'wellbeing\')"><div class="qi">💚</div><div class="ql">Wellbeing</div><div class="qd">Daily check-in</div></button><button onclick="app.showView(\'incidents\')"><div class="qi">🚨</div><div class="ql">Incidents</div><div class="qd">Report issue</div></button></div></div>';
         if(mine.length>0){h+='<div class="cd"><h3>📋 Your Absences</h3>';
           mine.forEach(a=>{const sc={pending:'s-pending',booked:'s-booked',contacting:'s-contacting',nocrt:'s-nocrt',cancelled:'s-cancelled'}[a.status]||'s-pending';
             h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div style="flex:1"><div class="nm">'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+'</div><div class="dt">'+a.reason+(a.half_day&&a.half_day!=='full'?' ('+a.half_day.toUpperCase()+')':'')+'</div>'+(a.crt_name?'<div class="dt" style="color:var(--ok)">CRT: '+a.crt_name+'</div>':'')+'</div><span class="sb '+sc+'">'+a.status+'</span></div></div>'});
@@ -1675,6 +1680,224 @@
 
           el.innerHTML=h
         }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      // ===== STAFF DIRECTORY (full implementation) =====
+      renderDirectory(){
+        return '<div class="cd"><h3>👥 Staff Directory</h3><div style="margin-bottom:12px"><input type="text" id="dirSearch" placeholder="Search staff..." class="fg" style="margin:0" oninput="app.filterDirectory()"></div><div id="directoryBody"><div class="loading">Loading directory...</div></div></div><button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>'},
+
+      async loadDirectory(){
+        const el=document.getElementById('directoryBody');if(!el)return;
+        try{
+          const d=await this.fetchAPI('GET','/directory');
+          state._dirData=d;this.renderDirectoryList(d)
+        }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      filterDirectory(){
+        if(!state._dirData)return;
+        const q=(document.getElementById('dirSearch')?.value||'').toLowerCase();
+        const d={staff:state._dirData.staff.filter(s=>s.name.toLowerCase().includes(q)||s.area?.toLowerCase().includes(q)||s.role?.toLowerCase().includes(q)),
+          crts:state._dirData.crts.filter(c=>c.name.toLowerCase().includes(q))};
+        this.renderDirectoryList(d)},
+
+      renderDirectoryList(d){
+        const el=document.getElementById('directoryBody');if(!el)return;
+        let h='';
+        // Teaching & leadership staff
+        const leaders=d.staff.filter(s=>s.role==='leader'||s.role==='admin');
+        const teachers=d.staff.filter(s=>s.role==='staff');
+        if(leaders.length>0){
+          h+='<div style="font-weight:700;font-size:.85rem;color:var(--navy);margin:14px 0 8px;border-bottom:2px solid var(--gold);padding-bottom:4px">Leadership</div>';
+          leaders.forEach(s=>{h+=this._dirCard(s)})}
+        if(teachers.length>0){
+          h+='<div style="font-weight:700;font-size:.85rem;color:var(--navy);margin:14px 0 8px;border-bottom:2px solid var(--blue);padding-bottom:4px">Teaching Staff</div>';
+          teachers.forEach(s=>{h+=this._dirCard(s)})}
+        if(d.crts.length>0){
+          h+='<div style="font-weight:700;font-size:.85rem;color:var(--navy);margin:14px 0 8px;border-bottom:2px solid var(--ok);padding-bottom:4px">CRTs (Casual Relief Teachers)</div>';
+          d.crts.forEach(c=>{
+            h+='<div class="li"><div class="li-row"><div style="flex:1"><div class="nm">'+this.esc(c.name)+'</div><div class="dt">'+(c.email?'✉️ '+this.esc(c.email):'')+(c.phone?' · 📱 '+this.esc(c.phone):'')+'</div>';
+            if(c.specialties){try{const sp=JSON.parse(c.specialties);if(sp.length)h+='<div class="dt" style="margin-top:3px">Specialties: '+sp.map(s=>this.esc(s)).join(', ')+'</div>'}catch(e){}}
+            h+='</div><span class="sb" style="background:'+(c.active?'#d4edda':'#e2e3e5')+';color:'+(c.active?'#155724':'#495057')+'">'+(c.active?'Active':'Inactive')+'</span></div></div>'})}
+        el.innerHTML=h||'<div class="empty"><div class="ei">👥</div><p>No staff found</p></div>'},
+
+      _dirCard(s){
+        return '<div class="li"><div class="li-row"><div style="flex:1"><div class="nm">'+this.esc(s.name)+(s.isAwayToday?' <span style="color:var(--acc);font-size:.75rem">AWAY TODAY</span>':'')+'</div><div class="dt"><span style="background:var(--bg);padding:2px 8px;border-radius:8px;font-weight:600;text-transform:capitalize">'+this.esc(s.role)+'</span>'+(s.area?' · '+this.esc(s.area):'')+'</div><div class="dt" style="margin-top:3px">'+(s.email?'✉️ '+this.esc(s.email):'')+(s.phone?' · 📱 '+this.esc(s.phone):'')+'</div></div><div style="text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--navy)">'+s.absencesThisYear+'</div><div style="font-size:.65rem;color:var(--dim)">absences<br>this year</div></div></div></div>'},
+
+      // ===== ACTIVITY LOGS (full implementation) =====
+      renderActivityLogs(){
+        return '<div class="cd"><h3>📨 Activity Logs</h3><div class="tog" id="logTabs"><button class="act" onclick="app.switchLogTab(\'sms\')">SMS Log</button><button onclick="app.switchLogTab(\'email\')">Email Log</button></div><div id="logBody"><div class="loading">Loading logs...</div></div></div><button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>'},
+
+      async loadActivityLogs(){
+        state._logTab=state._logTab||'sms';
+        await this.switchLogTab(state._logTab)},
+
+      async switchLogTab(tab){
+        state._logTab=tab;
+        document.querySelectorAll('#logTabs button').forEach((b,i)=>{b.className=i===(tab==='sms'?0:1)?'act':''});
+        const el=document.getElementById('logBody');if(!el)return;
+        el.innerHTML='<div class="loading">Loading...</div>';
+        try{
+          const logs=await this.fetchAPI('GET','/logs/'+tab);
+          if(!logs||logs.length===0){el.innerHTML='<div class="empty"><div class="ei">📭</div><p>No '+tab.toUpperCase()+' logs yet</p></div>';return}
+          let h='';
+          logs.forEach(l=>{
+            const statusColor=l.status==='sent'||l.status==='delivered'?'var(--ok)':l.status==='failed'?'var(--acc)':'var(--warn)';
+            h+='<div class="li"><div class="li-row"><div style="flex:1"><div class="nm">'+(tab==='sms'?'📱 '+this.esc(l.to_phone||'—'):'✉️ '+this.esc(l.to_email||'—'))+'</div><div class="dt" style="margin-top:3px">'+(tab==='sms'?this.esc((l.message||'').substring(0,80)):this.esc(l.subject||'—'))+'</div><div class="dt" style="margin-top:2px">'+new Date(l.created_at).toLocaleString()+'</div></div><span class="sb" style="background:'+statusColor+'22;color:'+statusColor+'">'+this.esc(l.status||'—')+'</span></div></div>'});
+          el.innerHTML=h
+        }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      // ===== ANNOUNCEMENTS =====
+      renderAnnouncements(){
+        const isL=state.user.role==='leader'||state.user.role==='admin';
+        let h='<div class="cd"><h3>📢 Announcements</h3>';
+        if(isL){h+='<div style="margin-bottom:14px"><button class="btn btn-p" onclick="app.toggleAnnouncementForm()">+ New Announcement</button></div><div id="announcementForm" style="display:none;margin-bottom:14px;padding:16px;background:var(--bg);border-radius:var(--r)"><div class="fg"><label>Title</label><input type="text" id="annTitle" placeholder="Announcement title"></div><div class="fg"><label>Content</label><textarea id="annContent" rows="3" placeholder="What do you want to share?"></textarea></div><div style="display:flex;gap:8px;margin-bottom:10px"><div class="fg" style="flex:1;margin:0"><label>Priority</label><select id="annPriority"><option value="normal">Normal</option><option value="urgent">Urgent</option></select></div><div class="fg" style="flex:1;margin:0"><label>Category</label><select id="annCategory"><option value="general">General</option><option value="event">Event</option><option value="reminder">Reminder</option><option value="policy">Policy</option><option value="celebration">Celebration</option></select></div></div><div style="display:flex;gap:8px"><label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer"><input type="checkbox" id="annPinned"> Pin to top</label></div><button class="btn btn-ok" style="margin-top:10px" onclick="app.postAnnouncement()">Post Announcement</button></div>'}
+        h+='<div id="announcementList"><div class="loading">Loading...</div></div></div><button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>';
+        return h},
+
+      toggleAnnouncementForm(){const el=document.getElementById('announcementForm');if(el)el.style.display=el.style.display==='none'?'block':'none'},
+
+      async loadAnnouncements(){
+        const el=document.getElementById('announcementList');if(!el)return;
+        try{
+          const list=await this.fetchAPI('GET','/announcements?limit=30');
+          if(!list.length){el.innerHTML='<div class="empty"><div class="ei">📢</div><p>No announcements yet</p></div>';return}
+          const isL=state.user.role==='leader'||state.user.role==='admin';
+          let h='';
+          list.forEach(a=>{
+            const catIcons={general:'📋',event:'🎉',reminder:'⏰',policy:'📜',celebration:'🏆'};
+            const icon=catIcons[a.category]||'📋';
+            const isUrgent=a.priority==='urgent';
+            h+='<div class="cd" style="'+(a.pinned?'border-left:4px solid var(--gold);':'')+(isUrgent?'border:2px solid var(--acc);background:#fff5f5;':'')+'"><div style="display:flex;align-items:start;gap:10px"><div style="font-size:1.3rem">'+icon+'</div><div style="flex:1"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-weight:700;font-size:.95rem">'+this.esc(a.title)+'</span>'+(a.pinned?'<span style="font-size:.65rem;background:var(--gold);color:#000;padding:1px 6px;border-radius:8px;font-weight:700">PINNED</span>':'')+(isUrgent?'<span style="font-size:.65rem;background:var(--acc);color:#fff;padding:1px 6px;border-radius:8px;font-weight:700">URGENT</span>':'')+'</div><div style="font-size:.85rem;line-height:1.6;margin-top:6px;white-space:pre-line">'+this.esc(a.content)+'</div><div style="font-size:.72rem;color:var(--dim);margin-top:6px">By '+this.esc(a.author_name||'Admin')+' · '+new Date(a.created_at).toLocaleDateString()+'</div></div>'+(isL?'<button style="background:none;border:none;cursor:pointer;font-size:1rem;padding:4px" onclick="app.deleteAnnouncement('+a.id+')">🗑️</button>':'')+'</div></div>'});
+          el.innerHTML=h
+        }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      async postAnnouncement(){
+        const title=document.getElementById('annTitle')?.value?.trim();
+        const content=document.getElementById('annContent')?.value?.trim();
+        if(!title||!content){toast('Title and content required','error');return}
+        try{
+          await this.fetchAPI('POST','/announcements',{title,content,priority:document.getElementById('annPriority')?.value||'normal',category:document.getElementById('annCategory')?.value||'general',pinned:document.getElementById('annPinned')?.checked||false});
+          toast('Announcement posted!','success');this.toggleAnnouncementForm();this.loadAnnouncements()
+        }catch(e){toast('Error: '+e.message,'error')}},
+
+      async deleteAnnouncement(id){
+        if(!confirm('Delete this announcement?'))return;
+        try{await this.fetchAPI('DELETE','/announcements/'+id);toast('Deleted','success');this.loadAnnouncements()}catch(e){toast('Error: '+e.message,'error')}},
+
+      // ===== WELLBEING CHECK-INS =====
+      renderWellbeing(){
+        const isL=state.user.role==='leader'||state.user.role==='admin';
+        return '<div class="cd"><h3>💚 Staff Wellbeing</h3><p style="font-size:.82rem;color:var(--dim);margin-bottom:12px">'+(isL?'Aggregate pulse check — anonymous by default':'Quick daily check-in — your responses are private')+'</p><div id="wellbeingBody"><div class="loading">Loading...</div></div></div><button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>'},
+
+      async loadWellbeing(){
+        const el=document.getElementById('wellbeingBody');if(!el)return;
+        const isL=state.user.role==='leader'||state.user.role==='admin';
+        try{
+          const d=await this.fetchAPI('GET','/wellbeing');
+          let h='';
+          if(isL){
+            // Leader aggregate view
+            if(d.today.responses>0){
+              const moodEmoji=['','😣','😕','😐','🙂','😊'][Math.round(parseFloat(d.today.avgMood)||3)];
+              h+='<div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px"><div class="st"><div class="n">'+moodEmoji+'</div><div class="l">Mood '+(d.today.avgMood||'—')+'/5</div></div><div class="st"><div class="n">⚡</div><div class="l">Energy '+(d.today.avgEnergy||'—')+'/5</div></div><div class="st"><div class="n">📊</div><div class="l">Workload '+(d.today.avgWorkload||'—')+'/5</div></div><div class="st"><div class="n">'+d.today.responses+'/'+d.totalStaff+'</div><div class="l">Checked In</div></div></div>';
+            }else{
+              h+='<div style="text-align:center;padding:20px;background:var(--bg);border-radius:var(--r);margin-bottom:14px"><div style="font-size:2rem">💚</div><p style="font-size:.88rem;color:var(--dim);margin-top:6px">No check-ins today yet. Staff can check in from their dashboard.</p></div>'}
+            // Flags
+            if(d.staffFlags&&d.staffFlags.length>0){
+              h+='<div class="cd" style="border-left:4px solid var(--warn);margin-bottom:14px"><div style="font-weight:700;font-size:.88rem;color:var(--warn);margin-bottom:8px">⚠️ Wellbeing Flags</div>';
+              d.staffFlags.forEach(f=>{h+='<div style="padding:6px 0;border-bottom:1px solid var(--bdr);font-size:.84rem"><strong>'+this.esc(f.name)+'</strong> — avg mood '+f.avgMood+'/5 over '+f.checkins+' check-ins</div>'});
+              h+='<p style="font-size:.76rem;color:var(--dim);margin-top:8px">Consider a private check-in with flagged staff</p></div>'}
+            // Weekly trend
+            if(d.trend&&d.trend.length>0){
+              h+='<div style="margin-bottom:14px"><div style="font-weight:700;font-size:.88rem;color:var(--navy);margin-bottom:8px">Weekly Trend</div>';
+              d.trend.forEach(t=>{
+                const moodBar=Math.round((parseFloat(t.avgMood)/5)*100);
+                const day=new Date(t.date+'T12:00:00').toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
+                h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="min-width:70px;font-size:.78rem;font-weight:600">'+day+'</span><div style="flex:1;height:10px;background:var(--bg);border-radius:5px;overflow:hidden"><div style="height:100%;width:'+moodBar+'%;background:linear-gradient(90deg,var(--ok),var(--okl));border-radius:5px"></div></div><span style="min-width:65px;font-size:.72rem;text-align:right;color:var(--dim)">'+t.avgMood+' mood · '+t.responses+'</span></div>'});
+              h+='</div>'}
+            // Notes
+            if(d.notes&&d.notes.length>0){
+              h+='<div style="margin-bottom:14px"><div style="font-weight:700;font-size:.88rem;color:var(--navy);margin-bottom:8px">Today\'s Notes</div>';
+              d.notes.forEach(n=>{h+='<div class="nf"><div style="font-size:.84rem">'+this.esc(n.note)+'</div><div class="tm">'+(n.anonymous?'Anonymous':'Staff member')+' · Mood: '+n.mood+'/5</div></div>'});
+              h+='</div>'}
+          }else{
+            // Staff personal view
+            if(d.todayDone){
+              h+='<div style="text-align:center;padding:20px;background:linear-gradient(135deg,rgba(39,174,96,.08),rgba(46,204,113,.04));border-radius:var(--r);margin-bottom:14px"><div style="font-size:2.5rem">✅</div><p style="font-weight:600;margin-top:6px">You\'ve checked in today!</p><p style="font-size:.82rem;color:var(--dim)">You can update your check-in below</p></div>'}
+            // Check-in form
+            h+='<div style="padding:16px;background:var(--bg);border-radius:var(--r);margin-bottom:14px"><div style="font-weight:700;font-size:.88rem;margin-bottom:12px">How are you going today?</div>';
+            ['mood','energy','workload'].forEach(cat=>{
+              const labels={mood:['😣','😕','😐','🙂','😊'],energy:['🪫','😴','🔋','⚡','🔥'],workload:['💆','😌','📊','😓','🤯']};
+              const titles={mood:'Mood',energy:'Energy Level',workload:'Workload'};
+              h+='<div style="margin-bottom:12px"><div style="font-size:.82rem;font-weight:600;margin-bottom:6px">'+titles[cat]+'</div><div style="display:flex;gap:6px">';
+              labels[cat].forEach((emoji,i)=>{h+='<button class="wb-btn" data-cat="'+cat+'" data-val="'+(i+1)+'" onclick="app.setWellbeingRating(\''+cat+'\','+(i+1)+')" style="flex:1;padding:8px 4px;border:2px solid var(--bdr);border-radius:10px;background:#fff;cursor:pointer;font-size:1.2rem;transition:all .15s" title="'+(i+1)+'/5">'+emoji+'</button>'});
+              h+='</div></div>'});
+            h+='<div class="fg"><label>Note (optional)</label><textarea id="wbNote" rows="2" placeholder="Anything on your mind?"></textarea></div><label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer;margin-bottom:10px"><input type="checkbox" id="wbAnon" checked> Submit anonymously</label><button class="btn btn-ok" onclick="app.submitWellbeing()">Submit Check-in</button></div>';
+            // History
+            if(d.history&&d.history.length>0){
+              h+='<div style="margin-top:14px"><div style="font-weight:700;font-size:.88rem;color:var(--navy);margin-bottom:8px">Your Recent Check-ins</div>';
+              d.history.forEach(c=>{
+                const mEmoji=['','😣','😕','😐','🙂','😊'][c.mood];
+                h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bdr);font-size:.84rem"><span style="font-size:1.3rem">'+mEmoji+'</span><div style="flex:1"><div style="font-weight:600">'+new Date(c.date+'T12:00:00').toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})+'</div><div style="color:var(--dim);font-size:.76rem">Mood: '+c.mood+' · Energy: '+c.energy+' · Workload: '+c.workload+'</div></div></div>'});
+              h+='</div>'}}
+          el.innerHTML=h
+        }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      setWellbeingRating(cat,val){
+        if(!state._wb)state._wb={};state._wb[cat]=val;
+        document.querySelectorAll('.wb-btn[data-cat="'+cat+'"]').forEach(b=>{
+          const v=parseInt(b.dataset.val);
+          b.style.borderColor=v<=val?'var(--ok)':'var(--bdr)';
+          b.style.background=v<=val?'rgba(39,174,96,.1)':'#fff';
+          b.style.transform=v===val?'scale(1.15)':'scale(1)'})},
+
+      async submitWellbeing(){
+        if(!state._wb||!state._wb.mood||!state._wb.energy||!state._wb.workload){toast('Please rate all three categories','error');return}
+        try{
+          await this.fetchAPI('POST','/wellbeing',{mood:state._wb.mood,energy:state._wb.energy,workload:state._wb.workload,note:document.getElementById('wbNote')?.value?.trim()||'',anonymous:document.getElementById('wbAnon')?.checked});
+          toast('Check-in recorded! Thanks for sharing.','success');state._wb=null;this.loadWellbeing()
+        }catch(e){toast('Error: '+e.message,'error')}},
+
+      // ===== INCIDENT REPORTS =====
+      renderIncidents(){
+        const isL=state.user.role==='leader'||state.user.role==='admin';
+        let h='<div class="cd"><h3>🚨 Incident Reports</h3><div style="margin-bottom:14px"><button class="btn btn-p" onclick="app.toggleIncidentForm()">+ Report Incident</button></div><div id="incidentForm" style="display:none;margin-bottom:14px;padding:16px;background:var(--bg);border-radius:var(--r)"><div style="display:flex;gap:8px"><div class="fg" style="flex:1"><label>Date</label><input type="date" id="incDate" value="'+new Date().toISOString().split('T')[0]+'"></div><div class="fg" style="flex:1"><label>Time</label><input type="time" id="incTime"></div></div><div style="display:flex;gap:8px"><div class="fg" style="flex:1"><label>Type</label><select id="incType"><option value="behaviour">Behaviour</option><option value="injury">Injury</option><option value="property">Property Damage</option><option value="bullying">Bullying</option><option value="medical">Medical</option><option value="safety">Safety Concern</option><option value="other">Other</option></select></div><div class="fg" style="flex:1"><label>Severity</label><select id="incSeverity"><option value="minor">Minor</option><option value="moderate">Moderate</option><option value="serious">Serious</option><option value="critical">Critical</option></select></div></div><div class="fg"><label>Location</label><input type="text" id="incLocation" placeholder="e.g. Oval, Building C, Yard"></div><div class="fg"><label>Description</label><textarea id="incDesc" rows="3" placeholder="What happened?"></textarea></div><div class="fg"><label>Students Involved</label><input type="text" id="incStudents" placeholder="Names (comma-separated)"></div><div class="fg"><label>Action Taken</label><textarea id="incAction" rows="2" placeholder="What was done?"></textarea></div><button class="btn btn-ok" onclick="app.submitIncident()">Submit Report</button></div></div>';
+        h+='<div class="cd">';
+        if(isL)h+='<div class="tog" id="incFilter"><button class="act" onclick="app.filterIncidents(\'all\')">All</button><button onclick="app.filterIncidents(\'open\')">Open</button><button onclick="app.filterIncidents(\'resolved\')">Resolved</button></div>';
+        h+='<div id="incidentList"><div class="loading">Loading...</div></div></div><button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>';
+        return h},
+
+      toggleIncidentForm(){const el=document.getElementById('incidentForm');if(el)el.style.display=el.style.display==='none'?'block':'none'},
+
+      async loadIncidents(filter){
+        const el=document.getElementById('incidentList');if(!el)return;
+        try{
+          const url='/incidents'+(filter&&filter!=='all'?'?status='+filter:'');
+          const list=await this.fetchAPI('GET',url);
+          if(!list.length){el.innerHTML='<div class="empty"><div class="ei">✅</div><p>No incidents reported</p></div>';return}
+          const isL=state.user.role==='leader'||state.user.role==='admin';
+          let h='';
+          list.forEach(inc=>{
+            const sevColors={minor:'var(--ok)',moderate:'var(--warn)',serious:'var(--acc)',critical:'#8b0000'};
+            const color=sevColors[inc.severity]||'var(--dim)';
+            const typeIcons={behaviour:'⚠️',injury:'🤕',property:'🔨',bullying:'😢',medical:'🏥',safety:'🛑',other:'📝'};
+            h+='<div class="li" style="border-left:4px solid '+color+'"><div style="display:flex;justify-content:space-between;align-items:start"><div style="flex:1"><div class="nm">'+(typeIcons[inc.type]||'📝')+' '+this.esc(inc.type).charAt(0).toUpperCase()+this.esc(inc.type).slice(1)+'</div><div class="dt" style="margin-top:4px">'+this.esc(inc.description?.substring(0,120)+(inc.description?.length>120?'...':''))+'</div><div class="dt" style="margin-top:4px">📍 '+this.esc(inc.location||'Not specified')+' · '+this.formatDate(inc.date)+(inc.time?' '+inc.time:'')+'</div>'+(inc.students_involved?'<div class="dt">Students: '+this.esc(inc.students_involved)+'</div>':'')+'<div class="dt" style="margin-top:2px">Reported by '+this.esc(inc.reporter_name||'Unknown')+'</div></div><div style="text-align:right"><span class="sb" style="background:'+color+'22;color:'+color+';text-transform:capitalize">'+this.esc(inc.severity)+'</span><br><span class="sb" style="margin-top:4px;background:'+(inc.status==='open'?'#fef3cd;color:#856404':'#d4edda;color:#155724')+'">'+this.esc(inc.status)+'</span></div></div>'+(isL&&inc.status==='open'?'<div style="margin-top:8px;display:flex;gap:8px"><button class="btn btn-ok btn-s" style="width:auto" onclick="app.resolveIncident('+inc.id+')">✓ Mark Resolved</button></div>':'')+'</div>'});
+          el.innerHTML=h
+        }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      filterIncidents(f){
+        document.querySelectorAll('#incFilter button').forEach((b,i)=>{b.className=(i===0&&f==='all')||(i===1&&f==='open')||(i===2&&f==='resolved')?'act':''});
+        this.loadIncidents(f)},
+
+      async submitIncident(){
+        const desc=document.getElementById('incDesc')?.value?.trim();
+        if(!desc){toast('Description is required','error');return}
+        try{
+          await this.fetchAPI('POST','/incidents',{date:document.getElementById('incDate')?.value,time:document.getElementById('incTime')?.value,type:document.getElementById('incType')?.value,severity:document.getElementById('incSeverity')?.value,location:document.getElementById('incLocation')?.value?.trim(),description:desc,students_involved:document.getElementById('incStudents')?.value?.trim(),action_taken:document.getElementById('incAction')?.value?.trim()});
+          toast('Incident reported','success');this.toggleIncidentForm();this.loadIncidents()
+        }catch(e){toast('Error: '+e.message,'error')}},
+
+      async resolveIncident(id){
+        try{await this.fetchAPI('PUT','/incidents/'+id,{status:'resolved'});toast('Marked resolved','success');this.loadIncidents()}catch(e){toast('Error: '+e.message,'error')}},
 
       logout(){localStorage.removeItem('wps_token');localStorage.removeItem('wps_user');state.token=null;state.user=null;if(this._poll)clearInterval(this._poll);this.showLoginView()}
     };
