@@ -345,7 +345,7 @@
         const content=document.getElementById('content');if(!state.user){content.innerHTML='';return}
         document.getElementById('userDisplay').textContent=state.user.name;
         document.getElementById('roleBadge').textContent=state.user.role;
-        const views={zap:()=>this.renderZap(),dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs(),directory:()=>this.renderDirectory(),reports:()=>this.renderReports(),prebook:()=>this.renderPrebook(),crtcalendar:()=>this.renderCRTCalendar(),zapedit:()=>this.renderZapEditor(),yardduty:()=>this.renderYardDutyManager(),calendarmanage:()=>this.renderCalendarManager(),timetablemanage:()=>this.renderTimetableManager(),staffmanage:()=>this.renderStaffManage(),lessonlab:()=>this.renderLessonLab(),crtportal:()=>this.renderCRTPortal(),yardswaps:()=>this.renderYardDutySwaps(),nft:()=>this.renderNFTTracking(),crtpack:()=>this.renderCRTPack(),analytics:()=>this.renderAnalytics(),schoolinfo:()=>this.renderSchoolInfo(),announcements:()=>this.renderAnnouncements(),wellbeing:()=>this.renderWellbeing(),incidents:()=>this.renderIncidents()};
+        const views={zap:()=>this.renderZap(),dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs(),directory:()=>this.renderDirectory(),reports:()=>this.renderReports(),prebook:()=>this.renderPrebook(),crtcalendar:()=>this.renderCRTCalendar(),zapedit:()=>this.renderZapEditor(),yardduty:()=>this.renderYardDutyManager(),calendarmanage:()=>this.renderCalendarManager(),timetablemanage:()=>this.renderTimetableManager(),staffmanage:()=>this.renderStaffManage(),lessonlab:()=>this.renderLessonLab(),crtportal:()=>this.renderCRTPortal(),yardswaps:()=>this.renderYardDutySwaps(),nft:()=>this.renderNFTTracking(),crtpack:()=>this.renderCRTPack(),analytics:()=>this.renderAnalytics(),schoolinfo:()=>this.renderSchoolInfo(),announcements:()=>this.renderAnnouncements(),wellbeing:()=>this.renderWellbeing(),incidents:()=>this.renderIncidents(),quickstatus:()=>this.renderQuickStatus(),pdlog:()=>this.renderPDLog(),coversummary:()=>this.renderCoverSummary()};
         content.innerHTML=(views[state.currentView]||views.zap)();
         if(state.currentView==='settings'){if(state.user.role==='leader'||state.user.role==='admin')this.populateAreaDropdown();if(state.user.role==='crt')this.loadUnavailDates()}
         if(state.currentView==='new')this.setupAbsenceForm();
@@ -369,7 +369,9 @@
         if(state.currentView==='announcements')this.loadAnnouncements();
         if(state.currentView==='wellbeing')this.loadWellbeing();
         if(state.currentView==='incidents')this.loadIncidents();
-        if(state.currentView==='logs')this.loadActivityLogs()},
+        if(state.currentView==='logs')this.loadActivityLogs();
+        if(state.currentView==='pdlog')this.loadPDLog();
+        if(state.currentView==='coversummary')this.loadCoverSummary()},
 
       // ===== DAILY ZAP =====
       renderZap(){
@@ -484,7 +486,7 @@
           // Extra notes
           if(z.extra_notes){h+='<div class="cd zap-section"><h4><span class="icon">📌</span> Additional Notes</h4><div class="zap-notes-text">'+this.esc(z.extra_notes)+'</div></div>'}
 
-          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:8px">WPS Staff Hub v6.1 — Daily Zap</div>';
+          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:8px">WPS Staff Hub v6.2 — Daily Zap</div>';
           body.innerHTML=h;
         }catch(e){body.innerHTML='<p class="text-dim" style="text-align:center;padding:20px">Unable to load zap: '+e.message+'</p>'}},
 
@@ -711,7 +713,7 @@
 
         let h='<div class="stats"><div class="st '+(s.absentToday>0?'alert':'')+'"><div class="n">'+(s.absentToday||0)+'</div><div class="l">Away Today</div></div><div class="st ok"><div class="n">'+(s.crtsBooked||0)+'</div><div class="l">CRTs Booked</div></div><div class="st '+(s.needAction>0?'alert':'')+'"><div class="n">'+(s.needAction||0)+'</div><div class="l">Need Action</div></div><div class="st"><div class="n">'+(s.totalTerm||0)+'</div><div class="l">This Term</div></div></div>';
 
-        h+='<div class="qa"><button onclick="app.showView(\'zapedit\')" style="border-color:var(--gold)"><div class="qi">✏️</div><div class="ql">Edit Daily Zap</div><div class="qd">Today\'s bulletin</div></button><button onclick="app.showView(\'new\')"><div class="qi">🆕</div><div class="ql">Report Absence</div><div class="qd">Lodge new</div></button><button onclick="app.showView(\'report\')"><div class="qi">📄</div><div class="ql">Cover Report</div><div class="qd">Today\'s sheet</div></button></div><div class="qa"><button onclick="app.showView(\'yardduty\')"><div class="qi">🏃</div><div class="ql">Yard Duty</div><div class="qd">Manage roster</div></button><button onclick="app.showView(\'calendarmanage\')"><div class="qi">📅</div><div class="ql">Calendar</div><div class="qd">Add events</div></button><button onclick="app.showView(\'timetablemanage\')"><div class="qi">📊</div><div class="ql">Timetables</div><div class="qd">Upload/manage</div></button></div><div class="qa"><button onclick="app.showView(\'prebook\')"><div class="qi">📅</div><div class="ql">Pre-book Leave</div><div class="qd">PD, camps, etc</div></button><button onclick="app.showView(\'crtcalendar\')"><div class="qi">🗓️</div><div class="ql">CRT Calendar</div><div class="qd">Availability</div></button><button onclick="app.showView(\'reports\')"><div class="qi">📊</div><div class="ql">Reports</div><div class="qd">Export data</div></button></div><div class="qa"><button onclick="app.showView(\'logs\')"><div class="qi">📨</div><div class="ql">Activity Log</div><div class="qd">SMS & Email</div></button><button onclick="app.showView(\'directory\')"><div class="qi">👥</div><div class="ql">Staff Directory</div><div class="qd">All staff & CRTs</div></button><button onclick="app.showView(\'staffmanage\')"><div class="qi">👤</div><div class="ql">Manage Staff</div><div class="qd">Add/edit people</div></button></div><div class="qa"><button onclick="app.showView(\'settings\')"><div class="qi">⚙️</div><div class="ql">Settings</div><div class="qd">Preferences</div></button></div><div class="qa"><button onclick="app.showView(\'lessonlab\')"><div class="qi">📚</div><div class="ql">LessonLab</div><div class="qd">Lesson plans</div></button><button onclick="app.showView(\'yardswaps\')"><div class="qi">🔄</div><div class="ql">Duty Swaps</div><div class="qd">Swap requests</div></button><button onclick="app.showView(\'nft\')"><div class="qi">⏱️</div><div class="ql">NFT Tracking</div><div class="qd">Non-face-to-face</div></button></div><div class="qa"><button onclick="app.showView(\'analytics\')" style="border-color:var(--blue)"><div class="qi">📈</div><div class="ql">Analytics</div><div class="qd">Trends & insights</div></button><button onclick="app.showView(\'schoolinfo\')"><div class="qi">🏫</div><div class="ql">School Info</div><div class="qd">Bell times, contacts</div></button></div><div class="qa"><button onclick="app.showView(\'announcements\')" style="border-color:var(--warn)"><div class="qi">📢</div><div class="ql">Announcements</div><div class="qd">Post & view</div></button><button onclick="app.showView(\'wellbeing\')" style="border-color:var(--ok)"><div class="qi">💚</div><div class="ql">Wellbeing</div><div class="qd">Staff pulse check</div></button><button onclick="app.showView(\'incidents\')"><div class="qi">🚨</div><div class="ql">Incidents</div><div class="qd">Report & track</div></button></div>';
+        h+='<div class="qa"><button onclick="app.showView(\'zapedit\')" style="border-color:var(--gold)"><div class="qi">✏️</div><div class="ql">Edit Daily Zap</div><div class="qd">Today\'s bulletin</div></button><button onclick="app.showView(\'new\')"><div class="qi">🆕</div><div class="ql">Report Absence</div><div class="qd">Lodge new</div></button><button onclick="app.showView(\'report\')"><div class="qi">📄</div><div class="ql">Cover Report</div><div class="qd">Today\'s sheet</div></button></div><div class="qa"><button onclick="app.showView(\'yardduty\')"><div class="qi">🏃</div><div class="ql">Yard Duty</div><div class="qd">Manage roster</div></button><button onclick="app.showView(\'calendarmanage\')"><div class="qi">📅</div><div class="ql">Calendar</div><div class="qd">Add events</div></button><button onclick="app.showView(\'timetablemanage\')"><div class="qi">📊</div><div class="ql">Timetables</div><div class="qd">Upload/manage</div></button></div><div class="qa"><button onclick="app.showView(\'prebook\')"><div class="qi">📅</div><div class="ql">Pre-book Leave</div><div class="qd">PD, camps, etc</div></button><button onclick="app.showView(\'crtcalendar\')"><div class="qi">🗓️</div><div class="ql">CRT Calendar</div><div class="qd">Availability</div></button><button onclick="app.showView(\'reports\')"><div class="qi">📊</div><div class="ql">Reports</div><div class="qd">Export data</div></button></div><div class="qa"><button onclick="app.showView(\'logs\')"><div class="qi">📨</div><div class="ql">Activity Log</div><div class="qd">SMS & Email</div></button><button onclick="app.showView(\'directory\')"><div class="qi">👥</div><div class="ql">Staff Directory</div><div class="qd">All staff & CRTs</div></button><button onclick="app.showView(\'staffmanage\')"><div class="qi">👤</div><div class="ql">Manage Staff</div><div class="qd">Add/edit people</div></button></div><div class="qa"><button onclick="app.showView(\'settings\')"><div class="qi">⚙️</div><div class="ql">Settings</div><div class="qd">Preferences</div></button></div><div class="qa"><button onclick="app.showView(\'lessonlab\')"><div class="qi">📚</div><div class="ql">LessonLab</div><div class="qd">Lesson plans</div></button><button onclick="app.showView(\'yardswaps\')"><div class="qi">🔄</div><div class="ql">Duty Swaps</div><div class="qd">Swap requests</div></button><button onclick="app.showView(\'nft\')"><div class="qi">⏱️</div><div class="ql">NFT Tracking</div><div class="qd">Non-face-to-face</div></button></div><div class="qa"><button onclick="app.showView(\'analytics\')" style="border-color:var(--blue)"><div class="qi">📈</div><div class="ql">Analytics</div><div class="qd">Trends & insights</div></button><button onclick="app.showView(\'schoolinfo\')"><div class="qi">🏫</div><div class="ql">School Info</div><div class="qd">Bell times, contacts</div></button></div><div class="qa"><button onclick="app.showView(\'announcements\')" style="border-color:var(--warn)"><div class="qi">📢</div><div class="ql">Announcements</div><div class="qd">Post & view</div></button><button onclick="app.showView(\'wellbeing\')" style="border-color:var(--ok)"><div class="qi">💚</div><div class="ql">Wellbeing</div><div class="qd">Staff pulse check</div></button><button onclick="app.showView(\'incidents\')"><div class="qi">🚨</div><div class="ql">Incidents</div><div class="qd">Report & track</div></button></div><div class="qa"><button onclick="app.showView(\'coversummary\')" style="border-color:var(--navy)"><div class="qi">🖨️</div><div class="ql">Cover Sheet</div><div class="qd">Print for office</div></button><button onclick="app.showView(\'pdlog\')"><div class="qi">🎓</div><div class="ql">PD Log</div><div class="qd">Staff development</div></button><button onclick="app.showView(\'quickstatus\')"><div class="qi">📌</div><div class="ql">Quick Status</div><div class="qd">Staff updates</div></button></div>';
 
         if(contacting.length>0){h+='<div class="cd" style="border-left:4px solid var(--blue)"><h3 style="color:var(--blue)">⏳ Contacting CRTs...</h3>';
           contacting.forEach(a=>{h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div><div class="nm">'+a.staff_name+'</div><div class="dt">'+a.area+' — '+a.reason+'</div></div><span class="sb s-contacting" style="animation:pulse 1.5s infinite">⟳ Contacting</span></div>'+(a.crt_name?'<div class="dt mt-1">Contacting: <strong>'+a.crt_name+'</strong></div>':'')+'</div>'});h+='</div>'}
@@ -764,7 +766,7 @@
         // Quick wellbeing nudge
         h+='<div id="wbNudge"></div>';
         // Welcome card
-        h+='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><p class="text-sm text-dim mb-2">Use this app to report when you\'ll be away. The system will automatically find a CRT to cover your classes.</p><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.showView(\'new\')">➕ Report Absence</button><button class="btn btn-o" style="flex:1" onclick="app.showView(\'prebook\')">📅 Pre-book Leave</button></div><div class="qa" style="margin-top:12px"><button onclick="app.showView(\'lessonlab\')"><div class="qi">📚</div><div class="ql">LessonLab</div><div class="qd">My lesson plans</div></button><button onclick="app.showView(\'yardswaps\')"><div class="qi">🔄</div><div class="ql">Duty Swaps</div><div class="qd">Request a swap</div></button></div><div class="qa"><button onclick="app.showView(\'schoolinfo\')"><div class="qi">🏫</div><div class="ql">School Info</div><div class="qd">Bell times, contacts</div></button><button onclick="app.showView(\'nft\')"><div class="qi">⏱️</div><div class="ql">My NFT</div><div class="qd">Non-face-to-face</div></button></div><div class="qa"><button onclick="app.showView(\'announcements\')"><div class="qi">📢</div><div class="ql">Announcements</div><div class="qd">School news</div></button><button onclick="app.showView(\'wellbeing\')"><div class="qi">💚</div><div class="ql">Wellbeing</div><div class="qd">Daily check-in</div></button><button onclick="app.showView(\'incidents\')"><div class="qi">🚨</div><div class="ql">Incidents</div><div class="qd">Report issue</div></button></div></div>';
+        h+='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><p class="text-sm text-dim mb-2">Use this app to report when you\'ll be away. The system will automatically find a CRT to cover your classes.</p><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.showView(\'new\')">➕ Report Absence</button><button class="btn btn-o" style="flex:1" onclick="app.showView(\'prebook\')">📅 Pre-book Leave</button></div><div class="qa" style="margin-top:12px"><button onclick="app.showView(\'lessonlab\')"><div class="qi">📚</div><div class="ql">LessonLab</div><div class="qd">My lesson plans</div></button><button onclick="app.showView(\'yardswaps\')"><div class="qi">🔄</div><div class="ql">Duty Swaps</div><div class="qd">Request a swap</div></button></div><div class="qa"><button onclick="app.showView(\'schoolinfo\')"><div class="qi">🏫</div><div class="ql">School Info</div><div class="qd">Bell times, contacts</div></button><button onclick="app.showView(\'nft\')"><div class="qi">⏱️</div><div class="ql">My NFT</div><div class="qd">Non-face-to-face</div></button></div><div class="qa"><button onclick="app.showView(\'announcements\')"><div class="qi">📢</div><div class="ql">Announcements</div><div class="qd">School news</div></button><button onclick="app.showView(\'wellbeing\')"><div class="qi">💚</div><div class="ql">Wellbeing</div><div class="qd">Daily check-in</div></button><button onclick="app.showView(\'incidents\')"><div class="qi">🚨</div><div class="ql">Incidents</div><div class="qd">Report issue</div></button></div><div class="qa"><button onclick="app.showView(\'quickstatus\')"><div class="qi">📌</div><div class="ql">Quick Status</div><div class="qd">Running late etc</div></button><button onclick="app.showView(\'pdlog\')"><div class="qi">🎓</div><div class="ql">PD Log</div><div class="qd">Track learning</div></button></div></div>';
         if(mine.length>0){h+='<div class="cd"><h3>📋 Your Absences</h3>';
           mine.forEach(a=>{const sc={pending:'s-pending',booked:'s-booked',contacting:'s-contacting',nocrt:'s-nocrt',cancelled:'s-cancelled'}[a.status]||'s-pending';
             h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div style="flex:1"><div class="nm">'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+'</div><div class="dt">'+a.reason+(a.half_day&&a.half_day!=='full'?' ('+a.half_day.toUpperCase()+')':'')+'</div>'+(a.crt_name?'<div class="dt" style="color:var(--ok)">CRT: '+a.crt_name+'</div>':'')+'</div><span class="sb '+sc+'">'+a.status+'</span></div></div>'});
@@ -1958,6 +1960,126 @@
 
       async resolveIncident(id){
         try{await this.fetchAPI('PUT','/incidents/'+id,{status:'resolved'});toast('Marked resolved','success');this.loadIncidents()}catch(e){toast('Error: '+e.message,'error')}},
+
+      // ===== QUICK STATUS =====
+      renderQuickStatus(){
+        let h='<div class="cd"><h3>📌 Quick Status Update</h3><p style="font-size:.82rem;color:var(--dim);margin-bottom:14px">Let leadership know about schedule changes</p>';
+        h+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px">';
+        [{type:'late',icon:'⏰',label:'Running Late',color:'var(--warn)'},{type:'leaving_early',icon:'🚶',label:'Leaving Early',color:'var(--blue)'},{type:'offsite',icon:'🏢',label:'Offsite',color:'var(--navy)'},{type:'other',icon:'📝',label:'Other',color:'var(--dim)'}].forEach(s=>{
+          h+='<button onclick="app.showQuickStatusForm(\''+s.type+'\')" style="padding:16px 10px;border:2px solid '+s.color+'33;border-radius:var(--r);background:'+s.color+'08;cursor:pointer;text-align:center;font-family:inherit;transition:all .15s"><div style="font-size:1.4rem">'+s.icon+'</div><div style="font-weight:600;font-size:.85rem;margin-top:4px">'+s.label+'</div></button>'});
+        h+='</div><div id="qsForm"></div></div>';
+        h+='<div class="cd"><h3>Today\'s Status Updates</h3><div id="qsList"><div class="loading">Loading...</div></div></div>';
+        h+='<button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>';
+        // Load statuses
+        setTimeout(()=>this.loadQuickStatuses(),0);
+        return h},
+
+      showQuickStatusForm(type){
+        const labels={late:'Running Late',leaving_early:'Leaving Early',offsite:'Offsite',other:'Other'};
+        const el=document.getElementById('qsForm');if(!el)return;
+        el.innerHTML='<div style="padding:16px;background:var(--bg);border-radius:var(--r);margin-bottom:8px"><div style="font-weight:700;font-size:.88rem;margin-bottom:10px">'+labels[type]+'</div><div class="fg"><label>Details (optional)</label><input type="text" id="qsMessage" placeholder="e.g. Stuck in traffic, ETA 9:30"></div>'+(type==='late'?'<div class="fg"><label>Estimated Arrival</label><input type="time" id="qsTime"></div>':'')+(type==='leaving_early'?'<div class="fg"><label>Leaving At</label><input type="time" id="qsTime"></div>':'')+
+          '<button class="btn btn-p" onclick="app.submitQuickStatus(\''+type+'\')">Send Update</button></div>'},
+
+      async submitQuickStatus(type){
+        try{
+          await this.fetchAPI('POST','/quick-status',{type,message:document.getElementById('qsMessage')?.value?.trim(),estimated_time:document.getElementById('qsTime')?.value});
+          toast('Status sent!','success');document.getElementById('qsForm').innerHTML='';this.loadQuickStatuses()
+        }catch(e){toast('Error: '+e.message,'error')}},
+
+      async loadQuickStatuses(){
+        const el=document.getElementById('qsList');if(!el)return;
+        try{
+          const list=await this.fetchAPI('GET','/quick-status');
+          if(!list.length){el.innerHTML='<div class="empty"><div class="ei">✅</div><p>No status updates today</p></div>';return}
+          const typeIcons={late:'⏰',leaving_early:'🚶',offsite:'🏢',other:'📝'};
+          let h='';
+          list.forEach(s=>{h+='<div class="nf" style="display:flex;align-items:center;gap:10px"><span style="font-size:1.2rem">'+(typeIcons[s.type]||'📌')+'</span><div style="flex:1"><div style="font-weight:600;font-size:.88rem">'+this.esc(s.staff_name)+'</div><div style="font-size:.82rem;color:var(--dim)">'+this.esc(s.type.replace(/_/g,' '))+(s.message?' — '+this.esc(s.message):'')+(s.estimated_time?' · ETA: '+s.estimated_time:'')+'</div></div><div style="font-size:.72rem;color:var(--dim)">'+new Date(s.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</div></div>'});
+          el.innerHTML=h
+        }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      // ===== PROFESSIONAL DEVELOPMENT LOG =====
+      renderPDLog(){
+        const isL=state.user.role==='leader'||state.user.role==='admin';
+        let h='<div class="cd"><h3>🎓 Professional Development Log</h3>';
+        h+='<button class="btn btn-p btn-s mb-2" onclick="app.showPDForm()">+ Log PD Activity</button>';
+        if(isL)h+=' <button class="btn btn-o btn-s mb-2" onclick="app.loadPDLog(true)">View All Staff</button>';
+        h+='<div id="pdForm"></div><div id="pdList"><div class="loading">Loading...</div></div></div>';
+        h+='<button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>';
+        return h},
+
+      showPDForm(){
+        const el=document.getElementById('pdForm');if(!el)return;
+        el.innerHTML='<div style="padding:16px;background:var(--bg);border-radius:var(--r);margin-bottom:14px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="fg"><label>Date</label><input type="date" id="pdDate" value="'+new Date().toISOString().split('T')[0]+'"></div><div class="fg"><label>Hours</label><input type="number" id="pdHours" step="0.5" min="0.5" value="1" placeholder="Hours"></div></div><div class="fg"><label>Activity Title</label><input type="text" id="pdTitle" placeholder="e.g. First Aid Refresher"></div><div class="fg"><label>Provider</label><input type="text" id="pdProvider" placeholder="e.g. Department of Education"></div><div class="fg"><label>Type</label><select id="pdType"><option value="workshop">Workshop</option><option value="conference">Conference</option><option value="online">Online Course</option><option value="observation">Peer Observation</option><option value="mentoring">Mentoring</option><option value="reading">Reading/Research</option><option value="network">Network Meeting</option><option value="other">Other</option></select></div><div class="fg"><label>Notes / Key Learnings</label><textarea id="pdNotes" rows="2" placeholder="What did you learn?"></textarea></div><div style="display:flex;gap:8px"><button class="btn btn-ok" style="flex:1" onclick="app.submitPD()">Save</button><button class="btn btn-g" style="flex:1" onclick="document.getElementById(\'pdForm\').innerHTML=\'\'">Cancel</button></div></div>'},
+
+      async submitPD(){
+        const title=document.getElementById('pdTitle')?.value?.trim();
+        const hours=parseFloat(document.getElementById('pdHours')?.value);
+        if(!title||!hours){toast('Title and hours required','error');return}
+        try{
+          await this.fetchAPI('POST','/pd-log',{date:document.getElementById('pdDate')?.value,title,provider:document.getElementById('pdProvider')?.value?.trim(),hours,type:document.getElementById('pdType')?.value,notes:document.getElementById('pdNotes')?.value?.trim()});
+          toast('PD activity logged!','success');document.getElementById('pdForm').innerHTML='';this.loadPDLog()
+        }catch(e){toast('Error: '+e.message,'error')}},
+
+      async loadPDLog(all){
+        const el=document.getElementById('pdList');if(!el)return;
+        try{
+          const list=await this.fetchAPI('GET','/pd-log'+(all?'?all=true':''));
+          if(!list.length){el.innerHTML='<div class="empty"><div class="ei">🎓</div><p>No PD activities logged yet</p></div>';return}
+          // Summary
+          const totalHours=list.reduce((s,p)=>s+parseFloat(p.hours||0),0);
+          const thisYear=list.filter(p=>p.date>=new Date().getFullYear()+'-01-01');
+          const yearHours=thisYear.reduce((s,p)=>s+parseFloat(p.hours||0),0);
+          let h='<div class="stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px"><div class="st"><div class="n">'+yearHours.toFixed(1)+'</div><div class="l">Hours This Year</div></div><div class="st"><div class="n">'+thisYear.length+'</div><div class="l">Activities</div></div><div class="st"><div class="n">'+totalHours.toFixed(1)+'</div><div class="l">Total Hours</div></div></div>';
+          const typeIcons={workshop:'🏫',conference:'🎤',online:'💻',observation:'👁️',mentoring:'🤝',reading:'📖',network:'🤝',other:'📝'};
+          list.forEach(p=>{
+            h+='<div class="li" style="border-left:3px solid var(--blue)"><div class="li-row"><div style="flex:1"><div class="nm">'+(typeIcons[p.type]||'📝')+' '+this.esc(p.title)+'</div><div class="dt">'+this.formatDate(p.date)+' · '+p.hours+' hrs · '+this.esc(p.type)+(p.provider?' · '+this.esc(p.provider):'')+'</div>'+(all&&p.staff_name?'<div class="dt" style="font-weight:600">'+this.esc(p.staff_name)+'</div>':'')+(p.notes?'<div class="dt" style="margin-top:3px;color:var(--txt)">'+this.esc(p.notes.substring(0,100))+'</div>':'')+'</div><button onclick="app.deletePD('+p.id+')" style="background:none;border:none;color:var(--acc);cursor:pointer">✕</button></div></div>'});
+          el.innerHTML=h
+        }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      async deletePD(id){if(!confirm('Delete this PD record?'))return;try{await this.fetchAPI('DELETE','/pd-log/'+id);toast('Deleted','success');this.loadPDLog()}catch(e){toast('Error: '+e.message,'error')}},
+
+      // ===== DAILY COVER SUMMARY (printable) =====
+      renderCoverSummary(){
+        return '<div class="cd"><div style="display:flex;justify-content:space-between;align-items:center"><h3>🖨️ Daily Cover Summary</h3><button class="btn btn-o btn-s no-print" onclick="window.print()">🖨️ Print</button></div><div class="fg no-print"><label>Date</label><input type="date" id="csDate" value="'+new Date().toISOString().split('T')[0]+'" onchange="app.loadCoverSummary()"></div><div id="coverSummaryBody"><div class="loading">Loading...</div></div></div><button class="btn btn-g no-print" onclick="app.showView(\'dashboard\')">← Back</button>'},
+
+      async loadCoverSummary(){
+        const el=document.getElementById('coverSummaryBody');if(!el)return;
+        const date=document.getElementById('csDate')?.value||new Date().toISOString().split('T')[0];
+        try{
+          const d=await this.fetchAPI('GET','/cover-summary?date='+date);
+          let h='<div style="text-align:center;margin-bottom:16px"><div style="font-size:1.2rem;font-weight:800;color:var(--navy)">Williamstown Primary School</div><div style="font-size:.88rem;color:var(--dim)">Daily Cover Sheet — '+d.dayName+', '+this.formatDate(d.date)+'</div></div>';
+
+          // Quick statuses
+          if(d.statuses&&d.statuses.length>0){
+            h+='<div style="margin-bottom:14px;padding:12px;background:#fffbf0;border:1px solid var(--gold);border-radius:var(--r)"><div style="font-weight:700;font-size:.85rem;color:var(--navy);margin-bottom:6px">📌 Staff Status Updates</div>';
+            d.statuses.forEach(s=>{h+='<div style="font-size:.84rem;padding:3px 0">'+this.esc(s.staff_name)+' — '+this.esc(s.type.replace(/_/g,' '))+(s.message?' · '+this.esc(s.message):'')+'</div>'});
+            h+='</div>'}
+
+          // Absences table
+          if(d.absences.length>0){
+            h+='<table class="report-table" style="margin-bottom:16px"><thead><tr><th>Staff</th><th>Area</th><th>Reason</th><th>CRT</th><th>CRT Phone</th><th>Plans</th><th>Status</th></tr></thead><tbody>';
+            d.absences.forEach(a=>{
+              const statusClass={pending:'s-pending',booked:'s-booked',contacting:'s-contacting',nocrt:'s-nocrt'}[a.status]||'';
+              h+='<tr><td style="font-weight:600">'+this.esc(a.staffName)+(a.halfDay&&a.halfDay!=='full'?' <small>('+a.halfDay.toUpperCase()+')</small>':'')+'</td><td>'+this.esc(a.area||'—')+'</td><td>'+this.esc(a.reason||'—')+'</td><td>'+this.esc(a.crtName||'—')+'</td><td>'+this.esc(a.crtPhone||'—')+'</td><td>'+a.lessonPlans+' plans, '+a.subPlans+' notes</td><td><span class="sb '+statusClass+'">'+a.status+'</span></td></tr>'});
+            h+='</tbody></table>'}
+          else h+='<div style="text-align:center;padding:20px;background:var(--bg);border-radius:var(--r);font-size:.88rem;color:var(--ok);font-weight:600;margin-bottom:14px">✓ All staff in — no cover required today</div>';
+
+          // Yard duty
+          if(d.yardDuty.roster.length>0){
+            h+='<div style="margin-bottom:14px"><div style="font-weight:700;font-size:.88rem;color:var(--navy);margin-bottom:8px">Yard Duty</div>';
+            const slots={};d.yardDuty.roster.forEach(r=>{if(!slots[r.time_slot])slots[r.time_slot]=[];slots[r.time_slot].push(r)});
+            Object.entries(slots).forEach(([slot,duties])=>{
+              h+='<div style="margin-bottom:6px"><div style="font-weight:600;font-size:.82rem;text-transform:capitalize">'+slot.replace(/_/g,' ')+'</div>';
+              duties.forEach(d2=>{
+                const isAway=d.absentStaff.some(n=>d2.staff_name.toLowerCase().includes(n.toLowerCase().split(' ')[0]));
+                const change=d.yardDuty.changes.find(c=>c.time_slot===d2.time_slot&&c.location===d2.location);
+                h+='<div style="font-size:.82rem;padding:2px 0 2px 12px">'+this.esc(d2.location)+': '+(isAway?'<span style="text-decoration:line-through;color:var(--acc)">'+this.esc(d2.staff_name)+'</span>':'<span>'+this.esc(d2.staff_name)+'</span>')+(change?' → <strong style="color:var(--ok)">'+this.esc(change.replacement)+'</strong>':isAway?' <strong style="color:var(--acc)">NEEDS COVER</strong>':'')+'</div>'});
+              h+='</div>'});
+            h+='</div>'}
+
+          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:12px;border-top:1px solid var(--bdr);margin-top:16px">Generated by WPS Staff Hub v6.2 · '+new Date().toLocaleString()+'</div>';
+          el.innerHTML=h
+        }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
 
       logout(){localStorage.removeItem('wps_token');localStorage.removeItem('wps_user');state.token=null;state.user=null;if(this._poll)clearInterval(this._poll);this.showLoginView()}
     };

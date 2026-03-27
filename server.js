@@ -224,14 +224,14 @@ async function addNotification(message, type, forRoles, absenceId) {
 app.get('/api/health', wrap(async (req, res) => {
   try {
     await dbGet('SELECT 1 as ok');
-    res.json({ status: 'ok', version: '6.1.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
+    res.json({ status: 'ok', version: '6.2.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
   } catch (e) {
     res.status(503).json({ status: 'error', error: 'Database unreachable' });
   }
 }));
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: '6.1.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard', 'lessonlab', 'crt-portal', 'yard-duty-swaps', 'nft-tracking', 'specialist-alerts', 'analytics', 'school-info', 'staff-directory', 'announcements', 'wellbeing', 'incidents'] });
+  res.json({ version: '6.2.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard', 'lessonlab', 'crt-portal', 'yard-duty-swaps', 'nft-tracking', 'specialist-alerts', 'analytics', 'school-info', 'staff-directory', 'announcements', 'wellbeing', 'incidents', 'quick-status', 'pd-log', 'cover-summary'] });
 });
 
 // ===== STAFF PROFILE =====
@@ -2259,6 +2259,84 @@ app.put('/api/incidents/:id', auth, wrap(async (req, res) => {
   res.json({ success: true });
 }));
 
+// ===== QUICK STATUS (running late, leaving early, etc.) =====
+app.get('/api/quick-status', auth, wrap(async (req, res) => {
+  const today = new Date().toISOString().split('T')[0];
+  const statuses = await dbAll("SELECT * FROM quick_status WHERE date = ? ORDER BY created_at DESC", today);
+  res.json(statuses);
+}));
+
+app.post('/api/quick-status', auth, wrap(async (req, res) => {
+  const { type, message, estimated_time } = req.body;
+  if (!type) return res.status(400).json({ error: 'Status type required' });
+  const today = new Date().toISOString().split('T')[0];
+  await dbRun(
+    'INSERT INTO quick_status (staff_id, staff_name, date, type, message, estimated_time) VALUES (?, ?, ?, ?, ?, ?)',
+    [req.user.id, req.user.name, today, type, message || null, estimated_time || null]
+  );
+  // Notify leaders
+  const typeLabels = { late: 'Running Late', leaving_early: 'Leaving Early', offsite: 'Offsite', other: 'Status Update' };
+  await dbRun("INSERT INTO notifications (message, type, for_roles) VALUES (?, ?, ?)",
+    [`📌 ${req.user.name}: ${typeLabels[type] || type}${message ? ' — ' + message : ''}`, 'info', 'leader']);
+  try { await sendPushToAll(`📌 ${req.user.name}`, `${typeLabels[type] || type}${message ? ': ' + message : ''}`); } catch(e) {}
+  res.json({ success: true });
+}));
+
+// ===== PROFESSIONAL DEVELOPMENT LOG =====
+app.get('/api/pd-log', auth, wrap(async (req, res) => {
+  const isLeader = req.user.role === 'leader' || req.user.role === 'admin';
+  if (isLeader && req.query.all === 'true') {
+    const records = await dbAll("SELECT * FROM pd_log ORDER BY date DESC LIMIT 100");
+    res.json(records);
+  } else {
+    const records = await dbAll("SELECT * FROM pd_log WHERE staff_id = ? ORDER BY date DESC LIMIT 50", req.user.id);
+    res.json(records);
+  }
+}));
+
+app.post('/api/pd-log', auth, wrap(async (req, res) => {
+  const { date, title, provider, hours, type, notes, certificate_ref } = req.body;
+  if (!date || !title || !hours) return res.status(400).json({ error: 'Date, title, and hours required' });
+  await dbRun(
+    'INSERT INTO pd_log (staff_id, staff_name, date, title, provider, hours, type, notes, certificate_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [req.user.id, req.user.name, date, title, provider || null, hours, type || 'workshop', notes || null, certificate_ref || null]
+  );
+  res.json({ success: true, id: await dbLastId() });
+}));
+
+app.delete('/api/pd-log/:id', auth, wrap(async (req, res) => {
+  const record = await dbGet('SELECT * FROM pd_log WHERE id = ?', parseInt(req.params.id));
+  if (!record) return res.status(404).json({ error: 'Not found' });
+  if (record.staff_id !== req.user.id && req.user.role !== 'leader' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Not authorized' });
+  }
+  await dbRun('DELETE FROM pd_log WHERE id = ?', [req.params.id]);
+  res.json({ success: true });
+}));
+
+// ===== DAILY COVER SUMMARY (printable for office) =====
+app.get('/api/cover-summary', auth, wrap(async (req, res) => {
+  const date = req.query.date || new Date().toISOString().split('T')[0];
+  const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date(date + 'T12:00:00').getDay()];
+  const absences = await dbAll(
+    "SELECT a.*, c.name as crt_name, c.phone as crt_phone FROM absences a LEFT JOIN crts c ON a.assigned_crt_id = c.id WHERE a.date_start <= ? AND a.date_end >= ? AND a.status != 'cancelled' ORDER BY a.area, a.staff_name",
+    date, date
+  );
+  // Get yard duty roster for the day
+  const roster = await dbAll("SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY time_slot, location", dayName);
+  const changes = await dbAll("SELECT * FROM yard_duty_changes WHERE date = ?", date);
+  // Quick statuses for today
+  const statuses = await dbAll("SELECT * FROM quick_status WHERE date = ? ORDER BY created_at DESC", date);
+  // Get lesson plan readiness
+  const packs = [];
+  for (const a of absences) {
+    const plans = await dbAll("SELECT COUNT(*) as c FROM lesson_plans WHERE teacher_id = ? AND day_of_week = ?", a.staff_id, dayName);
+    const subs = await dbAll("SELECT COUNT(*) as c FROM sub_plans WHERE absence_id = ?", a.id);
+    packs.push({ absenceId: a.id, staffName: a.staff_name, area: a.area, crtName: a.crt_name, crtPhone: a.crt_phone, status: a.status, reason: a.reason, halfDay: a.half_day, lessonPlans: plans[0]?.c || 0, subPlans: subs[0]?.c || 0 });
+  }
+  res.json({ date, dayName, absences: packs, yardDuty: { roster, changes }, statuses, absentStaff: absences.map(a => a.staff_name) });
+}));
+
 // ===== SERVE FRONTEND =====
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -2522,6 +2600,35 @@ async function start() {
     resolved_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (reported_by) REFERENCES users(id)
+  )`); } catch(e) {}
+
+  // v6.2 tables - Quick Status
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS quick_status (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    staff_id INTEGER NOT NULL,
+    staff_name TEXT,
+    date TEXT NOT NULL,
+    type TEXT NOT NULL,
+    message TEXT,
+    estimated_time TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (staff_id) REFERENCES users(id)
+  )`); } catch(e) {}
+
+  // v6.2 tables - Professional Development Log
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS pd_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    staff_id INTEGER NOT NULL,
+    staff_name TEXT,
+    date TEXT NOT NULL,
+    title TEXT NOT NULL,
+    provider TEXT,
+    hours REAL NOT NULL,
+    type TEXT DEFAULT 'workshop',
+    notes TEXT,
+    certificate_ref TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (staff_id) REFERENCES users(id)
   )`); } catch(e) {}
 
   // Generate VAPID keys if not stored
