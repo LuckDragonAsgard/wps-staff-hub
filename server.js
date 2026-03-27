@@ -1904,6 +1904,23 @@ app.get('/api/nft/summary/:staffId', auth, wrap(async (req, res) => {
   });
 }));
 
+// All-staff NFT summary for leaders
+app.get('/api/nft/summary-all', auth, leaderOnly, wrap(async (req, res) => {
+  const thisYear = new Date().getFullYear();
+  const startDate = `${thisYear}-01-01`;
+  const staff = await dbAll("SELECT id, name FROM staff WHERE role != 'crt' ORDER BY name");
+  const summaries = [];
+  for (const s of staff) {
+    const scheduled = await dbGet("SELECT COALESCE(SUM(minutes),0) as total FROM nft_records WHERE staff_id = ? AND type = 'scheduled' AND date >= ?", s.id, startDate);
+    const extra = await dbGet("SELECT COALESCE(SUM(minutes),0) as total FROM nft_records WHERE staff_id = ? AND type = 'extra' AND date >= ?", s.id, startDate);
+    const lost = await dbGet("SELECT COALESCE(SUM(minutes),0) as total FROM nft_records WHERE staff_id = ? AND type = 'lost' AND date >= ?", s.id, startDate);
+    const covered = await dbGet("SELECT COALESCE(SUM(minutes),0) as total FROM nft_records WHERE staff_id = ? AND type = 'covered_duty' AND date >= ?", s.id, startDate);
+    const net = (scheduled?.total||0) + (extra?.total||0) - (lost?.total||0);
+    summaries.push({ staffId: s.id, name: s.name, scheduled: scheduled?.total||0, extra: extra?.total||0, lost: lost?.total||0, coveredDuty: covered?.total||0, net });
+  }
+  res.json({ year: thisYear, summaries });
+}));
+
 // ===== LEADERSHIP DASHBOARD ENHANCED =====
 app.get('/api/dashboard/leadership', auth, leaderOnly, wrap(async (req, res) => {
   const today = new Date().toISOString().split('T')[0];

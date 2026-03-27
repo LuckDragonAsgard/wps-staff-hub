@@ -265,7 +265,17 @@
           if(state.user){this.showApp();await this.loadInitialData();this.startPolling();this.checkPushStatus();this.showView('zap');return}}
         this.showLoginView()},
 
-      showApp(){document.getElementById('topNav').style.display='flex';document.getElementById('bottomNav').style.display='flex'},
+      showApp(){document.getElementById('topNav').style.display='flex';document.getElementById('bottomNav').style.display='flex';this.updateBottomNav()},
+
+      updateBottomNav(){
+        const nav=document.getElementById('bottomNav');if(!nav||!state.user)return;
+        const r=state.user.role;
+        if(r==='crt'){
+          nav.innerHTML='<button id="navZap" class="act" onclick="app.showView(\'zap\')"><div class="bi">📰</div><div>Zap</div></button><button id="navDashboard" onclick="app.showView(\'dashboard\')"><div class="bi">📊</div><div>Dashboard</div></button><button id="navCrtportal" onclick="app.showView(\'crtportal\')"><div class="bi">📋</div><div>My Day</div></button><button id="navNotifications" onclick="app.showView(\'notifications\')"><div class="bi">🔔</div><div>Alerts</div><span class="badge" id="notifBadge" style="display:none"></span></button><button id="navSettings" onclick="app.showView(\'settings\')"><div class="bi">⚙️</div><div>More</div></button>'
+        } else if(r==='leader'||r==='admin'){
+          nav.innerHTML='<button id="navZap" class="act" onclick="app.showView(\'zap\')"><div class="bi">📰</div><div>Zap</div></button><button id="navDashboard" onclick="app.showView(\'dashboard\')"><div class="bi">📊</div><div>Dashboard</div></button><button id="navNew" onclick="app.showView(\'new\')"><div class="bi">➕</div><div>New</div></button><button id="navNotifications" onclick="app.showView(\'notifications\')"><div class="bi">🔔</div><div>Alerts</div><span class="badge" id="notifBadge" style="display:none"></span></button><button id="navYardswaps" onclick="app.showView(\'yardswaps\')"><div class="bi">🔄</div><div>Swaps</div></button>'
+        }
+        this.updateNotifBadge()},
       hideApp(){document.getElementById('topNav').style.display='none';document.getElementById('bottomNav').style.display='none'},
 
       async fetchAPI(method,endpoint,body=null){
@@ -324,7 +334,8 @@
         if(state.currentView==='zapedit')this.loadZapForEdit();
         if(state.currentView==='yardduty')this.loadYardDutyRoster();
         if(state.currentView==='calendarmanage')this.loadCalendarEvents();
-        if(state.currentView==='timetablemanage')this.loadTimetableList()},
+        if(state.currentView==='timetablemanage')this.loadTimetableList();
+        if(state.currentView==='dashboard'&&(state.user.role==='leader'||state.user.role==='admin'))this.loadLeaderIntel()},
 
       // ===== DAILY ZAP =====
       renderZap(){
@@ -646,12 +657,41 @@
         if(booked.length>0){h+='<div class="cd"><h3>✅ Today\'s Cover — Sorted</h3>';
           booked.forEach(a=>{h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div style="flex:1"><div class="nm">'+a.staff_name+'</div><div class="dt">'+a.area+' — '+a.reason+(a.half_day&&a.half_day!=='full'?' ('+a.half_day.toUpperCase()+')':'')+'</div><div class="dt" style="color:var(--ok);font-weight:600">✓ '+a.crt_name+'</div></div><span class="sb s-booked">Booked</span></div></div>'});h+='</div>'}
 
+        // Live leadership intel panel (loads async)
+        h+='<div id="leaderIntel"><div class="loading" style="padding:12px;font-size:.82rem">Loading leadership intel...</div></div>';
+
         h+='<div class="cd"><h3>📅 This Month</h3>'+this.renderCalendar()+'</div>';
 
         if(upcoming.length>0){h+='<div class="cd"><h3>🔮 Coming Up</h3>';
           upcoming.forEach(a=>{const sc={pending:'s-pending',booked:'s-booked',contacting:'s-contacting',nocrt:'s-nocrt'}[a.status]||'s-pending';
             h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div style="flex:1"><div class="nm">'+a.staff_name+'</div><div class="dt">'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+' · '+a.area+'</div><div class="dt">'+a.reason+'</div>'+(a.crt_name?'<div class="dt" style="color:var(--ok)">CRT: '+a.crt_name+'</div>':'')+'</div><span class="sb '+sc+'">'+a.status+'</span></div></div>'});h+='</div>'}
         return h},
+
+      async loadLeaderIntel(){
+        const el=document.getElementById('leaderIntel');if(!el)return;
+        try{
+          const d=await this.fetchAPI('GET','/dashboard/leadership');
+          let h='';
+          // Pending swaps alert
+          if(d.pendingSwaps&&d.pendingSwaps.length>0){
+            h+='<div class="cd" style="border-left:4px solid var(--warn)"><h3 style="color:var(--warn)">🔄 '+d.pendingSwaps.length+' Pending Swap'+(d.pendingSwaps.length>1?'s':'')+'</h3>';
+            d.pendingSwaps.forEach(s=>{h+='<div class="li" onclick="app.showView(\'yardswaps\')"><div class="nm">'+this.esc(s.requester_name)+(s.requested_staff_name?' → '+this.esc(s.requested_staff_name):' → Open')+'</div><div class="dt">'+this.esc(s.date)+' · '+this.esc(s.time_slot)+' at '+this.esc(s.location)+'</div></div>'});
+            h+='</div>'}
+          // CRT pack readiness
+          if(d.packStatus&&d.packStatus.length>0){
+            const ready=d.packStatus.filter(p=>p.packReady).length;const total=d.packStatus.length;
+            const color=ready===total?'var(--ok)':ready===0?'var(--acc)':'var(--warn)';
+            h+='<div class="cd" style="border-left:4px solid '+color+'"><h3>📦 CRT Packs: '+ready+'/'+total+' Ready</h3>';
+            d.packStatus.forEach(p=>{h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr);font-size:.84rem"><span>'+(p.packReady?'✅':'⚠️')+'</span><div style="flex:1"><strong>'+this.esc(p.staffName)+'</strong> ('+this.esc(p.area)+')'+(p.crtName?' — CRT: '+this.esc(p.crtName):'')+'</div><div style="font-size:.76rem;color:var(--dim)">'+p.lessonPlans+' plans, '+p.subPlans+' notes</div>'+(p.packReady?'<button class="btn btn-o btn-s no-print" style="width:auto" onclick="app.showCRTPack('+p.absenceId+')">View</button>':'')+'</div>'});
+            h+='</div>'}
+          // Specialist alerts
+          if(d.specialistAlerts&&d.specialistAlerts.length>0){
+            h+='<div class="cd" style="border-left:4px solid var(--blue)"><h3 style="color:var(--blue)">🔔 '+d.specialistAlerts.length+' Specialist Alert'+(d.specialistAlerts.length>1?'s':'')+'</h3>';
+            const grouped={};d.specialistAlerts.forEach(a=>{(grouped[a.specialist_name]=grouped[a.specialist_name]||[]).push(a)});
+            Object.entries(grouped).forEach(([name,alerts])=>{h+='<div style="padding:6px 0;border-bottom:1px solid var(--bdr);font-size:.84rem"><strong>'+this.esc(name)+'</strong>: '+alerts.map(a=>this.esc(a.class_name||a.alert_type)).join(', ')+'</div>'});
+            h+='</div>'}
+          el.innerHTML=h||'<div class="cd" style="border-left:4px solid var(--ok)"><p style="font-size:.84rem;color:var(--ok);font-weight:600">✓ All systems green — no pending items</p></div>'
+        }catch(e){el.innerHTML=''}},
 
       renderStaffDashboard(){
         const mine=state.absences.filter(a=>a.staff_id===state.user.id);
@@ -1410,13 +1450,29 @@
       renderNFTTracking(){
         const isL=state.user.role==='leader'||state.user.role==='admin';
         let h='<div class="cd"><h3>⏰ NFT Tracking</h3><p class="text-sm text-dim mb-2">Track non-face-to-face time: scheduled, extra, lost, and yard duty coverage.</p>';
-        h+='<div id="nftSummary" style="margin-bottom:14px"><div class="loading">Loading...</div></div>';
-        if(isL)h+='<button class="btn btn-p btn-s mb-2" onclick="app.showAddNFTForm()">+ Record NFT</button>';
+        if(isL){
+          h+='<div class="tog mb-2"><button class="'+(state._nftTab!=='all'?'act':'')+'" onclick="state._nftTab=\'mine\';app.render()">My NFT</button><button class="'+(state._nftTab==='all'?'act':'')+'" onclick="state._nftTab=\'all\';app.render()">All Staff</button></div>';
+          h+='<button class="btn btn-p btn-s mb-2" onclick="app.showAddNFTForm()">+ Record NFT</button>'}
         h+='<div id="nftForm"></div>';
-        h+='<div id="nftRecords"><div class="loading">Loading records...</div></div>';
+        if(isL&&state._nftTab==='all'){
+          h+='<div id="nftAllStaff"><div class="loading">Loading all staff NFT...</div></div>';
+        }else{
+          h+='<div id="nftSummary" style="margin-bottom:14px"><div class="loading">Loading...</div></div>';
+          h+='<div id="nftRecords"><div class="loading">Loading records...</div></div>'}
         return h+'</div><button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>'},
 
       async loadNFTData(){
+        // All-staff view for leaders
+        const allEl=document.getElementById('nftAllStaff');
+        if(allEl){try{
+          const d=await this.fetchAPI('GET','/nft/summary-all');
+          let h='<h4 style="font-size:.88rem;color:var(--navy);margin-bottom:10px">'+d.year+' NFT Overview — All Staff</h4>';
+          h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem"><thead><tr style="background:var(--navy);color:#fff"><th style="padding:8px 6px;text-align:left;border-radius:8px 0 0 0">Staff</th><th style="padding:8px 6px;text-align:center">Sched</th><th style="padding:8px 6px;text-align:center">Extra</th><th style="padding:8px 6px;text-align:center">Lost</th><th style="padding:8px 6px;text-align:center">Duty</th><th style="padding:8px 6px;text-align:center;border-radius:0 8px 0 0">Net</th></tr></thead><tbody>';
+          d.summaries.forEach((s,i)=>{const bg=i%2===0?'#fff':'var(--bg)';const netColor=s.net>0?'var(--ok)':s.net<0?'var(--acc)':'var(--navy)';
+            h+='<tr style="background:'+bg+'"><td style="padding:6px;font-weight:600">'+this.esc(s.name)+'</td><td style="padding:6px;text-align:center">'+s.scheduled+'</td><td style="padding:6px;text-align:center;color:var(--ok)">'+s.extra+'</td><td style="padding:6px;text-align:center;color:var(--acc)">'+s.lost+'</td><td style="padding:6px;text-align:center;color:var(--blue)">'+s.coveredDuty+'</td><td style="padding:6px;text-align:center;font-weight:700;color:'+netColor+'">'+s.net+'</td></tr>'});
+          h+='</tbody></table></div>';
+          allEl.innerHTML=h
+        }catch(e){allEl.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}return}
         // Load summary
         const sumEl=document.getElementById('nftSummary');
         if(sumEl){try{
