@@ -1,4 +1,4 @@
-// WPS Staff Hub - Production Server v5.0 (Turso + sql.js fallback)
+// WPS Staff Hub - Production Server v5.1 (Turso + sql.js fallback)
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcryptjs');
@@ -224,14 +224,14 @@ async function addNotification(message, type, forRoles, absenceId) {
 app.get('/api/health', wrap(async (req, res) => {
   try {
     await dbGet('SELECT 1 as ok');
-    res.json({ status: 'ok', version: '5.0.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
+    res.json({ status: 'ok', version: '5.1.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
   } catch (e) {
     res.status(503).json({ status: 'error', error: 'Database unreachable' });
   }
 }));
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: '5.0.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard', 'lessonlab', 'crt-portal', 'yard-duty-swaps', 'nft-tracking', 'specialist-alerts'] });
+  res.json({ version: '5.1.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard', 'lessonlab', 'crt-portal', 'yard-duty-swaps', 'nft-tracking', 'specialist-alerts', 'analytics', 'school-info'] });
 });
 
 // ===== STAFF PROFILE =====
@@ -859,7 +859,7 @@ app.get('/api/dashboard', auth, wrap(async (req, res) => {
   const weekAbs = await dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start >= ? AND status != 'cancelled'", weekStart);
   const recentNotifs = await dbAll("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 5");
   res.json({
-    version: '5.0.0',
+    version: '5.1.0',
     demo: DEMO,
     live: LIVE,
     database: USE_TURSO ? 'turso' : 'local',
@@ -1919,6 +1919,137 @@ app.get('/api/nft/summary-all', auth, leaderOnly, wrap(async (req, res) => {
     summaries.push({ staffId: s.id, name: s.name, scheduled: scheduled?.total||0, extra: extra?.total||0, lost: lost?.total||0, coveredDuty: covered?.total||0, net });
   }
   res.json({ year: thisYear, summaries });
+}));
+
+// ===== ABSENCE ANALYTICS & TRENDS =====
+app.get('/api/analytics/trends', auth, leaderOnly, wrap(async (req, res) => {
+  const thisYear = new Date().getFullYear();
+  const startDate = `${thisYear}-01-01`;
+
+  // Day-of-week distribution
+  const byDayOfWeek = await dbAll(
+    `SELECT
+       CASE cast(strftime('%w', date_start) as integer)
+         WHEN 0 THEN 'Sunday' WHEN 1 THEN 'Monday' WHEN 2 THEN 'Tuesday'
+         WHEN 3 THEN 'Wednesday' WHEN 4 THEN 'Thursday' WHEN 5 THEN 'Friday'
+         WHEN 6 THEN 'Saturday' END as day_name,
+       cast(strftime('%w', date_start) as integer) as day_num,
+       COUNT(*) as count
+     FROM absences WHERE date_start >= ? AND status != 'cancelled'
+     GROUP BY day_num ORDER BY day_num`, startDate
+  );
+
+  // Monthly trend
+  const byMonth = await dbAll(
+    `SELECT substr(date_start,1,7) as month, COUNT(*) as count
+     FROM absences WHERE date_start >= ? AND status != 'cancelled'
+     GROUP BY month ORDER BY month`, startDate
+  );
+
+  // Top absent staff
+  const topStaff = await dbAll(
+    `SELECT staff_name, staff_id, COUNT(*) as count,
+       SUM(CASE WHEN julianday(date_end) - julianday(date_start) + 1 END) as total_days
+     FROM absences WHERE date_start >= ? AND status != 'cancelled'
+     GROUP BY staff_id ORDER BY count DESC LIMIT 15`, startDate
+  );
+
+  // By reason
+  const byReason = await dbAll(
+    `SELECT reason, COUNT(*) as count
+     FROM absences WHERE date_start >= ? AND status != 'cancelled'
+     GROUP BY reason ORDER BY count DESC LIMIT 10`, startDate
+  );
+
+  // By area
+  const byArea = await dbAll(
+    `SELECT area, COUNT(*) as count
+     FROM absences WHERE date_start >= ? AND status != 'cancelled'
+     GROUP BY area ORDER BY count DESC`, startDate
+  );
+
+  // CRT utilization
+  const crtUsage = await dbAll(
+    `SELECT c.name, COUNT(*) as bookings,
+       SUM(CASE WHEN julianday(a.date_end) - julianday(a.date_start) + 1 END) as total_days
+     FROM absences a JOIN crts c ON a.assigned_crt_id = c.id
+     WHERE a.date_start >= ? AND a.status = 'booked'
+     GROUP BY a.assigned_crt_id ORDER BY bookings DESC`, startDate
+  );
+
+  // Term totals (rough — Aus school terms)
+  const termRanges = [
+    { name: 'Term 1', start: `${thisYear}-01-28`, end: `${thisYear}-04-04` },
+    { name: 'Term 2', start: `${thisYear}-04-21`, end: `${thisYear}-06-27` },
+    { name: 'Term 3', start: `${thisYear}-07-14`, end: `${thisYear}-09-19` },
+    { name: 'Term 4', start: `${thisYear}-10-06`, end: `${thisYear}-12-19` }
+  ];
+  const byTerm = [];
+  for (const t of termRanges) {
+    const r = await dbGet(
+      "SELECT COUNT(*) as count FROM absences WHERE date_start >= ? AND date_start <= ? AND status != 'cancelled'",
+      t.start, t.end
+    );
+    byTerm.push({ ...t, count: r?.count || 0 });
+  }
+
+  // Average absences per week
+  const weeksElapsed = Math.max(1, Math.floor((Date.now() - new Date(startDate).getTime()) / (7*24*60*60*1000)));
+  const totalAbs = await dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start >= ? AND status != 'cancelled'", startDate);
+  const avgPerWeek = ((totalAbs?.c || 0) / weeksElapsed).toFixed(1);
+
+  res.json({
+    year: thisYear, avgPerWeek,
+    byDayOfWeek, byMonth, topStaff, byReason, byArea, crtUsage, byTerm,
+    totalAbsences: totalAbs?.c || 0, weeksElapsed
+  });
+}));
+
+// ===== SCHOOL INFO (bell times, contacts, etc.) =====
+app.get('/api/school-info', auth, wrap(async (req, res) => {
+  // Pull from system settings
+  const settings = {};
+  const rows = await dbAll('SELECT key, value FROM system_settings');
+  rows.forEach(r => { settings[r.key] = r.value; });
+
+  res.json({
+    name: 'Williamstown Primary School',
+    address: '185 Melbourne Rd, Williamstown VIC 3016',
+    phone: settings.school_phone || '(03) 9397 1428',
+    email: settings.school_email || 'williamstown.ps@education.vic.gov.au',
+    principal: settings.principal_name || 'Principal',
+    assistantPrincipal: settings.ap_name || 'Assistant Principal',
+    officeManager: settings.office_manager || 'Office',
+    bellTimes: [
+      { time: '8:45', event: 'Yard Duty Begins' },
+      { time: '9:00', event: 'Morning Session Starts' },
+      { time: '10:00', event: 'Period 2' },
+      { time: '11:00', event: 'Recess (Morning Tea)' },
+      { time: '11:30', event: 'Period 3' },
+      { time: '12:30', event: 'Lunch Eating Time' },
+      { time: '12:50', event: 'Lunch Play' },
+      { time: '1:30', event: 'Period 4' },
+      { time: '2:30', event: 'Period 5' },
+      { time: '3:30', event: 'Dismissal' }
+    ],
+    emergencyProcedures: [
+      { type: 'Lockdown', action: 'Lock doors, close blinds, students away from doors/windows, wait for all-clear' },
+      { type: 'Evacuation', action: 'Take rolls, proceed to oval assembly area, report to marshals' },
+      { type: 'Medical Emergency', action: 'Call office on internal phone, do not move student, first aider responds' },
+      { type: 'Severe Weather', action: 'Students inside, close windows, listen for PA announcements' }
+    ],
+    keyLocations: [
+      { name: 'Front Office', where: 'Main building, ground floor' },
+      { name: 'Sick Bay', where: 'Adjacent to front office' },
+      { name: 'Staff Room', where: 'Main building, first floor' },
+      { name: 'Library', where: 'Building B, ground floor' },
+      { name: 'Gym/Hall', where: 'Rear of main building' },
+      { name: 'Art Room', where: 'Building C' },
+      { name: 'Music Room', where: 'Building B, first floor' },
+      { name: 'Oval', where: 'Behind main buildings' },
+      { name: 'Adventure Playground', where: 'North side of oval' }
+    ]
+  });
 }));
 
 // ===== LEADERSHIP DASHBOARD ENHANCED =====
