@@ -309,7 +309,7 @@
         const content=document.getElementById('content');if(!state.user){content.innerHTML='';return}
         document.getElementById('userDisplay').textContent=state.user.name;
         document.getElementById('roleBadge').textContent=state.user.role;
-        const views={zap:()=>this.renderZap(),dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs(),directory:()=>this.renderDirectory(),reports:()=>this.renderReports(),prebook:()=>this.renderPrebook(),crtcalendar:()=>this.renderCRTCalendar(),zapedit:()=>this.renderZapEditor(),yardduty:()=>this.renderYardDutyManager(),calendarmanage:()=>this.renderCalendarManager(),timetablemanage:()=>this.renderTimetableManager(),staffmanage:()=>this.renderStaffManage()};
+        const views={zap:()=>this.renderZap(),dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs(),directory:()=>this.renderDirectory(),reports:()=>this.renderReports(),prebook:()=>this.renderPrebook(),crtcalendar:()=>this.renderCRTCalendar(),zapedit:()=>this.renderZapEditor(),yardduty:()=>this.renderYardDutyManager(),calendarmanage:()=>this.renderCalendarManager(),timetablemanage:()=>this.renderTimetableManager(),staffmanage:()=>this.renderStaffManage(),lessonlab:()=>this.renderLessonLab(),crtportal:()=>this.renderCRTPortal(),yardswaps:()=>this.renderYardDutySwaps(),nft:()=>this.renderNFTTracking(),crtpack:()=>this.renderCRTPack()};
         content.innerHTML=(views[state.currentView]||views.zap)();
         if(state.currentView==='settings'){if(state.user.role==='leader'||state.user.role==='admin')this.populateAreaDropdown();if(state.user.role==='crt')this.loadUnavailDates()}
         if(state.currentView==='new')this.setupAbsenceForm();
@@ -317,6 +317,10 @@
         if(state.currentView==='crtcalendar')this.loadCRTCalendar();
         if(state.currentView==='reports')this.loadReportSummary();
         if(state.currentView==='zap')this.loadZap();
+        if(state.currentView==='crtportal')this.loadCRTPortal();
+        if(state.currentView==='lessonlab')this.loadLessonPlans();
+        if(state.currentView==='yardswaps')this.loadSwapRequests();
+        if(state.currentView==='nft')this.loadNFTData();
         if(state.currentView==='zapedit')this.loadZapForEdit();
         if(state.currentView==='yardduty')this.loadYardDutyRoster();
         if(state.currentView==='calendarmanage')this.loadCalendarEvents();
@@ -425,7 +429,7 @@
           // Extra notes
           if(z.extra_notes){h+='<div class="cd zap-section"><h4><span class="icon">📌</span> Additional Notes</h4><div class="zap-notes-text">'+this.esc(z.extra_notes)+'</div></div>'}
 
-          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:8px">WPS Staff Hub v4.4 — Daily Zap</div>';
+          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:8px">WPS Staff Hub v5.0 — Daily Zap</div>';
           body.innerHTML=h;
         }catch(e){body.innerHTML='<p class="text-dim" style="text-align:center;padding:20px">Unable to load zap: '+e.message+'</p>'}},
 
@@ -631,7 +635,7 @@
 
         let h='<div class="stats"><div class="st '+(s.absentToday>0?'alert':'')+'"><div class="n">'+(s.absentToday||0)+'</div><div class="l">Away Today</div></div><div class="st ok"><div class="n">'+(s.crtsBooked||0)+'</div><div class="l">CRTs Booked</div></div><div class="st '+(s.needAction>0?'alert':'')+'"><div class="n">'+(s.needAction||0)+'</div><div class="l">Need Action</div></div><div class="st"><div class="n">'+(s.totalTerm||0)+'</div><div class="l">This Term</div></div></div>';
 
-        h+='<div class="qa"><button onclick="app.showView(\'zapedit\')" style="border-color:var(--gold)"><div class="qi">✏️</div><div class="ql">Edit Daily Zap</div><div class="qd">Today\'s bulletin</div></button><button onclick="app.showView(\'new\')"><div class="qi">🆕</div><div class="ql">Report Absence</div><div class="qd">Lodge new</div></button><button onclick="app.showView(\'report\')"><div class="qi">📄</div><div class="ql">Cover Report</div><div class="qd">Today\'s sheet</div></button></div><div class="qa"><button onclick="app.showView(\'yardduty\')"><div class="qi">🏃</div><div class="ql">Yard Duty</div><div class="qd">Manage roster</div></button><button onclick="app.showView(\'calendarmanage\')"><div class="qi">📅</div><div class="ql">Calendar</div><div class="qd">Add events</div></button><button onclick="app.showView(\'timetablemanage\')"><div class="qi">📊</div><div class="ql">Timetables</div><div class="qd">Upload/manage</div></button></div><div class="qa"><button onclick="app.showView(\'prebook\')"><div class="qi">📅</div><div class="ql">Pre-book Leave</div><div class="qd">PD, camps, etc</div></button><button onclick="app.showView(\'crtcalendar\')"><div class="qi">🗓️</div><div class="ql">CRT Calendar</div><div class="qd">Availability</div></button><button onclick="app.showView(\'reports\')"><div class="qi">📊</div><div class="ql">Reports</div><div class="qd">Export data</div></button></div><div class="qa"><button onclick="app.showView(\'logs\')"><div class="qi">📨</div><div class="ql">Activity Log</div><div class="qd">SMS & Email</div></button><button onclick="app.showView(\'directory\')"><div class="qi">👥</div><div class="ql">Staff Directory</div><div class="qd">All staff & CRTs</div></button><button onclick="app.showView(\'staffmanage\')"><div class="qi">👤</div><div class="ql">Manage Staff</div><div class="qd">Add/edit people</div></button></div><div class="qa"><button onclick="app.showView(\'settings\')"><div class="qi">⚙️</div><div class="ql">Settings</div><div class="qd">Preferences</div></button></div>';
+        h+='<div class="qa"><button onclick="app.showView(\'zapedit\')" style="border-color:var(--gold)"><div class="qi">✏️</div><div class="ql">Edit Daily Zap</div><div class="qd">Today\'s bulletin</div></button><button onclick="app.showView(\'new\')"><div class="qi">🆕</div><div class="ql">Report Absence</div><div class="qd">Lodge new</div></button><button onclick="app.showView(\'report\')"><div class="qi">📄</div><div class="ql">Cover Report</div><div class="qd">Today\'s sheet</div></button></div><div class="qa"><button onclick="app.showView(\'yardduty\')"><div class="qi">🏃</div><div class="ql">Yard Duty</div><div class="qd">Manage roster</div></button><button onclick="app.showView(\'calendarmanage\')"><div class="qi">📅</div><div class="ql">Calendar</div><div class="qd">Add events</div></button><button onclick="app.showView(\'timetablemanage\')"><div class="qi">📊</div><div class="ql">Timetables</div><div class="qd">Upload/manage</div></button></div><div class="qa"><button onclick="app.showView(\'prebook\')"><div class="qi">📅</div><div class="ql">Pre-book Leave</div><div class="qd">PD, camps, etc</div></button><button onclick="app.showView(\'crtcalendar\')"><div class="qi">🗓️</div><div class="ql">CRT Calendar</div><div class="qd">Availability</div></button><button onclick="app.showView(\'reports\')"><div class="qi">📊</div><div class="ql">Reports</div><div class="qd">Export data</div></button></div><div class="qa"><button onclick="app.showView(\'logs\')"><div class="qi">📨</div><div class="ql">Activity Log</div><div class="qd">SMS & Email</div></button><button onclick="app.showView(\'directory\')"><div class="qi">👥</div><div class="ql">Staff Directory</div><div class="qd">All staff & CRTs</div></button><button onclick="app.showView(\'staffmanage\')"><div class="qi">👤</div><div class="ql">Manage Staff</div><div class="qd">Add/edit people</div></button></div><div class="qa"><button onclick="app.showView(\'settings\')"><div class="qi">⚙️</div><div class="ql">Settings</div><div class="qd">Preferences</div></button></div><div class="qa"><button onclick="app.showView(\'lessonlab\')"><div class="qi">📚</div><div class="ql">LessonLab</div><div class="qd">Lesson plans</div></button><button onclick="app.showView(\'yardswaps\')"><div class="qi">🔄</div><div class="ql">Duty Swaps</div><div class="qd">Swap requests</div></button><button onclick="app.showView(\'nft\')"><div class="qi">⏱️</div><div class="ql">NFT Tracking</div><div class="qd">Non-face-to-face</div></button></div>';
 
         if(contacting.length>0){h+='<div class="cd" style="border-left:4px solid var(--blue)"><h3 style="color:var(--blue)">⏳ Contacting CRTs...</h3>';
           contacting.forEach(a=>{h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div><div class="nm">'+a.staff_name+'</div><div class="dt">'+a.area+' — '+a.reason+'</div></div><span class="sb s-contacting" style="animation:pulse 1.5s infinite">⟳ Contacting</span></div>'+(a.crt_name?'<div class="dt mt-1">Contacting: <strong>'+a.crt_name+'</strong></div>':'')+'</div>'});h+='</div>'}
@@ -651,7 +655,7 @@
 
       renderStaffDashboard(){
         const mine=state.absences.filter(a=>a.staff_id===state.user.id);
-        let h='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><p class="text-sm text-dim mb-2">Use this app to report when you\'ll be away. The system will automatically find a CRT to cover your classes.</p><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.showView(\'new\')">➕ Report Absence</button><button class="btn btn-o" style="flex:1" onclick="app.showView(\'prebook\')">📅 Pre-book Leave</button></div></div>';
+        let h='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><p class="text-sm text-dim mb-2">Use this app to report when you\'ll be away. The system will automatically find a CRT to cover your classes.</p><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.showView(\'new\')">➕ Report Absence</button><button class="btn btn-o" style="flex:1" onclick="app.showView(\'prebook\')">📅 Pre-book Leave</button></div><div class="qa" style="margin-top:12px"><button onclick="app.showView(\'lessonlab\')"><div class="qi">📚</div><div class="ql">LessonLab</div><div class="qd">My lesson plans</div></button><button onclick="app.showView(\'yardswaps\')"><div class="qi">🔄</div><div class="ql">Duty Swaps</div><div class="qd">Request a swap</div></button></div></div>';
         if(mine.length>0){h+='<div class="cd"><h3>📋 Your Absences</h3>';
           mine.forEach(a=>{const sc={pending:'s-pending',booked:'s-booked',contacting:'s-contacting',nocrt:'s-nocrt',cancelled:'s-cancelled'}[a.status]||'s-pending';
             h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div style="flex:1"><div class="nm">'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+'</div><div class="dt">'+a.reason+(a.half_day&&a.half_day!=='full'?' ('+a.half_day.toUpperCase()+')':'')+'</div>'+(a.crt_name?'<div class="dt" style="color:var(--ok)">CRT: '+a.crt_name+'</div>':'')+'</div><span class="sb '+sc+'">'+a.status+'</span></div></div>'});
@@ -661,7 +665,7 @@
       renderCRTDashboard(){
         const my=state.absences.filter(a=>a.assigned_crt_id===state.user.id);
         const pending=my.filter(a=>a.status==='contacting');const confirmed=my.filter(a=>a.status==='booked');
-        let h='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><div class="stats"><div class="st ok"><div class="n">'+confirmed.length+'</div><div class="l">Confirmed</div></div><div class="st '+(pending.length>0?'alert':'')+'"><div class="n">'+pending.length+'</div><div class="l">Pending</div></div></div></div>';
+        let h='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><div class="stats"><div class="st ok"><div class="n">'+confirmed.length+'</div><div class="l">Confirmed</div></div><div class="st '+(pending.length>0?'alert':'')+'"><div class="n">'+pending.length+'</div><div class="l">Pending</div></div></div><button class="btn btn-p" style="margin-top:8px" onclick="app.showView(\'crtportal\')">📋 My Day Briefing — Timetable, Lessons & Duties</button></div>';
         // CRT's own calendar view showing their bookings
         h+='<div class="cd"><h3>📅 Your Month</h3>'+this.renderCRTMiniCalendar()+'</div>';
         if(pending.length>0){h+='<div class="cd" style="border-left:4px solid var(--warn)"><h3>⏳ Pending Requests</h3>';
@@ -1006,7 +1010,7 @@
         else h+='<p class="text-sm text-dim" style="padding:8px">Push notifications not supported on this browser.</p>';
         h+='</div><div class="divider"></div>';
 
-        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v4.4</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
+        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v5.0</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
         if(isL)h+='<button class="btn btn-o mb-1" onclick="app.resetDemo()" style="width:100%">🔄 Reset Demo Data</button>';
         h+='<button class="btn btn-d" onclick="app.logout()">🚪 Sign Out</button></div>';
         return h},
@@ -1213,6 +1217,234 @@
         else if(type==='staff'){userId=document.getElementById('staffSelect').value;pin=document.getElementById('staffPin').value;if(!userId){err.innerHTML='<div class="nf urg">Please select a staff member</div>';return}endpoint='/login';body={userId:parseInt(userId),pin}}
         else{userId=document.getElementById('crtSelect').value;if(!userId){err.innerHTML='<div class="nf urg">Please select a CRT</div>';return}endpoint='/login/crt';body={crtId:parseInt(userId)}}
         try{err.innerHTML='<div class="loading">Signing in...</div>';const result=await this.fetchAPI('POST',endpoint,body);state.token=result.token;state.user=result.user;localStorage.setItem('wps_token',state.token);localStorage.setItem('wps_user',JSON.stringify(state.user));this.showApp();await this.loadInitialData();this.startPolling();this.showView('dashboard');toast('Welcome, '+state.user.name.split(' ')[0]+'!','success')}catch(e){err.innerHTML='<div class="nf urg">Login failed: '+e.message+'</div>'}},
+
+      // ===== LESSONLAB — Lesson Plan Management =====
+      renderLessonLab(){
+        const isL=state.user.role==='leader'||state.user.role==='admin';
+        let h='<div class="cd"><h3>📚 LessonLab — Lesson Plans</h3><p class="text-sm text-dim mb-2">Upload lesson plans so CRTs have them ready when you are away. Plans are matched to your timetable automatically.</p>';
+        h+='<button class="btn btn-p btn-s mb-2" onclick="app.showAddLessonPlanForm()">+ Add Lesson Plan</button>';
+        if(isL)h+=' <button class="btn btn-o btn-s mb-2" onclick="app.showBulkLessonUpload()">📤 Bulk Upload</button>';
+        h+='<div id="lessonPlanForm"></div>';
+        h+='<div class="tog mb-1"><button class="'+(state._llDay!=='all'?'':'act')+'" onclick="state._llDay=null;app.loadLessonPlans()">All</button><button class="'+(state._llDay==='Monday'?'act':'')+'" onclick="state._llDay=\'Monday\';app.loadLessonPlans()">Mon</button><button class="'+(state._llDay==='Tuesday'?'act':'')+'" onclick="state._llDay=\'Tuesday\';app.loadLessonPlans()">Tue</button><button class="'+(state._llDay==='Wednesday'?'act':'')+'" onclick="state._llDay=\'Wednesday\';app.loadLessonPlans()">Wed</button></div>';
+        h+='<div class="tog mb-1"><button class="'+(state._llDay==='Thursday'?'act':'')+'" onclick="state._llDay=\'Thursday\';app.loadLessonPlans()">Thu</button><button class="'+(state._llDay==='Friday'?'act':'')+'" onclick="state._llDay=\'Friday\';app.loadLessonPlans()">Fri</button></div>';
+        h+='<div id="lessonPlansList"><div class="loading">Loading plans...</div></div>';
+        return h+'</div><button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>'},
+
+      async loadLessonPlans(){
+        const el=document.getElementById('lessonPlansList');if(!el)return;
+        try{
+          let url='/lessonlab/plans?teacherId='+state.user.id;
+          if(state._llDay)url+='&dayOfWeek='+state._llDay;
+          const plans=await this.fetchAPI('GET',url);
+          if(plans.length===0){el.innerHTML='<div class="empty"><div class="ei">📝</div><p>No lesson plans yet. Add your first one!</p></div>';return}
+          const grouped={};plans.forEach(p=>{const day=p.day_of_week||p.specific_date||'General';if(!grouped[day])grouped[day]=[];grouped[day].push(p)});
+          let h='';
+          Object.entries(grouped).forEach(([day,dayPlans])=>{
+            h+='<h4 style="font-size:.85rem;color:var(--navy);margin:12px 0 8px;padding:6px 10px;background:linear-gradient(90deg,rgba(30,42,94,.08),transparent);border-radius:8px">'+this.esc(day)+'</h4>';
+            dayPlans.forEach(p=>{
+              h+='<div class="li" style="border-left:3px solid var(--blue)"><div class="li-row"><div style="flex:1"><div class="nm" style="font-size:.88rem">'+this.esc(p.plan_title||p.subject)+'</div><div class="dt">'+this.esc(p.subject)+(p.class_name?' — '+this.esc(p.class_name):'')+(p.period_slot?' · '+this.esc(p.period_slot):'')+'</div><div class="dt" style="margin-top:4px;white-space:pre-line;max-height:60px;overflow:hidden">'+this.esc(p.plan_content.substring(0,150))+(p.plan_content.length>150?'...':'')+'</div>'+(p.resources?'<div class="dt" style="color:var(--blue);margin-top:2px">📎 '+this.esc(p.resources)+'</div>':'')+'</div><button onclick="app.deleteLessonPlan('+p.id+')" style="background:none;border:none;color:var(--acc);cursor:pointer;font-size:.9rem;padding:4px">✕</button></div></div>'})});
+          el.innerHTML=h
+        }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      showAddLessonPlanForm(){
+        const el=document.getElementById('lessonPlanForm');if(!el)return;
+        const days=['Monday','Tuesday','Wednesday','Thursday','Friday'];
+        el.innerHTML='<div style="padding:16px;background:var(--bg);border-radius:12px;margin-bottom:12px"><h4 style="margin-bottom:10px;font-size:.88rem">Add Lesson Plan</h4><div class="flex"><div class="fg"><label>Day</label><select id="lpDay">'+days.map(d=>'<option value="'+d+'">'+d+'</option>').join('')+'</select></div><div class="fg"><label>Period/Time</label><input type="text" id="lpPeriod" placeholder="e.g. Period 3, 11:30am"></div></div><div class="flex"><div class="fg"><label>Subject</label><input type="text" id="lpSubject" placeholder="e.g. PE, Art, Music"></div><div class="fg"><label>Class</label><input type="text" id="lpClass" placeholder="e.g. 3/4A, Prep B"></div></div><div class="fg"><label>Plan Title</label><input type="text" id="lpTitle" placeholder="e.g. Ball Skills — Week 9"></div><div class="fg"><label>Lesson Plan Content</label><textarea id="lpContent" placeholder="Write the full lesson plan here. Include warm-up, main activity, cool-down, equipment needed..." style="min-height:120px"></textarea></div><div class="fg"><label>Resources / Equipment</label><input type="text" id="lpResources" placeholder="e.g. Basketballs, cones, whistle"></div><div class="fg"><label>Notes for CRT</label><textarea id="lpNotes" placeholder="Any tips for the CRT covering this class..."></textarea></div><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.submitLessonPlan()">Save Plan</button><button class="btn btn-g" style="flex:1" onclick="document.getElementById(\'lessonPlanForm\').innerHTML=\'\'">Cancel</button></div></div>'},
+
+      showBulkLessonUpload(){
+        const el=document.getElementById('lessonPlanForm');if(!el)return;
+        el.innerHTML='<div style="padding:16px;background:var(--bg);border-radius:12px;margin-bottom:12px"><h4 style="margin-bottom:10px;font-size:.88rem">Bulk Upload — Select Teacher</h4><div class="fg"><label>Teacher</label><select id="bulkTeacher">'+state.allUsers.filter(u=>u.role==='staff'||u.role==='leader').map(u=>'<option value="'+u.id+'">'+u.name+' — '+(u.area||'')+'</option>').join('')+'</select></div><p class="text-sm text-dim mb-1">Paste plans in the format: <strong>Day | Period | Subject | Class | Plan Content</strong> (one per line)</p><div class="fg"><textarea id="bulkPlans" placeholder="Monday | Period 1 | PE | 3/4A | Warm up: 5 min jog. Main: Basketball dribbling drills..." style="min-height:150px"></textarea></div><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.submitBulkPlans()">Upload Plans</button><button class="btn btn-g" style="flex:1" onclick="document.getElementById(\'lessonPlanForm\').innerHTML=\'\'">Cancel</button></div></div>'},
+
+      async submitLessonPlan(){
+        const subject=document.getElementById('lpSubject')?.value;const content=document.getElementById('lpContent')?.value;
+        if(!subject||!content){toast('Subject and plan content are required','error');return}
+        try{await this.fetchAPI('POST','/lessonlab/plans',{dayOfWeek:document.getElementById('lpDay')?.value,periodSlot:document.getElementById('lpPeriod')?.value,subject,className:document.getElementById('lpClass')?.value,planTitle:document.getElementById('lpTitle')?.value||subject,planContent:content,resources:document.getElementById('lpResources')?.value,notes:document.getElementById('lpNotes')?.value});
+          toast('Lesson plan saved!','success');document.getElementById('lessonPlanForm').innerHTML='';this.loadLessonPlans()
+        }catch(e){toast('Error: '+e.message,'error')}},
+
+      async submitBulkPlans(){
+        const raw=document.getElementById('bulkPlans')?.value;const tid=document.getElementById('bulkTeacher')?.value;
+        if(!raw){toast('Paste some plans first','error');return}
+        const lines=raw.trim().split('\n').filter(l=>l.trim());
+        const plans=lines.map(l=>{const parts=l.split('|').map(s=>s.trim());return{teacherId:parseInt(tid),dayOfWeek:parts[0]||'',periodSlot:parts[1]||'',subject:parts[2]||'General',className:parts[3]||'',planTitle:parts[2]||'General',planContent:parts[4]||parts[2]||''}}).filter(p=>p.planContent);
+        try{const r=await this.fetchAPI('POST','/lessonlab/plans/bulk',{plans});toast(r.count+' plans uploaded!','success');document.getElementById('lessonPlanForm').innerHTML='';this.loadLessonPlans()
+        }catch(e){toast('Error: '+e.message,'error')}},
+
+      async deleteLessonPlan(id){if(!confirm('Delete this plan?'))return;try{await this.fetchAPI('DELETE','/lessonlab/plans/'+id);toast('Plan deleted','info');this.loadLessonPlans()}catch(e){toast('Error: '+e.message,'error')}},
+
+      // ===== CRT PORTAL — Full Day View =====
+      renderCRTPortal(){
+        return '<div class="cd" style="border-top:3px solid var(--ok)"><h3>📋 My Day — CRT Portal</h3><p class="text-sm text-dim mb-2">Your complete briefing pack for today. Everything you need in one place.</p><div id="crtPortalBody"><div class="loading">Loading your day...</div></div></div>'},
+
+      async loadCRTPortal(){
+        const el=document.getElementById('crtPortalBody');if(!el)return;
+        try{
+          const data=await this.fetchAPI('GET','/crt-portal/my-day');
+          let h='<div style="text-align:center;padding:12px;background:linear-gradient(135deg,var(--navy),var(--pd));border-radius:12px;color:#fff;margin-bottom:14px"><div style="font-size:1.2rem;font-weight:700">'+this.esc(data.dayName)+', '+this.esc(data.date)+'</div><div style="font-size:.85rem;opacity:.8">Welcome, '+this.esc(data.crtName)+'</div></div>';
+
+          if(data.coverDetails.length===0){
+            h+='<div class="empty"><div class="ei">☀️</div><p>No bookings for today. Enjoy your day!</p></div>';
+          } else {
+            h+='<div class="stats"><div class="st ok"><div class="n">'+data.coverDetails.length+'</div><div class="l">Classes to Cover</div></div><div class="st"><div class="n">'+data.yardDuties.length+'</div><div class="l">Yard Duties</div></div></div>';
+
+            data.coverDetails.forEach((cd,idx)=>{
+              const abs=cd.absence;
+              h+='<div class="cd" style="border-left:4px solid var(--blue);margin-bottom:12px"><h4 style="font-size:.92rem;color:var(--navy);margin-bottom:8px">📖 Covering: '+this.esc(abs.staff_name)+' ('+this.esc(abs.area)+')</h4>';
+              h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.82rem;margin-bottom:10px"><div><span class="text-dim">Reason:</span> '+this.esc(abs.reason)+'</div><div><span class="text-dim">Classes:</span> '+(abs.classes||'See timetable')+'</div></div>';
+
+              // Timetable slots
+              if(cd.timetableSlots.length>0){
+                h+='<div style="margin-bottom:10px"><div style="font-weight:600;font-size:.82rem;margin-bottom:4px;color:var(--navy)">📅 Timetable for Today</div>';
+                cd.timetableSlots.forEach(s=>{h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:8px;margin-bottom:3px;font-size:.82rem"><span style="font-weight:700;min-width:80px">'+this.esc(s.time)+'</span><span>'+this.esc(s.className)+'</span></div>'});
+                h+='</div>'}
+
+              // Lesson plans
+              if(cd.lessonPlans.length>0){
+                h+='<div style="margin-bottom:10px"><div style="font-weight:600;font-size:.82rem;margin-bottom:4px;color:var(--ok)">📚 Lesson Plans Ready!</div>';
+                cd.lessonPlans.forEach(lp=>{
+                  h+='<div style="padding:10px;background:#f0fff4;border:1px solid rgba(39,174,96,.2);border-radius:8px;margin-bottom:6px"><div style="font-weight:600;font-size:.85rem;color:var(--navy)">'+this.esc(lp.plan_title||lp.subject)+'</div><div style="font-size:.78rem;color:var(--dim)">'+this.esc(lp.subject)+(lp.class_name?' — '+this.esc(lp.class_name):'')+(lp.period_slot?' · '+this.esc(lp.period_slot):'')+'</div><div style="font-size:.82rem;margin-top:6px;white-space:pre-line;line-height:1.5">'+this.esc(lp.plan_content)+'</div>'+(lp.resources?'<div style="font-size:.78rem;color:var(--blue);margin-top:4px">📎 '+this.esc(lp.resources)+'</div>':'')+(lp.notes?'<div style="font-size:.78rem;color:var(--warn);margin-top:4px">💡 '+this.esc(lp.notes)+'</div>':'')+'</div>'});
+                h+='</div>'}
+              else h+='<div style="padding:8px 10px;background:#fef3cd;border-radius:8px;font-size:.82rem;margin-bottom:10px;color:#856404">⚠️ No lesson plans uploaded for this teacher</div>';
+
+              // Sub plans
+              if(cd.subPlans.length>0){
+                h+='<div style="margin-bottom:10px"><div style="font-weight:600;font-size:.82rem;margin-bottom:4px;color:var(--navy)">📝 Sub Plans / Handover Notes</div>';
+                cd.subPlans.forEach(sp=>{h+='<div style="padding:8px 10px;background:#f8fbff;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;font-size:.82rem"><strong>'+(sp.title||'Note')+':</strong> '+this.esc(sp.content)+'</div>'});
+                h+='</div>'}
+              h+='</div>'});
+          }
+
+          // Yard duties
+          if(data.yardDuties.length>0){
+            h+='<div class="cd" style="border-left:4px solid var(--warn)"><h4 style="font-size:.92rem;color:var(--navy);margin-bottom:8px">🏃 Your Yard Duties Today</h4>';
+            data.yardDuties.forEach(yd=>{h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;margin-bottom:4px;font-size:.84rem"><span style="font-weight:700">'+this.esc(yd.time_slot)+'</span><span>'+this.esc(yd.location)+'</span><span class="text-dim">(covering '+this.esc(yd.original_staff)+')</span></div>'});
+            h+='</div>'}
+
+          // School info
+          if(data.schoolInfo.daily_org||data.schoolInfo.extra_notes){
+            h+='<div class="cd"><h4 style="font-size:.92rem;color:var(--navy);margin-bottom:8px">🏫 School Info for Today</h4>';
+            if(data.schoolInfo.daily_org)h+='<div style="font-size:.84rem;margin-bottom:6px"><strong>Organisation:</strong> '+this.esc(data.schoolInfo.daily_org)+'</div>';
+            if(data.schoolInfo.extra_notes)h+='<div style="font-size:.84rem"><strong>Notes:</strong> '+this.esc(data.schoolInfo.extra_notes)+'</div>';
+            h+='</div>'}
+
+          // Calendar events
+          if(data.calendarEvents.length>0){
+            h+='<div class="cd"><h4 style="font-size:.92rem;color:var(--navy);margin-bottom:8px">📅 Today\'s Events</h4>';
+            data.calendarEvents.forEach(ev=>{h+='<div style="padding:4px 0;font-size:.84rem">• '+this.esc(ev.title)+'</div>'});
+            h+='</div>'}
+
+          el.innerHTML=h
+        }catch(e){el.innerHTML='<p style="color:var(--acc)">Error loading portal: '+e.message+'</p>'}},
+
+      // ===== CRT PACK (Leadership view for a specific absence) =====
+      renderCRTPack(){return '<div class="cd"><h3>📦 CRT Pack</h3><div id="crtPackBody"><div class="loading">Loading...</div></div></div><button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>'},
+
+      async showCRTPack(absenceId){
+        state.currentView='crtpack';state._crtPackId=absenceId;this.render();
+        const el=document.getElementById('crtPackBody');if(!el)return;
+        try{
+          const data=await this.fetchAPI('GET','/lessonlab/crt-pack/'+absenceId);
+          let h='<div style="text-align:center;padding:12px;background:var(--navy);border-radius:12px;color:#fff;margin-bottom:14px"><div style="font-size:1rem;font-weight:700">CRT Pack: '+this.esc(data.teacher.name)+'</div><div style="font-size:.82rem;opacity:.8">'+this.esc(data.dayName)+', '+this.esc(data.date)+' — '+this.esc(data.teacher.area)+'</div></div>';
+
+          // Timetable
+          if(data.timetableSlots.length>0){
+            h+='<div style="margin-bottom:14px"><h4 style="font-size:.88rem;color:var(--navy);margin-bottom:6px">📅 Timetable</h4>';
+            data.timetableSlots.forEach(s=>{h+='<div style="display:flex;gap:8px;padding:6px 10px;background:var(--bg);border-radius:8px;margin-bottom:3px;font-size:.84rem"><strong style="min-width:80px">'+this.esc(s.time)+'</strong><span>'+this.esc(s.className)+'</span></div>'});
+            h+='</div>'}
+
+          // Lesson plans
+          h+='<h4 style="font-size:.88rem;color:var(--navy);margin-bottom:6px">📚 Lesson Plans ('+data.lessonPlans.length+')</h4>';
+          if(data.lessonPlans.length>0){
+            data.lessonPlans.forEach(lp=>{h+='<div class="cd" style="border-left:3px solid var(--ok);margin-bottom:8px"><div style="font-weight:600;font-size:.88rem">'+this.esc(lp.plan_title||lp.subject)+'</div><div style="font-size:.78rem;color:var(--dim);margin-bottom:6px">'+this.esc(lp.subject)+(lp.class_name?' — '+this.esc(lp.class_name):'')+(lp.period_slot?' · '+this.esc(lp.period_slot):'')+'</div><div style="font-size:.84rem;white-space:pre-line;line-height:1.5">'+this.esc(lp.plan_content)+'</div>'+(lp.resources?'<div style="font-size:.78rem;color:var(--blue);margin-top:6px">📎 '+this.esc(lp.resources)+'</div>':'')+'</div>'});
+          } else h+='<div style="padding:10px;background:#fef3cd;border-radius:8px;font-size:.84rem;color:#856404;margin-bottom:14px">No lesson plans uploaded for this teacher yet.</div>';
+
+          // Sub plans
+          if(data.subPlans.length>0){
+            h+='<h4 style="font-size:.88rem;color:var(--navy);margin-bottom:6px">📝 Sub Plans</h4>';
+            data.subPlans.forEach(sp=>{h+='<div style="padding:8px 10px;background:#f8fbff;border:1px solid var(--bdr);border-radius:8px;margin-bottom:6px;font-size:.84rem"><strong>'+(sp.title||'Note')+':</strong> '+this.esc(sp.content)+'</div>'});}
+
+          // Yard duties
+          if(data.yardDuties.length>0){
+            h+='<h4 style="font-size:.88rem;color:var(--navy);margin:12px 0 6px">🏃 Yard Duty</h4>';
+            data.yardDuties.forEach(yd=>{h+='<div style="padding:6px 10px;background:var(--bg);border-radius:8px;margin-bottom:3px;font-size:.84rem"><strong>'+this.esc(yd.time_slot)+'</strong> at '+this.esc(yd.location)+(yd.covered?' — <span style="color:var(--ok)">Covered by '+this.esc(yd.coveredBy)+'</span>':' — <span style="color:var(--acc)">Needs cover</span>')+'</div>'});}
+
+          h+='<button class="btn btn-o mt-2 no-print" onclick="window.print()">🖨 Print CRT Pack</button>';
+          el.innerHTML=h
+        }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      // ===== YARD DUTY SWAP SYSTEM =====
+      renderYardDutySwaps(){
+        return '<div class="cd"><h3>🔄 Yard Duty Swaps</h3><p class="text-sm text-dim mb-2">Request someone to cover your yard duty, or accept open swap requests.</p><button class="btn btn-p btn-s mb-2" onclick="app.showSwapRequestForm()">+ Request Swap</button><div id="swapForm"></div><div class="tog mb-1"><button class="'+(state._swapTab!=='mine'?'act':'')+'" onclick="state._swapTab=\'all\';app.loadSwapRequests()">All Swaps</button><button class="'+(state._swapTab==='mine'?'act':'')+'" onclick="state._swapTab=\'mine\';app.loadSwapRequests()">My Requests</button></div><div id="swapsList"><div class="loading">Loading...</div></div></div><button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>'},
+
+      showSwapRequestForm(){
+        const el=document.getElementById('swapForm');if(!el)return;
+        const staffNames=state.allUsers.filter(u=>u.name!==state.user.name).map(u=>u.name);
+        el.innerHTML='<div style="padding:16px;background:var(--bg);border-radius:12px;margin-bottom:12px"><h4 style="margin-bottom:10px;font-size:.88rem">Request Yard Duty Swap</h4><div class="flex"><div class="fg"><label>Date</label><input type="date" id="swapDate" value="'+new Date().toISOString().split('T')[0]+'"></div><div class="fg"><label>Time Slot</label><input type="text" id="swapSlot" placeholder="e.g. Lunch 1"></div></div><div class="fg"><label>Location</label><input type="text" id="swapLocation" placeholder="e.g. Oval, Front Gate"></div><div class="fg"><label>Ask specific person (optional)</label><select id="swapTarget"><option value="">Open to anyone</option>'+staffNames.map(n=>'<option value="'+n+'">'+n+'</option>').join('')+'</select></div><div class="fg"><label>Reason</label><input type="text" id="swapReason" placeholder="e.g. Meeting, appointment"></div><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.submitSwapRequest()">Send Request</button><button class="btn btn-g" style="flex:1" onclick="document.getElementById(\'swapForm\').innerHTML=\'\'">Cancel</button></div></div>'},
+
+      async submitSwapRequest(){
+        const date=document.getElementById('swapDate')?.value;const slot=document.getElementById('swapSlot')?.value;const loc=document.getElementById('swapLocation')?.value;
+        if(!date||!slot||!loc){toast('Date, time slot and location required','error');return}
+        try{await this.fetchAPI('POST','/yard-duty/swap-request',{date,timeSlot:slot,location:loc,requestedStaffName:document.getElementById('swapTarget')?.value||null,reason:document.getElementById('swapReason')?.value||''});
+          toast('Swap request sent!','success');document.getElementById('swapForm').innerHTML='';this.loadSwapRequests()
+        }catch(e){toast('Error: '+e.message,'error')}},
+
+      async loadSwapRequests(){
+        const el=document.getElementById('swapsList');if(!el)return;
+        try{
+          const swaps=await this.fetchAPI('GET','/yard-duty/swap-requests');
+          const filtered=state._swapTab==='mine'?swaps.filter(s=>s.requester_id===state.user.id):swaps;
+          if(filtered.length===0){el.innerHTML='<div class="empty"><div class="ei">✓</div><p>No swap requests</p></div>';return}
+          let h='';
+          filtered.forEach(s=>{
+            const isPending=s.status==='pending';const isMine=s.requester_id===state.user.id;
+            const canAccept=isPending&&!isMine&&(!s.requested_staff_name||s.requested_staff_name.toLowerCase().includes(state.user.name.toLowerCase().split(' ')[0]));
+            const sc={pending:'s-pending',accepted:'s-booked',declined:'s-nocrt'}[s.status]||'s-pending';
+            h+='<div class="li"><div class="li-row"><div style="flex:1"><div class="nm">'+this.esc(s.requester_name)+(s.requested_staff_name?' → '+this.esc(s.requested_staff_name):' → Open')+'</div><div class="dt">'+this.esc(s.date)+' · '+this.esc(s.time_slot)+' at '+this.esc(s.location)+'</div>'+(s.reason?'<div class="dt">'+this.esc(s.reason)+'</div>':'')+(s.accepted_by_name?'<div class="dt" style="color:var(--ok)">Accepted by: '+this.esc(s.accepted_by_name)+'</div>':'')+'</div><span class="sb '+sc+'">'+s.status+'</span></div>'+(canAccept?'<div style="display:flex;gap:6px;margin-top:8px"><button class="btn btn-ok btn-s" style="flex:1" onclick="app.acceptSwap('+s.id+')">✓ Accept</button><button class="btn btn-d btn-s" style="flex:1" onclick="app.declineSwap('+s.id+')">✕ Decline</button></div>':'')+'</div>'});
+          el.innerHTML=h
+        }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
+
+      async acceptSwap(id){try{await this.fetchAPI('PUT','/yard-duty/swap-request/'+id+'/accept');toast('Swap accepted!','success');this.loadSwapRequests()}catch(e){toast('Error: '+e.message,'error')}},
+      async declineSwap(id){try{await this.fetchAPI('PUT','/yard-duty/swap-request/'+id+'/decline');toast('Swap declined','info');this.loadSwapRequests()}catch(e){toast('Error: '+e.message,'error')}},
+
+      // ===== NFT TRACKING =====
+      renderNFTTracking(){
+        const isL=state.user.role==='leader'||state.user.role==='admin';
+        let h='<div class="cd"><h3>⏰ NFT Tracking</h3><p class="text-sm text-dim mb-2">Track non-face-to-face time: scheduled, extra, lost, and yard duty coverage.</p>';
+        h+='<div id="nftSummary" style="margin-bottom:14px"><div class="loading">Loading...</div></div>';
+        if(isL)h+='<button class="btn btn-p btn-s mb-2" onclick="app.showAddNFTForm()">+ Record NFT</button>';
+        h+='<div id="nftForm"></div>';
+        h+='<div id="nftRecords"><div class="loading">Loading records...</div></div>';
+        return h+'</div><button class="btn btn-g" onclick="app.showView(\'dashboard\')">← Back</button>'},
+
+      async loadNFTData(){
+        // Load summary
+        const sumEl=document.getElementById('nftSummary');
+        if(sumEl){try{
+          const s=await this.fetchAPI('GET','/nft/summary/'+state.user.id);
+          sumEl.innerHTML='<div class="stats"><div class="st"><div class="n">'+s.scheduled+'</div><div class="l">Scheduled (min)</div></div><div class="st ok"><div class="n">'+s.extra+'</div><div class="l">Extra</div></div><div class="st alert"><div class="n">'+s.lost+'</div><div class="l">Lost</div></div><div class="st"><div class="n" style="color:var(--blue)">'+s.net+'</div><div class="l">Net Total</div></div></div>'
+        }catch(e){sumEl.innerHTML=''}}
+
+        // Load records
+        const recEl=document.getElementById('nftRecords');
+        if(recEl){try{
+          const recs=await this.fetchAPI('GET','/nft?staffId='+state.user.id);
+          if(recs.length===0){recEl.innerHTML='<div class="empty"><div class="ei">⏰</div><p>No NFT records yet</p></div>';return}
+          let h='<h4 style="font-size:.85rem;color:var(--navy);margin-bottom:8px">Recent Records</h4>';
+          recs.slice(0,20).forEach(r=>{
+            const icon={scheduled:'📅',extra:'🎁',lost:'❌',covered_duty:'🏃'}[r.type]||'⏰';
+            const color={extra:'var(--ok)',lost:'var(--acc)',covered_duty:'var(--blue)'}[r.type]||'var(--navy)';
+            h+='<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--bdr);font-size:.84rem"><span>'+icon+'</span><div style="flex:1"><div><strong style="color:'+color+'">'+this.esc(r.type)+'</strong> — '+r.minutes+' min'+(r.period_slot?' · '+this.esc(r.period_slot):'')+'</div><div class="text-dim" style="font-size:.76rem">'+this.esc(r.date)+(r.reason?' — '+this.esc(r.reason):'')+'</div></div></div>'});
+          recEl.innerHTML=h
+        }catch(e){recEl.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}}},
+
+      showAddNFTForm(){
+        const el=document.getElementById('nftForm');if(!el)return;
+        el.innerHTML='<div style="padding:16px;background:var(--bg);border-radius:12px;margin-bottom:12px"><h4 style="margin-bottom:10px;font-size:.88rem">Record NFT</h4><div class="flex"><div class="fg"><label>Staff</label><select id="nftStaff">'+state.allUsers.map(u=>'<option value="'+u.id+'">'+u.name+'</option>').join('')+'</select></div><div class="fg"><label>Date</label><input type="date" id="nftDate" value="'+new Date().toISOString().split('T')[0]+'"></div></div><div class="flex"><div class="fg"><label>Type</label><select id="nftType"><option value="scheduled">Scheduled NFT</option><option value="extra">Extra NFT (gained)</option><option value="lost">Lost NFT</option><option value="covered_duty">Covered Duty</option></select></div><div class="fg"><label>Minutes</label><input type="number" id="nftMinutes" value="30" min="0"></div></div><div class="fg"><label>Period/Time</label><input type="text" id="nftPeriod" placeholder="e.g. Period 4"></div><div class="fg"><label>Reason</label><input type="text" id="nftReason" placeholder="e.g. Class cancelled, extra duty"></div><div style="display:flex;gap:8px"><button class="btn btn-p" style="flex:1" onclick="app.submitNFT()">Save</button><button class="btn btn-g" style="flex:1" onclick="document.getElementById(\'nftForm\').innerHTML=\'\'">Cancel</button></div></div>'},
+
+      async submitNFT(){
+        try{await this.fetchAPI('POST','/nft',{staffId:parseInt(document.getElementById('nftStaff')?.value),date:document.getElementById('nftDate')?.value,type:document.getElementById('nftType')?.value,minutes:parseInt(document.getElementById('nftMinutes')?.value)||0,periodSlot:document.getElementById('nftPeriod')?.value,reason:document.getElementById('nftReason')?.value});
+          toast('NFT recorded!','success');document.getElementById('nftForm').innerHTML='';this.loadNFTData()
+        }catch(e){toast('Error: '+e.message,'error')}},
 
       logout(){localStorage.removeItem('wps_token');localStorage.removeItem('wps_user');state.token=null;state.user=null;if(this._poll)clearInterval(this._poll);this.showLoginView()}
     };

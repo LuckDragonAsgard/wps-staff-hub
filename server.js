@@ -1,4 +1,4 @@
-// WPS Staff Hub - Production Server v4.4 (Turso + sql.js fallback)
+// WPS Staff Hub - Production Server v5.0 (Turso + sql.js fallback)
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcryptjs');
@@ -224,14 +224,14 @@ async function addNotification(message, type, forRoles, absenceId) {
 app.get('/api/health', wrap(async (req, res) => {
   try {
     await dbGet('SELECT 1 as ok');
-    res.json({ status: 'ok', version: '4.4.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
+    res.json({ status: 'ok', version: '5.0.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
   } catch (e) {
     res.status(503).json({ status: 'error', error: 'Database unreachable' });
   }
 }));
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: '4.4.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard'] });
+  res.json({ version: '5.0.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard', 'lessonlab', 'crt-portal', 'yard-duty-swaps', 'nft-tracking', 'specialist-alerts'] });
 });
 
 // ===== STAFF PROFILE =====
@@ -513,7 +513,23 @@ app.post('/api/absences', auth, wrap(async (req, res) => {
   // Auto-notify specialist teachers if their classes are affected
   try { await notifySpecialists(absence); } catch(e) { console.log('Specialist notify skipped:', e.message); }
 
-  res.json({ absence, crt: crtResult });
+  // Check if LessonLab has plans for this teacher — flag in response
+  let lessonPlanCount = 0;
+  try {
+    const dd = new Date(dateStart + 'T12:00:00');
+    const dn = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dd.getDay()];
+    const planCheck = await dbGet(
+      `SELECT COUNT(*) as c FROM lesson_plans WHERE teacher_id = ?
+       AND (specific_date = ? OR (specific_date IS NULL AND day_of_week = ?))`,
+      staffUser.id, dateStart, dn
+    );
+    lessonPlanCount = planCheck?.c || 0;
+    if (lessonPlanCount > 0) {
+      await addNotification(`📚 LessonLab: ${lessonPlanCount} lesson plan${lessonPlanCount > 1 ? 's' : ''} ready for ${staffUser.name}'s CRT`, 'success', 'leader', absenceId);
+    }
+  } catch(e) {}
+
+  res.json({ absence, crt: crtResult, lessonPlans: lessonPlanCount });
 }));
 
 app.put('/api/absences/:id/cancel', auth, wrap(async (req, res) => {
@@ -843,7 +859,7 @@ app.get('/api/dashboard', auth, wrap(async (req, res) => {
   const weekAbs = await dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start >= ? AND status != 'cancelled'", weekStart);
   const recentNotifs = await dbAll("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 5");
   res.json({
-    version: '4.4.0',
+    version: '5.0.0',
     demo: DEMO,
     live: LIVE,
     database: USE_TURSO ? 'turso' : 'local',
@@ -1513,6 +1529,431 @@ app.delete('/api/timetables/:id', auth, leaderOnly, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// ===== LESSONLAB — Lesson Plan Storage & Auto-Pull =====
+// Store lesson plans per teacher, per day/period. When a teacher calls in sick,
+// the system auto-pulls their plans for the CRT covering their classes.
+
+app.get('/api/lessonlab/plans', auth, wrap(async (req, res) => {
+  const { teacherId, date, dayOfWeek, subject } = req.query;
+  let sql = 'SELECT * FROM lesson_plans WHERE 1=1';
+  const params = [];
+  if (teacherId) { sql += ' AND teacher_id = ?'; params.push(parseInt(teacherId)); }
+  if (date) { sql += ' AND (specific_date = ? OR (specific_date IS NULL AND day_of_week = ?))'; params.push(date); const d = new Date(date + 'T12:00:00'); params.push(['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()]); }
+  if (dayOfWeek) { sql += ' AND day_of_week = ?'; params.push(dayOfWeek); }
+  if (subject) { sql += ' AND LOWER(subject) LIKE ?'; params.push('%' + subject.toLowerCase() + '%'); }
+  sql += ' ORDER BY period_slot, subject';
+  res.json(await dbAll(sql, ...params));
+}));
+
+app.get('/api/lessonlab/plans/:id', auth, wrap(async (req, res) => {
+  const plan = await dbGet('SELECT * FROM lesson_plans WHERE id = ?', parseInt(req.params.id));
+  if (!plan) return res.status(404).json({ error: 'Plan not found' });
+  res.json(plan);
+}));
+
+app.post('/api/lessonlab/plans', auth, wrap(async (req, res) => {
+  const { teacherId, dayOfWeek, specificDate, periodSlot, subject, className, planTitle, planContent, resources, notes } = req.body;
+  const tid = teacherId || req.user.id;
+  if (!subject || !planContent) return res.status(400).json({ error: 'Subject and plan content required' });
+  await dbRun(
+    `INSERT INTO lesson_plans (teacher_id, day_of_week, specific_date, period_slot, subject, class_name, plan_title, plan_content, resources, notes, updated_by)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    [tid, dayOfWeek || null, specificDate || null, periodSlot || '', subject, className || '', planTitle || subject, planContent, resources || '', notes || '', req.user.id]
+  );
+  res.json({ ok: true, id: await dbLastId() });
+}));
+
+app.put('/api/lessonlab/plans/:id', auth, wrap(async (req, res) => {
+  const { dayOfWeek, specificDate, periodSlot, subject, className, planTitle, planContent, resources, notes } = req.body;
+  const plan = await dbGet('SELECT * FROM lesson_plans WHERE id = ?', parseInt(req.params.id));
+  if (!plan) return res.status(404).json({ error: 'Plan not found' });
+  // Only the teacher or a leader can edit
+  if (plan.teacher_id !== req.user.id && req.user.role !== 'leader' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Not authorised' });
+  }
+  const updates = []; const params = [];
+  if (dayOfWeek !== undefined) { updates.push('day_of_week = ?'); params.push(dayOfWeek); }
+  if (specificDate !== undefined) { updates.push('specific_date = ?'); params.push(specificDate); }
+  if (periodSlot !== undefined) { updates.push('period_slot = ?'); params.push(periodSlot); }
+  if (subject !== undefined) { updates.push('subject = ?'); params.push(subject); }
+  if (className !== undefined) { updates.push('class_name = ?'); params.push(className); }
+  if (planTitle !== undefined) { updates.push('plan_title = ?'); params.push(planTitle); }
+  if (planContent !== undefined) { updates.push('plan_content = ?'); params.push(planContent); }
+  if (resources !== undefined) { updates.push('resources = ?'); params.push(resources); }
+  if (notes !== undefined) { updates.push('notes = ?'); params.push(notes); }
+  updates.push('updated_by = ?', 'updated_at = CURRENT_TIMESTAMP'); params.push(req.user.id);
+  params.push(parseInt(req.params.id));
+  await dbRun(`UPDATE lesson_plans SET ${updates.join(', ')} WHERE id = ?`, params);
+  res.json({ ok: true });
+}));
+
+app.delete('/api/lessonlab/plans/:id', auth, wrap(async (req, res) => {
+  await dbRun('DELETE FROM lesson_plans WHERE id = ?', [parseInt(req.params.id)]);
+  res.json({ ok: true });
+}));
+
+// Auto-pull lesson plans for a specific absence — returns the CRT pack
+app.get('/api/lessonlab/crt-pack/:absenceId', auth, wrap(async (req, res) => {
+  const absence = await dbGet('SELECT * FROM absences WHERE id = ?', parseInt(req.params.absenceId));
+  if (!absence) return res.status(404).json({ error: 'Absence not found' });
+
+  const date = absence.date_start;
+  const d = new Date(date + 'T12:00:00');
+  const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
+
+  // Get lesson plans for this teacher on this day
+  const plans = await dbAll(
+    `SELECT * FROM lesson_plans WHERE teacher_id = ?
+     AND (specific_date = ? OR (specific_date IS NULL AND day_of_week = ?))
+     ORDER BY period_slot`,
+    absence.staff_id, date, dayName
+  );
+
+  // Get sub plans attached to this absence
+  const subPlans = await dbAll('SELECT * FROM sub_plans WHERE absence_id = ? ORDER BY created_at', absence.id);
+
+  // Get teacher's timetable for the day from specialist timetable
+  let timetableSlots = [];
+  try {
+    const timetables = await dbAll("SELECT * FROM timetables WHERE is_current = 1");
+    for (const tt of timetables) {
+      let data; try { data = JSON.parse(tt.data); } catch(e) { continue; }
+      if (!data || !data.headers || !data.rows) continue;
+      const staffFirst = absence.staff_name.toLowerCase().split(' ')[0];
+      const colIdx = data.headers.findIndex(h => h.toLowerCase().includes(staffFirst));
+      if (colIdx === -1) continue;
+      let inDay = false, dayStarted = false;
+      for (const row of data.rows) {
+        const vals = Array.isArray(row) ? row : data.headers.map(h => row[h] || '');
+        const first = String(vals[0] || '').trim().toLowerCase();
+        if (['monday','tuesday','wednesday','thursday','friday'].includes(first)) {
+          inDay = first === dayName.toLowerCase(); dayStarted = true; continue;
+        }
+        if (!dayStarted) inDay = true;
+        if (!inDay) continue;
+        const classVal = String(vals[colIdx] || '').trim();
+        if (classVal && classVal !== '-' && classVal.toLowerCase() !== 'nft' && classVal.toLowerCase() !== 'planning') {
+          timetableSlots.push({ time: String(vals[0] || ''), className: classVal, timetable: tt.name });
+        }
+      }
+    }
+  } catch(e) {}
+
+  // Get yard duty for this teacher on this day
+  let yardDuties = [];
+  try {
+    const roster = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ?', dayName);
+    const staffFirst = absence.staff_name.toLowerCase().split(' ')[0];
+    yardDuties = roster.filter(r => r.staff_name.toLowerCase().includes(staffFirst));
+    // Check for changes/covers
+    const changes = await dbAll('SELECT * FROM yard_duty_changes WHERE date = ?', date);
+    yardDuties = yardDuties.map(yd => {
+      const change = changes.find(c => c.time_slot === yd.time_slot && c.location === yd.location);
+      return { ...yd, covered: !!change, coveredBy: change ? change.replacement : null };
+    });
+  } catch(e) {}
+
+  res.json({
+    absence, lessonPlans: plans, subPlans, timetableSlots, yardDuties,
+    teacher: { id: absence.staff_id, name: absence.staff_name, area: absence.area },
+    date, dayName
+  });
+}));
+
+// Bulk import lesson plans (for a teacher's whole week)
+app.post('/api/lessonlab/plans/bulk', auth, wrap(async (req, res) => {
+  const { plans } = req.body;
+  if (!Array.isArray(plans)) return res.status(400).json({ error: 'plans must be array' });
+  let count = 0;
+  for (const p of plans) {
+    if (!p.subject || !p.planContent) continue;
+    const tid = p.teacherId || req.user.id;
+    await dbRun(
+      `INSERT INTO lesson_plans (teacher_id, day_of_week, specific_date, period_slot, subject, class_name, plan_title, plan_content, resources, notes, updated_by)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      [tid, p.dayOfWeek || null, p.specificDate || null, p.periodSlot || '', p.subject, p.className || '', p.planTitle || p.subject, p.planContent, p.resources || '', p.notes || '', req.user.id]
+    );
+    count++;
+  }
+  res.json({ ok: true, count });
+}));
+
+// ===== CRT PORTAL — Dedicated day-view for CRTs =====
+// Returns everything a CRT needs for their day in one call
+app.get('/api/crt-portal/my-day', auth, wrap(async (req, res) => {
+  const { date } = req.query;
+  const targetDate = date || new Date().toISOString().split('T')[0];
+  const d = new Date(targetDate + 'T12:00:00');
+  const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
+
+  // Get all absences this CRT is covering today
+  const myAbsences = await dbAll(
+    `SELECT a.*, u.email as staff_email, u.phone as staff_phone
+     FROM absences a LEFT JOIN users u ON a.staff_id = u.id
+     WHERE a.assigned_crt_id = ? AND a.date_start <= ? AND a.date_end >= ? AND a.status IN ('booked','contacting')
+     ORDER BY a.staff_name`,
+    req.user.id, targetDate, targetDate
+  );
+
+  // For each absence, pull lesson plans and timetable info
+  const coverDetails = [];
+  for (const abs of myAbsences) {
+    // Lesson plans
+    const plans = await dbAll(
+      `SELECT * FROM lesson_plans WHERE teacher_id = ?
+       AND (specific_date = ? OR (specific_date IS NULL AND day_of_week = ?))
+       ORDER BY period_slot`,
+      abs.staff_id, targetDate, dayName
+    );
+    // Sub plans
+    const subPlans = await dbAll('SELECT * FROM sub_plans WHERE absence_id = ? ORDER BY created_at', abs.id);
+
+    // Teacher's timetable slots
+    let slots = [];
+    try {
+      const timetables = await dbAll("SELECT * FROM timetables WHERE is_current = 1");
+      for (const tt of timetables) {
+        let data; try { data = JSON.parse(tt.data); } catch(e) { continue; }
+        if (!data || !data.headers || !data.rows) continue;
+        const staffFirst = abs.staff_name.toLowerCase().split(' ')[0];
+        const colIdx = data.headers.findIndex(h => h.toLowerCase().includes(staffFirst));
+        if (colIdx === -1) continue;
+        let inDay = false, dayStarted = false;
+        for (const row of data.rows) {
+          const vals = Array.isArray(row) ? row : data.headers.map(h => row[h] || '');
+          const first = String(vals[0] || '').trim().toLowerCase();
+          if (['monday','tuesday','wednesday','thursday','friday'].includes(first)) {
+            inDay = first === dayName.toLowerCase(); dayStarted = true; continue;
+          }
+          if (!dayStarted) inDay = true;
+          if (!inDay) continue;
+          const classVal = String(vals[colIdx] || '').trim();
+          if (classVal && classVal !== '-') {
+            slots.push({ time: String(vals[0] || ''), className: classVal });
+          }
+        }
+      }
+    } catch(e) {}
+
+    coverDetails.push({
+      absence: abs, lessonPlans: plans, subPlans, timetableSlots: slots
+    });
+  }
+
+  // Yard duty assignments for the CRT today
+  const yardChanges = await dbAll(
+    'SELECT * FROM yard_duty_changes WHERE date = ? AND replacement = ?',
+    targetDate, req.user.name
+  );
+
+  // School info for the day (from daily zap)
+  let schoolInfo = {};
+  try {
+    const zap = await dbGet('SELECT * FROM daily_zaps WHERE date = ?', targetDate);
+    schoolInfo = zap || {};
+  } catch(e) {}
+
+  // Today's calendar events
+  const events = await dbAll('SELECT * FROM calendar_events WHERE date = ? ORDER BY title', targetDate);
+
+  res.json({
+    date: targetDate, dayName,
+    coverDetails,
+    yardDuties: yardChanges,
+    schoolInfo,
+    calendarEvents: events,
+    crtName: req.user.name
+  });
+}));
+
+// ===== YARD DUTY SWAP SYSTEM =====
+// Request a duty swap
+app.post('/api/yard-duty/swap-request', auth, wrap(async (req, res) => {
+  const { date, timeSlot, location, requestedStaffName, reason } = req.body;
+  if (!date || !timeSlot || !location) return res.status(400).json({ error: 'Date, time slot and location required' });
+
+  await dbRun(
+    `INSERT INTO yard_duty_swaps (date, time_slot, location, requester_id, requester_name, requested_staff_name, reason, status)
+     VALUES (?,?,?,?,?,?,?,?)`,
+    [date, timeSlot, location, req.user.id, req.user.name, requestedStaffName || null, reason || '', 'pending']
+  );
+  const swapId = await dbLastId();
+
+  // Notify the requested staff member (or all staff if open swap)
+  if (requestedStaffName) {
+    const target = await dbGet("SELECT id FROM users WHERE LOWER(name) LIKE ? AND active = 1", '%' + requestedStaffName.toLowerCase().split(' ')[0] + '%');
+    if (target) {
+      await sendPushNotification(target.id, 'staff', 'Yard Duty Swap Request',
+        `${req.user.name} wants to swap yard duty on ${date} (${timeSlot} at ${location}). ${reason ? 'Reason: ' + reason : ''}`);
+    }
+    await addNotification(`Yard duty swap requested: ${req.user.name} → ${requestedStaffName} on ${date} (${timeSlot})`, 'info', 'leader,staff');
+  } else {
+    await addNotification(`Open yard duty swap: ${req.user.name} needs someone for ${date} ${timeSlot} at ${location}`, 'info', 'leader,staff');
+  }
+
+  res.json({ ok: true, id: swapId });
+}));
+
+// Accept a swap request
+app.put('/api/yard-duty/swap-request/:id/accept', auth, wrap(async (req, res) => {
+  const swap = await dbGet('SELECT * FROM yard_duty_swaps WHERE id = ?', parseInt(req.params.id));
+  if (!swap) return res.status(404).json({ error: 'Swap not found' });
+  if (swap.status !== 'pending') return res.status(400).json({ error: 'Swap already ' + swap.status });
+
+  await dbRun('UPDATE yard_duty_swaps SET status = ?, accepted_by_id = ?, accepted_by_name = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ?',
+    ['accepted', req.user.id, req.user.name, swap.id]);
+
+  // Auto-update the yard duty roster change
+  const existing = await dbGet('SELECT id FROM yard_duty_changes WHERE date = ? AND time_slot = ? AND location = ?',
+    swap.date, swap.time_slot, swap.location);
+  if (existing) {
+    await dbRun('UPDATE yard_duty_changes SET replacement = ?, replacement_type = ?, auto_assigned = 0, overridden_by = ? WHERE id = ?',
+      [req.user.name, 'swap', req.user.id, existing.id]);
+  } else {
+    await dbRun('INSERT INTO yard_duty_changes (date, time_slot, location, original_staff, replacement, replacement_type, auto_assigned, overridden_by) VALUES (?,?,?,?,?,?,0,?)',
+      [swap.date, swap.time_slot, swap.location, swap.requester_name, req.user.name, 'swap', req.user.id]);
+  }
+
+  // Notify requester
+  await sendPushNotification(swap.requester_id, 'staff', 'Swap Accepted!',
+    `${req.user.name} accepted your yard duty swap for ${swap.date} (${swap.time_slot}).`);
+  await addNotification(`Yard duty swap accepted: ${req.user.name} covering ${swap.requester_name} on ${swap.date} (${swap.time_slot})`, 'success', 'leader,staff');
+
+  res.json({ ok: true });
+}));
+
+// Decline a swap request
+app.put('/api/yard-duty/swap-request/:id/decline', auth, wrap(async (req, res) => {
+  const swap = await dbGet('SELECT * FROM yard_duty_swaps WHERE id = ?', parseInt(req.params.id));
+  if (!swap) return res.status(404).json({ error: 'Swap not found' });
+  await dbRun('UPDATE yard_duty_swaps SET status = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ?', ['declined', swap.id]);
+  await sendPushNotification(swap.requester_id, 'staff', 'Swap Declined',
+    `${req.user.name} declined the yard duty swap for ${swap.date} (${swap.time_slot}).`);
+  res.json({ ok: true });
+}));
+
+// Get swap requests
+app.get('/api/yard-duty/swap-requests', auth, wrap(async (req, res) => {
+  const { status, date } = req.query;
+  let sql = 'SELECT * FROM yard_duty_swaps WHERE 1=1';
+  const params = [];
+  if (status) { sql += ' AND status = ?'; params.push(status); }
+  if (date) { sql += ' AND date = ?'; params.push(date); }
+  sql += ' ORDER BY created_at DESC LIMIT 50';
+  res.json(await dbAll(sql, ...params));
+}));
+
+// ===== NFT (Non-Face-to-Face Time) TRACKING =====
+app.get('/api/nft', auth, wrap(async (req, res) => {
+  const { staffId, weekOf, date } = req.query;
+  let sql = 'SELECT * FROM nft_records WHERE 1=1';
+  const params = [];
+  if (staffId) { sql += ' AND staff_id = ?'; params.push(parseInt(staffId)); }
+  if (weekOf) { sql += ' AND date >= ? AND date <= date(?, "+4 days")'; params.push(weekOf, weekOf); }
+  if (date) { sql += ' AND date = ?'; params.push(date); }
+  sql += ' ORDER BY date DESC, created_at DESC';
+  res.json(await dbAll(sql, ...params));
+}));
+
+app.post('/api/nft', auth, wrap(async (req, res) => {
+  const { staffId, date, periodSlot, type, minutes, reason, notes } = req.body;
+  const sid = staffId || req.user.id;
+  if (!date || !type) return res.status(400).json({ error: 'Date and type required' });
+  const staff = await dbGet('SELECT name FROM users WHERE id = ?', sid);
+  await dbRun(
+    `INSERT INTO nft_records (staff_id, staff_name, date, period_slot, type, minutes, reason, notes, created_by)
+     VALUES (?,?,?,?,?,?,?,?,?)`,
+    [sid, staff ? staff.name : 'Unknown', date, periodSlot || '', type, minutes || 0, reason || '', notes || '', req.user.id]
+  );
+  const id = await dbLastId();
+
+  // Notify the staff member if it's an extra NFT
+  if (type === 'extra' && sid !== req.user.id && staff) {
+    await sendPushNotification(sid, 'staff', 'Extra NFT Granted',
+      `You have been given extra NFT on ${date}${periodSlot ? ' (' + periodSlot + ')' : ''}. ${reason || ''}`);
+    await addNotification(`Extra NFT: ${staff.name} on ${date}${periodSlot ? ' (' + periodSlot + ')' : ''} — ${reason || 'No reason given'}`, 'info', 'leader,staff');
+  }
+  if (type === 'lost' && staff) {
+    await addNotification(`NFT lost: ${staff.name} on ${date}${periodSlot ? ' (' + periodSlot + ')' : ''} — ${reason || ''}`, 'info', 'leader');
+  }
+
+  res.json({ ok: true, id });
+}));
+
+app.delete('/api/nft/:id', auth, leaderOnly, wrap(async (req, res) => {
+  await dbRun('DELETE FROM nft_records WHERE id = ?', [parseInt(req.params.id)]);
+  res.json({ ok: true });
+}));
+
+// NFT summary for a staff member (weekly/term totals)
+app.get('/api/nft/summary/:staffId', auth, wrap(async (req, res) => {
+  const sid = parseInt(req.params.staffId);
+  const thisYear = new Date().getFullYear();
+  const scheduled = await dbGet("SELECT COALESCE(SUM(minutes),0) as total FROM nft_records WHERE staff_id = ? AND type = 'scheduled' AND date >= ?", sid, `${thisYear}-01-01`);
+  const extra = await dbGet("SELECT COALESCE(SUM(minutes),0) as total FROM nft_records WHERE staff_id = ? AND type = 'extra' AND date >= ?", sid, `${thisYear}-01-01`);
+  const lost = await dbGet("SELECT COALESCE(SUM(minutes),0) as total FROM nft_records WHERE staff_id = ? AND type = 'lost' AND date >= ?", sid, `${thisYear}-01-01`);
+  const covered = await dbGet("SELECT COALESCE(SUM(minutes),0) as total FROM nft_records WHERE staff_id = ? AND type = 'covered_duty' AND date >= ?", sid, `${thisYear}-01-01`);
+  res.json({
+    staffId: sid,
+    year: thisYear,
+    scheduled: scheduled?.total || 0,
+    extra: extra?.total || 0,
+    lost: lost?.total || 0,
+    coveredDuty: covered?.total || 0,
+    net: (scheduled?.total || 0) + (extra?.total || 0) - (lost?.total || 0)
+  });
+}));
+
+// ===== LEADERSHIP DASHBOARD ENHANCED =====
+app.get('/api/dashboard/leadership', auth, leaderOnly, wrap(async (req, res) => {
+  const today = new Date().toISOString().split('T')[0];
+  const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()];
+
+  // Who's away today
+  const awayToday = await dbAll(
+    "SELECT a.*, c.name as crt_name FROM absences a LEFT JOIN crts c ON a.assigned_crt_id = c.id WHERE a.date_start <= ? AND a.date_end >= ? AND a.status != 'cancelled' ORDER BY a.staff_name",
+    today, today
+  );
+
+  // Pending swap requests
+  const pendingSwaps = await dbAll("SELECT * FROM yard_duty_swaps WHERE status = 'pending' AND date >= ? ORDER BY date", today);
+
+  // Today's specialist alerts
+  let specAlerts = [];
+  try { specAlerts = await dbAll("SELECT * FROM class_absence_alerts WHERE date = ? ORDER BY specialist_name", today); } catch(e) {}
+
+  // Recent NFT changes
+  const recentNft = await dbAll("SELECT * FROM nft_records WHERE date >= date(?, '-7 days') ORDER BY date DESC, created_at DESC LIMIT 20", today);
+
+  // CRT pack status — which absences have lesson plans ready
+  const packStatus = [];
+  for (const abs of awayToday) {
+    const planCount = await dbGet(
+      `SELECT COUNT(*) as c FROM lesson_plans WHERE teacher_id = ?
+       AND (specific_date = ? OR (specific_date IS NULL AND day_of_week = ?))`,
+      abs.staff_id, today, dayName
+    );
+    const subPlanCount = await dbGet('SELECT COUNT(*) as c FROM sub_plans WHERE absence_id = ?', abs.id);
+    packStatus.push({
+      absenceId: abs.id, staffName: abs.staff_name, area: abs.area,
+      crtName: abs.crt_name, status: abs.status,
+      lessonPlans: planCount?.c || 0, subPlans: subPlanCount?.c || 0,
+      packReady: (planCount?.c || 0) > 0 || (subPlanCount?.c || 0) > 0
+    });
+  }
+
+  // Today's yard duty roster with changes
+  const roster = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY time_slot, location', dayName);
+  const changes = await dbAll('SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY time_slot', today);
+
+  res.json({
+    date: today, dayName,
+    awayToday, pendingSwaps, specialistAlerts: specAlerts,
+    recentNft, packStatus,
+    yardDuty: { roster, changes }
+  });
+}));
+
 // ===== SERVE FRONTEND =====
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -1661,6 +2102,57 @@ async function start() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`); } catch(e) {}
 
+  // v5.0 tables — LessonLab, Yard Duty Swaps, NFT Tracking
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS lesson_plans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    teacher_id INTEGER NOT NULL,
+    day_of_week TEXT,
+    specific_date TEXT,
+    period_slot TEXT DEFAULT '',
+    subject TEXT NOT NULL,
+    class_name TEXT DEFAULT '',
+    plan_title TEXT DEFAULT '',
+    plan_content TEXT NOT NULL,
+    resources TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    updated_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (teacher_id) REFERENCES users(id)
+  )`); } catch(e) {}
+
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS yard_duty_swaps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    time_slot TEXT NOT NULL,
+    location TEXT NOT NULL,
+    requester_id INTEGER NOT NULL,
+    requester_name TEXT NOT NULL,
+    requested_staff_name TEXT,
+    reason TEXT DEFAULT '',
+    status TEXT DEFAULT 'pending',
+    accepted_by_id INTEGER,
+    accepted_by_name TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    resolved_at DATETIME,
+    FOREIGN KEY (requester_id) REFERENCES users(id)
+  )`); } catch(e) {}
+
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS nft_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    staff_id INTEGER NOT NULL,
+    staff_name TEXT NOT NULL,
+    date TEXT NOT NULL,
+    period_slot TEXT DEFAULT '',
+    type TEXT NOT NULL DEFAULT 'scheduled',
+    minutes INTEGER DEFAULT 0,
+    reason TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (staff_id) REFERENCES users(id)
+  )`); } catch(e) {}
+
   // v4.4 table - Specialist class absence alerts
   try { await dbRun(`CREATE TABLE IF NOT EXISTS class_absence_alerts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1705,7 +2197,7 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`\n  WPS Staff Hub v4.4`);
+    console.log(`\n  WPS Staff Hub v5.0`);
     console.log(`  http://localhost:${PORT}`);
     console.log(`  Database: ${USE_TURSO ? 'Turso (cloud)' : 'sql.js (local)'}`);
     console.log(`  Notifications: ${LIVE ? 'LIVE' : 'SIMULATED'}`);
