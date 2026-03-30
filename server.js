@@ -2760,13 +2760,21 @@ async function start() {
     FOREIGN KEY (user_id) REFERENCES users(id)
   )`); } catch(e) {}
 
+  // v7.3 migration: split single 'recess' slot into 'recess_1' and 'recess_2'
+  try {
+    await dbRun("UPDATE yard_duty_roster SET time_slot = 'recess_1' WHERE time_slot = 'recess'", []);
+    await dbRun("UPDATE yard_duty_changes SET time_slot = 'recess_1' WHERE time_slot = 'recess'", []);
+    await dbRun("UPDATE yard_duty_swaps SET time_slot = 'recess_1' WHERE time_slot = 'recess'", []);
+    console.log('v7.3 migration: recess slots updated');
+  } catch(e) { console.log('v7.3 migration skipped:', e.message); }
+
   if (!USE_TURSO) {
     process.on('SIGINT', () => { saveLocalDbNow(); process.exit(); });
     process.on('SIGTERM', () => { saveLocalDbNow(); process.exit(); });
   }
 
   app.listen(PORT, () => {
-    console.log(`\n  WPS Staff Hub v7.0`);
+    console.log(`\n  WPS Staff Hub v7.3`);
     console.log(`  http://localhost:${PORT}`);
     console.log(`  Database: ${USE_TURSO ? 'Turso (cloud)' : 'sql.js (local)'}`);
     console.log(`  Notifications: ${LIVE ? 'LIVE' : 'SIMULATED'}`);
