@@ -96,7 +96,7 @@ async function dbAll(sql, ...params) {
 
 async function dbLastId() {
   const r = await dbGet('SELECT last_insert_rowid() as id');
-  return r.id;
+  return r ? r.id : null;
 }
 
 // ===== NOTIFICATION SERVICES =====
@@ -986,6 +986,31 @@ async function sendPushNotification(userId, userType, title, body, data = {}) {
     }
   } catch (e) {
     console.log('Push notification error:', e.message);
+  }
+}
+
+async function sendPushToAll(title, body) {
+  try {
+    const webpush = require('web-push');
+    const pubKey = await dbGet("SELECT value FROM system_settings WHERE key = 'vapid_public_key'");
+    const privKey = await dbGet("SELECT value FROM system_settings WHERE key = 'vapid_private_key'");
+    if (!pubKey || !privKey) return;
+    webpush.setVapidDetails('mailto:admin@wps-staff-hub.onrender.com', pubKey.value, privKey.value);
+    const subs = await dbAll('SELECT * FROM push_subscriptions');
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification({
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.p256dh, auth: sub.auth_key }
+        }, JSON.stringify({ title, body }));
+      } catch (err) {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await dbRun('DELETE FROM push_subscriptions WHERE id = ?', [sub.id]);
+        }
+      }
+    }
+  } catch (e) {
+    console.log('Push to all error:', e.message);
   }
 }
 
@@ -2210,7 +2235,7 @@ app.post('/api/announcements', auth, leaderOnly, wrap(async (req, res) => {
 }));
 
 app.delete('/api/announcements/:id', auth, leaderOnly, wrap(async (req, res) => {
-  await dbRun('DELETE FROM announcements WHERE id = ?', [req.params.id]);
+  await dbRun('DELETE FROM announcements WHERE id = ?', [parseInt(req.params.id)]);
   res.json({ success: true });
 }));
 
@@ -2378,7 +2403,7 @@ app.delete('/api/pd-log/:id', auth, wrap(async (req, res) => {
   if (record.staff_id !== req.user.id && req.user.role !== 'leader' && req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Not authorized' });
   }
-  await dbRun('DELETE FROM pd_log WHERE id = ?', [req.params.id]);
+  await dbRun('DELETE FROM pd_log WHERE id = ?', [parseInt(req.params.id)]);
   res.json({ success: true });
 }));
 

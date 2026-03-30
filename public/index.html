@@ -349,10 +349,12 @@
           const[abs,stats,notif]=await Promise.all([
             this.fetchAPI('GET','/absences?limit=50'),this.fetchAPI('GET','/stats'),
             this.fetchAPI('GET','/notifications?role='+state.user.role+'&limit=10&since='+state.lastPollTime)]);
+          const changed=JSON.stringify(abs)!==JSON.stringify(state.absences)||JSON.stringify(stats)!==JSON.stringify(state.stats);
           state.absences=abs||[];state.stats=stats||{};
           if(notif&&notif.length>0){notif.forEach(n=>{const t=n.type==='success'?'success':n.type==='urgent'?'error':'info';toast(n.message,t)});state.notifications=[...notif,...state.notifications].slice(0,50)}
-          state.lastPollTime=pt;this.updateNotifBadge();this.render()
-        }catch(e){}},5000)},
+          state.lastPollTime=pt;this.updateNotifBadge();
+          if(changed&&(state.currentView==='dashboard'||state.currentView==='zap'))this.render()
+        }catch(e){}},30000)},
 
       updateNotifBadge(){const b=document.getElementById('notifBadge');if(!b)return;const c=state.notifications.length;if(c>0){b.textContent=c>9?'9+':c;b.style.display='block'}else b.style.display='none'},
 
