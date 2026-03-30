@@ -224,7 +224,7 @@ async function addNotification(message, type, forRoles, absenceId) {
 app.get('/api/health', wrap(async (req, res) => {
   try {
     await dbGet('SELECT 1 as ok');
-    res.json({ status: 'ok', version: '7.0.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
+    res.json({ status: 'ok', version: '7.2.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
   } catch (e) {
     res.status(503).json({ status: 'error', error: 'Database unreachable' });
   }
