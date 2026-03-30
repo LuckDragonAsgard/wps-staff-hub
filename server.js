@@ -171,8 +171,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 function wrap(fn) {
   return function(req, res, next) {
     fn(req, res, next).catch(function(err) {
-      console.error('Route error:', err);
-      res.status(500).json({ error: 'Server error' });
+      console.error('Route error:', req.method, req.path, err);
+      res.status(500).json({ error: 'Server error', detail: err.message || String(err) });
     });
   };
 }
@@ -1168,7 +1168,7 @@ app.get('/api/yard-duty/roster', auth, wrap(async (req, res) => {
   let sql = 'SELECT * FROM yard_duty_roster';
   const params = [];
   if (term) { sql += ' WHERE term = ?'; params.push(parseInt(term)); }
-  sql += ' ORDER BY CASE day_of_week WHEN "Monday" THEN 1 WHEN "Tuesday" THEN 2 WHEN "Wednesday" THEN 3 WHEN "Thursday" THEN 4 WHEN "Friday" THEN 5 END, time_slot, location';
+  sql += " ORDER BY CASE day_of_week WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3 WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 END, time_slot, location";
   res.json(await dbAll(sql, ...params));
 }));
 
@@ -1976,7 +1976,7 @@ app.get('/api/nft/summary/:staffId', auth, wrap(async (req, res) => {
 app.get('/api/nft/summary-all', auth, leaderOnly, wrap(async (req, res) => {
   const thisYear = new Date().getFullYear();
   const startDate = `${thisYear}-01-01`;
-  const staff = await dbAll("SELECT id, name FROM staff WHERE role != 'crt' ORDER BY name");
+  const staff = await dbAll("SELECT id, name FROM users WHERE role != 'crt' AND active = 1 ORDER BY name");
   const summaries = [];
   for (const s of staff) {
     const scheduled = await dbGet("SELECT COALESCE(SUM(minutes),0) as total FROM nft_records WHERE staff_id = ? AND type = 'scheduled' AND date >= ?", s.id, startDate);
@@ -2017,7 +2017,7 @@ app.get('/api/analytics/trends', auth, leaderOnly, wrap(async (req, res) => {
   // Top absent staff
   const topStaff = await dbAll(
     `SELECT staff_name, staff_id, COUNT(*) as count,
-       SUM(CASE WHEN julianday(date_end) - julianday(date_start) + 1 END) as total_days
+       SUM(CASE WHEN date_end IS NOT NULL THEN CAST(julianday(date_end) - julianday(date_start) + 1 AS INTEGER) ELSE 1 END) as total_days
      FROM absences WHERE date_start >= ? AND status != 'cancelled'
      GROUP BY staff_id ORDER BY count DESC LIMIT 15`, startDate
   );
@@ -2039,7 +2039,7 @@ app.get('/api/analytics/trends', auth, leaderOnly, wrap(async (req, res) => {
   // CRT utilization
   const crtUsage = await dbAll(
     `SELECT c.name, COUNT(*) as bookings,
-       SUM(CASE WHEN julianday(a.date_end) - julianday(a.date_start) + 1 END) as total_days
+       SUM(CASE WHEN a.date_end IS NOT NULL THEN CAST(julianday(a.date_end) - julianday(a.date_start) + 1 AS INTEGER) ELSE 1 END) as total_days
      FROM absences a JOIN crts c ON a.assigned_crt_id = c.id
      WHERE a.date_start >= ? AND a.status = 'booked'
      GROUP BY a.assigned_crt_id ORDER BY bookings DESC`, startDate
