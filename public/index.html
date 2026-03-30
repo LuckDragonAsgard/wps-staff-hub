@@ -211,7 +211,7 @@
     .mt-1{margin-top:8px}.mt-2{margin-top:16px}.mb-1{margin-bottom:8px}.mb-2{margin-bottom:16px}
     .divider{height:1px;background:var(--bdr);margin:16px 0}
     .link{color:var(--blue);text-decoration:none;cursor:pointer;font-weight:600;font-size:.82rem}.link:hover{text-decoration:underline}
-    @media(max-width:400px){.wrap{padding:10px 8px 85px}.cd{padding:14px}.st .n{font-size:1.3rem}}
+    @media(max-width:400px){.wrap{padding:10px 8px 85px}.cd{padding:14px}.st .n{font-size:1.3rem}.qa{grid-template-columns:repeat(2,1fr)}.qa button{padding:12px 6px}.qa .qi{font-size:1.1rem}}
 
     .zap-header{text-align:center;padding:18px 12px 10px;margin-bottom:0}
     .zap-header h2{font-size:1.1rem;color:var(--navy);margin-bottom:2px}
@@ -278,20 +278,20 @@
   <div class="wrap" id="content"></div>
 
   <nav class="bnav" id="bottomNav" style="display:none">
-    <button id="navZap" class="act" onclick="app.showView('zap')">
+    <button id="navZap" class="act" onclick="app.showView('zap')" title="Daily briefing">
       <div class="bi">📰</div><div>Zap</div>
     </button>
-    <button id="navDashboard" onclick="app.showView('dashboard')">
+    <button id="navDashboard" onclick="app.showView('dashboard')" title="Analytics and reports">
       <div class="bi">📊</div><div>Dashboard</div>
     </button>
-    <button id="navNew" onclick="app.showView('new')">
+    <button id="navNew" onclick="app.showView('new')" title="Report absence or request swap">
       <div class="bi">➕</div><div>New</div>
     </button>
-    <button id="navNotifications" onclick="app.showView('notifications')">
+    <button id="navNotifications" onclick="app.showView('notifications')" title="Notifications and alerts">
       <div class="bi">🔔</div><div>Alerts</div>
       <span class="badge" id="notifBadge" style="display:none"></span>
     </button>
-    <button id="navSettings" onclick="app.showView('settings')">
+    <button id="navSettings" onclick="app.showView('settings')" title="Settings and account">
       <div class="bi">⚙️</div><div>More</div>
     </button>
   </nav>
@@ -507,7 +507,7 @@
           // Extra notes
           if(z.extra_notes){h+='<div class="cd zap-section"><h4><span class="icon">📌</span> Additional Notes</h4><div class="zap-notes-text">'+this.esc(z.extra_notes)+'</div></div>'}
 
-          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:8px">WPS Staff Hub v7.2 — Daily Zap</div>';
+          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:8px">WPS Staff Hub v7.4 — Daily Zap</div>';
           body.innerHTML=h;
         }catch(e){body.innerHTML='<p class="text-dim" style="text-align:center;padding:20px">Unable to load zap: '+e.message+'</p>'}},
 
@@ -589,7 +589,7 @@
         const term=document.getElementById('ydTerm')?.value||1;
         try{
           const roster=await this.fetchAPI('GET','/yard-duty/roster?term='+term);
-          if(roster.length===0){body.innerHTML='<div class="empty"><div class="ei">🏃</div><p>No yard duty entries yet. Add entries above.</p></div>';return}
+          if(roster.length===0){body.innerHTML='<div class="empty"><div class="ei">🏃</div><p>No yard duty assigned yet for this term.<br><span style="font-size:.82rem;color:var(--dim)">Tap "+ Assign Yard Duty" above to get started.</span></p></div>';return}
           const days={};roster.forEach(r=>{if(!days[r.day_of_week])days[r.day_of_week]=[];days[r.day_of_week].push(r)});
           let h='';
           Object.entries(days).forEach(([day,entries])=>{
@@ -611,14 +611,14 @@
             staff:document.getElementById('ydStaff').value,
             term:parseInt(term)
           });
-          toast('Entry added!','success');
+          toast('Yard duty assigned!','success');
           document.getElementById('ydLocation').value='';document.getElementById('ydStaff').value='';
           this.loadYardDutyRoster();
         }catch(e){toast('Error: '+e.message,'error')}},
 
       async deleteYardDutyEntry(id){
         if(!confirm('Remove this entry?'))return;
-        try{await this.fetchAPI('DELETE','/yard-duty/roster/'+id);toast('Removed','info');this.loadYardDutyRoster()}catch(e){toast('Error: '+e.message,'error')}},
+        try{await this.fetchAPI('DELETE','/yard-duty/roster/'+id);toast('Duty removed','info');this.loadYardDutyRoster()}catch(e){toast('Error: '+e.message,'error')}},
 
       // ===== CALENDAR MANAGER =====
       renderCalendarManager(){
@@ -1149,6 +1149,11 @@
         if(state.user.role==='crt'){h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:8px;font-size:.88rem">Your Details</h4><div style="padding:12px;background:var(--bg);border-radius:10px"><div class="text-sm mb-1"><strong>Phone:</strong> '+(state.user.phone||'Not set')+'</div><div class="text-sm mb-1"><strong>Email:</strong> '+(state.user.email||'Not set')+'</div><div class="text-sm"><strong>Specialties:</strong> '+(state.user.specialties||[]).join(', ')+'</div></div></div>';
           h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:8px;font-size:.88rem">📅 Unavailable Dates</h4><p class="text-sm text-dim mb-1">Mark dates you can\'t work so the system skips you.</p><div style="display:flex;gap:6px;margin-bottom:10px"><input type="date" id="unavailDate" style="flex:1;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:.85rem"><input type="text" id="unavailReason" placeholder="Reason (optional)" style="flex:1;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:.85rem"><button class="btn btn-p btn-s" onclick="app.addUnavailDate()">Add</button></div><div id="unavailList"></div></div>'}
 
+        // Notification Preferences (all roles)
+        h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:10px;font-size:.88rem">🔔 Notification Preferences</h4><p class="text-sm text-dim" style="margin-bottom:10px">Choose which notifications you receive. Changes save automatically.</p><div id="notifPrefsContainer"><div class="loading" style="padding:12px;font-size:.82rem">Loading preferences...</div></div></div><div class="divider"></div>';
+        // Load notification preferences async
+        setTimeout(()=>app.loadNotifPrefs(),150);
+
         // Change PIN section (all roles except CRT)
         if(state.user.role!=='crt'){
           h+='<div style="margin-bottom:18px"><h4 style="margin-bottom:8px;font-size:.88rem">🔑 Change PIN</h4><div id="pinChangeForm" style="padding:14px;background:var(--bg);border-radius:10px"><div class="fg"><label>Current PIN</label><input type="password" id="currentPin" placeholder="Enter current PIN" inputmode="numeric" maxlength="6" style="padding:10px;border:1px solid var(--bdr);border-radius:8px;width:100%;font-size:.88rem"></div><div class="fg"><label>New PIN</label><input type="password" id="newPin" placeholder="Enter new PIN" inputmode="numeric" maxlength="6" style="padding:10px;border:1px solid var(--bdr);border-radius:8px;width:100%;font-size:.88rem"></div><div class="fg"><label>Confirm New PIN</label><input type="password" id="confirmPin" placeholder="Confirm new PIN" inputmode="numeric" maxlength="6" style="padding:10px;border:1px solid var(--bdr);border-radius:8px;width:100%;font-size:.88rem"></div><button class="btn btn-p" onclick="app.changePin()" style="width:100%">Update PIN</button></div></div><div class="divider"></div>'}
@@ -1163,7 +1168,7 @@
         else h+='<p class="text-sm text-dim" style="padding:8px">Push notifications not supported on this browser.</p>';
         h+='</div><div class="divider"></div>';
 
-        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v7.2</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
+        h+='<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px"><div class="text-sm text-dim">WPS Staff Hub v7.4</div><div style="font-size:.72rem;color:var(--dim)">Williamstown Primary School</div></div>';
         if(isL)h+='<button class="btn btn-o mb-1" onclick="app.resetDemo()" style="width:100%">🔄 Reset Demo Data</button>';
         h+='<button class="btn btn-d" onclick="app.logout()">🚪 Sign Out</button></div>';
         return h},
@@ -2169,7 +2174,7 @@
               h+='</div>'});
             h+='</div>'}
 
-          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:12px;border-top:1px solid var(--bdr);margin-top:16px">Generated by WPS Staff Hub v7.3 · '+new Date().toLocaleString()+'</div>';
+          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:12px;border-top:1px solid var(--bdr);margin-top:16px">Generated by WPS Staff Hub v7.4 · '+new Date().toLocaleString()+'</div>';
           el.innerHTML=h
         }catch(e){el.innerHTML='<p style="color:var(--acc)">Error: '+e.message+'</p>'}},
 
@@ -2188,6 +2193,37 @@
           document.getElementById('newPin').value='';
           document.getElementById('confirmPin').value='';
         }catch(e){this.toast(e.message||'Failed to change PIN','error')}
+      },
+
+      async loadNotifPrefs(){
+        const el=document.getElementById('notifPrefsContainer');if(!el)return;
+        try{
+          const prefs=await this.fetchAPI('GET','/notification-preferences');
+          const cats=[
+            {key:'yard_duty',icon:'🏃',label:'Yard Duty Reminders',desc:'When your duty is coming up or changes'},
+            {key:'swap_requests',icon:'🔄',label:'Swap Requests & Approvals',desc:'When someone requests or accepts a swap'},
+            {key:'absences',icon:'📋',label:'Absence Notifications',desc:'When staff report absent or cancel'},
+            {key:'announcements',icon:'📢',label:'Announcement Alerts',desc:'New school-wide announcements'},
+            {key:'wellbeing',icon:'💚',label:'Wellbeing Check-in Reminders',desc:'Periodic wellbeing pulse reminders'},
+            {key:'crt_assignments',icon:'👩‍🏫',label:'CRT Assignment Updates',desc:'When CRTs are booked or confirmed'},
+            {key:'timetable_changes',icon:'📊',label:'Timetable Changes',desc:'Updates to class schedules'},
+            {key:'general_updates',icon:'🏫',label:'General School Updates',desc:'Other important notifications'}
+          ];
+          let h='';
+          cats.forEach(c=>{
+            const on=prefs[c.key]!==false;
+            h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:6px"><div style="flex:1;margin-right:12px"><div style="font-weight:600;font-size:.88rem">'+c.icon+' '+c.label+'</div><div class="text-sm text-dim">'+c.desc+'</div></div><label style="position:relative;width:50px;height:28px;display:inline-block;cursor:pointer;flex-shrink:0"><input type="checkbox" '+(on?'checked':'')+' onchange="app.toggleNotifPref(\''+c.key+'\',this.checked)" style="opacity:0;width:0;height:0;position:absolute"><span style="position:absolute;top:0;left:0;right:0;bottom:0;background:'+(on?'var(--ok)':'#ccc')+';transition:.3s;border-radius:28px"></span><span style="position:absolute;height:22px;width:22px;left:'+(on?'25px':'3px')+';bottom:3px;background:white;transition:.3s;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span></label></div>';
+          });
+          el.innerHTML=h;
+        }catch(e){el.innerHTML='<p class="text-sm text-dim">Could not load notification preferences.</p>'}
+      },
+
+      async toggleNotifPref(category,enabled){
+        try{
+          await this.fetchAPI('PUT','/notification-preferences',{category,enabled});
+          toast(enabled?'Notifications enabled':'Notifications muted','success');
+          this.loadNotifPrefs();
+        }catch(e){toast('Error: '+e.message,'error')}
       },
 
       logout(){localStorage.removeItem('wps_token');localStorage.removeItem('wps_user');state.token=null;state.user=null;if(this._poll)clearInterval(this._poll);this.showLoginView()}

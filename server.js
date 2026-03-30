@@ -214,6 +214,21 @@ async function addNotification(message, type, forRoles, absenceId) {
       const userType = role === 'crt' ? 'crt' : 'staff';
       const subs = await dbAll('SELECT DISTINCT user_id FROM push_subscriptions WHERE user_type = ?', userType);
       for (const s of subs) {
+        // Check notification preferences - determine category from message content
+        let category = 'general_updates';
+        const msgLower = message.toLowerCase();
+        if (msgLower.includes('yard duty') || msgLower.includes('yard')) category = 'yard_duty';
+        else if (msgLower.includes('swap')) category = 'swap_requests';
+        else if (msgLower.includes('absence') || msgLower.includes('absent') || msgLower.includes('away') || msgLower.includes('cancelled')) category = 'absences';
+        else if (msgLower.includes('announcement')) category = 'announcements';
+        else if (msgLower.includes('wellbeing') || msgLower.includes('well-being')) category = 'wellbeing';
+        else if (msgLower.includes('crt') || msgLower.includes('booked') || msgLower.includes('confirmed')) category = 'crt_assignments';
+        else if (msgLower.includes('timetable') || msgLower.includes('schedule')) category = 'timetable_changes';
+
+        // Check if user has this category disabled
+        const pref = await dbGet('SELECT enabled FROM notification_preferences WHERE user_id = ? AND category = ?', s.user_id, category);
+        if (pref && (pref.enabled === 0 || pref.enabled === false)) continue; // Skip if disabled
+
         sendPushNotification(s.user_id, userType, pushTitle, message).catch(() => {});
       }
     }
@@ -224,7 +239,7 @@ async function addNotification(message, type, forRoles, absenceId) {
 app.get('/api/health', wrap(async (req, res) => {
   try {
     await dbGet('SELECT 1 as ok');
-    res.json({ status: 'ok', version: '7.3.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
+    res.json({ status: 'ok', version: '7.4.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
   } catch (e) {
     res.status(503).json({ status: 'error', error: 'Database unreachable' });
   }
@@ -269,6 +284,31 @@ app.post('/api/change-pin', auth, wrap(async (req, res) => {
   const newHash = bcrypt.hashSync(newPin, 10);
   await dbRun('UPDATE users SET pin_hash = ? WHERE id = ?', [newHash, req.user.id]);
   res.json({ ok: true, message: 'PIN updated successfully' });
+}));
+
+// ===== NOTIFICATION PREFERENCES =====
+app.get('/api/notification-preferences', auth, wrap(async (req, res) => {
+  const prefs = await dbAll('SELECT category, enabled FROM notification_preferences WHERE user_id = ?', req.user.id);
+  // Return all categories with defaults (all enabled if not set)
+  const categories = ['yard_duty','swap_requests','absences','announcements','wellbeing','crt_assignments','timetable_changes','general_updates'];
+  const map = {};
+  prefs.forEach(p => { map[p.category] = p.enabled; });
+  const result = {};
+  categories.forEach(c => { result[c] = map[c] !== undefined ? (map[c] === 1 || map[c] === true) : true; });
+  res.json(result);
+}));
+
+app.put('/api/notification-preferences', auth, wrap(async (req, res) => {
+  const { category, enabled } = req.body;
+  const categories = ['yard_duty','swap_requests','absences','announcements','wellbeing','crt_assignments','timetable_changes','general_updates'];
+  if (!categories.includes(category)) return res.status(400).json({ error: 'Invalid category' });
+  const existing = await dbGet('SELECT id FROM notification_preferences WHERE user_id = ? AND category = ?', req.user.id, category);
+  if (existing) {
+    await dbRun('UPDATE notification_preferences SET enabled = ? WHERE user_id = ? AND category = ?', [enabled ? 1 : 0, req.user.id, category]);
+  } else {
+    await dbRun('INSERT INTO notification_preferences (user_id, category, enabled) VALUES (?, ?, ?)', [req.user.id, category, enabled ? 1 : 0]);
+  }
+  res.json({ ok: true });
 }));
 
 // ===== AUTH ENDPOINTS =====
@@ -2760,6 +2800,15 @@ async function start() {
     FOREIGN KEY (user_id) REFERENCES users(id)
   )`); } catch(e) {}
 
+  // v7.4 - Notification preferences by category
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS notification_preferences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    category TEXT NOT NULL,
+    enabled INTEGER DEFAULT 1,
+    UNIQUE(user_id, category)
+  )`); } catch(e) {}
+
   // v7.3 migration: split single 'recess' slot into 'recess_1' and 'recess_2'
   try {
     await dbRun("UPDATE yard_duty_roster SET time_slot = 'recess_1' WHERE time_slot = 'recess'", []);
@@ -2774,7 +2823,7 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`\n  WPS Staff Hub v7.3`);
+    console.log(`\n  WPS Staff Hub v7.4`);
     console.log(`  http://localhost:${PORT}`);
     console.log(`  Database: ${USE_TURSO ? 'Turso (cloud)' : 'sql.js (local)'}`);
     console.log(`  Notifications: ${LIVE ? 'LIVE' : 'SIMULATED'}`);
