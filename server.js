@@ -224,7 +224,7 @@ async function addNotification(message, type, forRoles, absenceId) {
 app.get('/api/health', wrap(async (req, res) => {
   try {
     await dbGet('SELECT 1 as ok');
-    res.json({ status: 'ok', version: '7.2.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
+    res.json({ status: 'ok', version: '7.3.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
   } catch (e) {
     res.status(503).json({ status: 'error', error: 'Database unreachable' });
   }
@@ -256,6 +256,19 @@ app.put('/api/staff/me', auth, wrap(async (req, res) => {
   params.push(req.user.id);
   await dbRun(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
   res.json({ ok: true });
+}));
+
+// ===== CHANGE PIN =====
+app.post('/api/change-pin', auth, wrap(async (req, res) => {
+  const { currentPin, newPin } = req.body;
+  if (!currentPin || !newPin) return res.status(400).json({ error: 'Current PIN and new PIN required' });
+  if (newPin.length < 4 || newPin.length > 6) return res.status(400).json({ error: 'New PIN must be 4-6 digits' });
+  const user = await dbGet('SELECT * FROM users WHERE id = ?', req.user.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (!bcrypt.compareSync(currentPin, user.pin_hash)) return res.status(401).json({ error: 'Current PIN is incorrect' });
+  const newHash = bcrypt.hashSync(newPin, 10);
+  await dbRun('UPDATE users SET pin_hash = ? WHERE id = ?', [newHash, req.user.id]);
+  res.json({ ok: true, message: 'PIN updated successfully' });
 }));
 
 // ===== AUTH ENDPOINTS =====
