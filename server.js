@@ -2994,6 +2994,19 @@ async function start() {
     console.log('v7.5 migration: yard duty locations renamed');
   } catch(e) { console.log('v7.5 migration skipped:', e.message); }
 
+  // v7.6 migration: add Jacky Rooney as leader
+  try {
+    const jacky = await dbGet("SELECT id FROM users WHERE name = 'Jacky Rooney'");
+    if (!jacky) {
+      const jackyHash = bcrypt.hashSync('0000', 10);
+      await dbRun(
+        `INSERT INTO users (name, email, phone, pin_hash, role, area, active) VALUES (?,?,?,?,?,?,1)`,
+        ['Jacky Rooney', 'jacky.r@wps.vic.edu.au', '', jackyHash, 'leader', 'Leadership']
+      );
+      console.log('v7.6 migration: Jacky Rooney added as leader');
+    }
+  } catch(e) { console.log('v7.6 migration skipped:', e.message); }
+
   if (!USE_TURSO) {
     process.on('SIGINT', () => { saveLocalDbNow(); process.exit(); });
     process.on('SIGTERM', () => { saveLocalDbNow(); process.exit(); });

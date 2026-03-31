@@ -225,6 +225,7 @@ async function setup() {
     ['Cheryl Douglas',      'cheryl.d@wps.vic.edu.au',    '', hash('1234'), 'staff', 'ES - Admin'],
     ['Diana Bound',         'diana.b@wps.vic.edu.au',     '', hash('1234'), 'staff', 'ES - Admin'],
     ['Jo Munro',            'jo.m@wps.vic.edu.au',        '', hash('1234'), 'staff', 'ES - Admin'],
+    ['Jacky Rooney',        'jacky.r@wps.vic.edu.au',     '', hash('0000'), 'leader', 'Leadership'],
   ];
 
   const crts = [
