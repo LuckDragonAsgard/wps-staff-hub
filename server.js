@@ -1855,8 +1855,6 @@ app.post('/api/timetables/from-csv', auth, leaderOnly, wrap(async (req, res) => 
 async function lookupClassesForStaff(staffId, date) {
   const user = await dbGet('SELECT id, name, area FROM users WHERE id = ?', staffId);
   if (!user) return [];
-  // Executive leadership never has classes
-  if (isExecLeadership(user.area)) return [];
 
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const d = new Date(date + 'T12:00:00');
