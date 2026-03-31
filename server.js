@@ -575,9 +575,18 @@ app.post('/api/absences', auth, wrap(async (req, res) => {
   const recent = await dbGet("SELECT 1 as found FROM absences WHERE staff_id = ? AND date_start = ? AND submitted_at > datetime('now', '-60 seconds') AND status != 'cancelled'", staffUser.id, dateStart);
   if (recent) return res.status(409).json({ error: 'Absence already submitted for this date' });
 
+  // Auto-lookup affected classes from timetable if not provided
+  let finalClasses = classes || '';
+  if (!finalClasses) {
+    try {
+      const autoClasses = await lookupClassesForStaff(staffUser.id, dateStart);
+      if (autoClasses.length > 0) finalClasses = autoClasses.join(', ');
+    } catch(e) { console.log('Timetable class lookup skipped:', e.message); }
+  }
+
   await dbRun(
     'INSERT INTO absences (staff_id, staff_name, area, date_start, date_end, reason, classes, notes, half_day) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [staffUser.id, staffUser.name, staffUser.area, dateStart, dateEnd || dateStart, reason, classes || '', notes || '', halfDay || 'full']
+    [staffUser.id, staffUser.name, staffUser.area, dateStart, dateEnd || dateStart, reason, finalClasses, notes || '', halfDay || 'full']
   );
 
   const absenceId = await dbLastId();
@@ -1767,6 +1776,112 @@ app.post('/api/timetables/from-csv', auth, leaderOnly, wrap(async (req, res) => 
   await dbRun('INSERT INTO timetables (name, type, term, data, is_current, uploaded_by) VALUES (?,?,?,?,?,?)',
     [name, type || 'general', term || 1, data, is_current ? 1 : 0, req.user.id]);
   res.json({ ok: true, id: await dbLastId(), headers, rowCount: rows.length });
+}));
+
+// ===== TIMETABLE CLASS LOOKUP =====
+// Given a staff member and date, scan all current timetables to find which classes they teach that day
+async function lookupClassesForStaff(staffId, date) {
+  const user = await dbGet('SELECT id, name, area FROM users WHERE id = ?', staffId);
+  if (!user) return [];
+
+  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const d = new Date(date + 'T12:00:00');
+  const dayName = dayNames[d.getDay()].toLowerCase();
+
+  // Get all current timetables (general + specialist)
+  const timetables = await dbAll('SELECT * FROM timetables WHERE is_current = 1');
+  if (timetables.length === 0) return [];
+
+  const staffName = user.name.toLowerCase();
+  const staffFirst = staffName.split(' ')[0];
+  const staffLast = staffName.split(' ').slice(1).join(' ');
+  const classes = [];
+
+  for (const tt of timetables) {
+    let data;
+    try { data = JSON.parse(tt.data); } catch(e) { continue; }
+    if (!data || !data.headers || !data.rows) continue;
+
+    const headers = data.headers;
+    const rows = data.rows;
+
+    // Check if a header column matches the staff member's name
+    let staffColIndex = -1;
+    for (let ci = 0; ci < headers.length; ci++) {
+      const h = headers[ci].toLowerCase().trim();
+      if (h === staffName) { staffColIndex = ci; break; }
+      if (staffFirst.length > 2 && h.includes(staffFirst)) { staffColIndex = ci; break; }
+      if (staffLast.length > 2 && h.includes(staffLast)) { staffColIndex = ci; break; }
+    }
+
+    // If staff has a dedicated column, read their classes for the correct day
+    if (staffColIndex >= 0) {
+      let inCorrectDay = false;
+      let dayRowStarted = false;
+
+      for (const row of rows) {
+        const rowValues = Array.isArray(row) ? row : headers.map(h2 => row[h2] || '');
+        const firstCell = String(rowValues[0] || '').trim().toLowerCase();
+
+        // Day header row
+        if (['monday','tuesday','wednesday','thursday','friday'].includes(firstCell)) {
+          inCorrectDay = firstCell === dayName;
+          dayRowStarted = true;
+          continue;
+        }
+        if (!dayRowStarted) inCorrectDay = true;
+        if (!inCorrectDay) continue;
+
+        const cellValue = String(rowValues[staffColIndex] || '').trim();
+        if (cellValue && cellValue !== '-' && cellValue.toLowerCase() !== 'nft' &&
+            cellValue.toLowerCase() !== 'planning' && cellValue.toLowerCase() !== 'recess' &&
+            cellValue.toLowerCase() !== 'lunch' && cellValue.toLowerCase() !== 'assembly' &&
+            cellValue.toLowerCase() !== 'duty') {
+          // This is a class the teacher teaches at this time slot
+          if (!classes.includes(cellValue)) classes.push(cellValue);
+        }
+      }
+    }
+
+    // Also scan all cells for the teacher's name (e.g. specialist timetables where cells contain teacher names)
+    if (staffColIndex < 0) {
+      let inCorrectDay = false;
+      let dayRowStarted = false;
+
+      for (const row of rows) {
+        const rowValues = Array.isArray(row) ? row : headers.map(h2 => row[h2] || '');
+        const firstCell = String(rowValues[0] || '').trim().toLowerCase();
+
+        if (['monday','tuesday','wednesday','thursday','friday'].includes(firstCell)) {
+          inCorrectDay = firstCell === dayName;
+          dayRowStarted = true;
+          continue;
+        }
+        if (!dayRowStarted) inCorrectDay = true;
+        if (!inCorrectDay) continue;
+
+        for (let ci = 1; ci < rowValues.length; ci++) {
+          const cellValue = String(rowValues[ci] || '').trim();
+          const cellLower = cellValue.toLowerCase();
+          if (staffFirst.length > 2 && cellLower.includes(staffFirst)) {
+            // The cell references this staff member — the header for this column is likely the class
+            const className = headers[ci] || '';
+            if (className && !classes.includes(className)) classes.push(className);
+          }
+        }
+      }
+    }
+  }
+
+  return classes;
+}
+
+// API endpoint: get affected classes for a staff member on a given date
+app.get('/api/timetable/classes-for', auth, wrap(async (req, res) => {
+  const { staffId, date } = req.query;
+  if (!staffId || !date) return res.status(400).json({ error: 'staffId and date required' });
+  const classes = await lookupClassesForStaff(parseInt(staffId), date);
+  res.json({ classes, classesText: classes.join(', ') });
 }));
 
 // Get all staff lesson plans (leader view)
