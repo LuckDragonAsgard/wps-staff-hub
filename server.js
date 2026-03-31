@@ -2221,14 +2221,13 @@ app.get('/api/school-info', auth, wrap(async (req, res) => {
     officeManager: settings.office_manager || 'Office',
     bellTimes: [
       { time: '8:45', event: 'Yard Duty Begins' },
-      { time: '9:00', event: 'Morning Session Starts' },
-      { time: '10:00', event: 'Period 2' },
-      { time: '11:00', event: 'Recess (Morning Tea)' },
-      { time: '11:30', event: 'Period 3' },
-      { time: '12:30', event: 'Lunch Eating Time' },
-      { time: '12:50', event: 'Lunch Play' },
-      { time: '1:30', event: 'Period 4' },
-      { time: '2:30', event: 'Period 5' },
+      { time: '9:00', event: 'Session 1' },
+      { time: '10:00', event: 'Session 2' },
+      { time: '11:00', event: 'Recess' },
+      { time: '11:30', event: 'Session 3' },
+      { time: '12:30', event: 'Session 4' },
+      { time: '1:30', event: 'Lunch' },
+      { time: '2:30', event: 'Session 5' },
       { time: '3:30', event: 'Dismissal' }
     ],
     emergencyProcedures: [
