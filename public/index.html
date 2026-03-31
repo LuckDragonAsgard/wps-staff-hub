@@ -989,7 +989,8 @@
       renderCRTDashboard(){
         const my=state.absences.filter(a=>a.assigned_crt_id===state.user.id);
         const pending=my.filter(a=>a.status==='contacting');const confirmed=my.filter(a=>a.status==='booked');
-        let h='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><div class="stats"><div class="st ok"><div class="n">'+confirmed.length+'</div><div class="l">Confirmed</div></div><div class="st '+(pending.length>0?'alert':'')+'"><div class="n">'+pending.length+'</div><div class="l">Pending</div></div></div><button class="btn btn-p" style="margin-top:8px" onclick="app.showView(\'crtportal\')">📋 My Day Briefing — Timetable, Lessons & Duties</button></div>';
+        let h='<div id="myDayCard"></div>';
+        h+='<div class="cd"><h3>👋 Welcome, '+state.user.name.split(' ')[0]+'</h3><div class="stats"><div class="st ok"><div class="n">'+confirmed.length+'</div><div class="l">Confirmed</div></div><div class="st '+(pending.length>0?'alert':'')+'"><div class="n">'+pending.length+'</div><div class="l">Pending</div></div></div><button class="btn btn-p" style="margin-top:8px" onclick="app.showView(\'crtportal\')">📋 My Day Briefing — Timetable, Lessons & Duties</button></div>';
         // CRT's own calendar view showing their bookings
         h+='<div class="cd"><h3>📅 Your Month</h3>'+this.renderCRTMiniCalendar()+'</div>';
         if(pending.length>0){h+='<div class="cd" style="border-left:4px solid var(--warn)"><h3>⏳ Pending Requests</h3>';

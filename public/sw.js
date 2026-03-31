@@ -1,5 +1,5 @@
 // WPS Staff Hub Service Worker
-const CACHE_NAME = 'wps-hub-v9.0.0';
+const CACHE_NAME = 'wps-hub-v9.0.1';
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', event => {
