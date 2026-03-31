@@ -1316,29 +1316,17 @@ app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
   // Am I absent?
   const myAbsence = await dbGet("SELECT * FROM absences WHERE staff_id = ? AND date_start <= ? AND date_end >= ? AND status != 'cancelled'", userId, date, date);
 
-  // My timetable for this day
+  // My timetable classes for this day (uses enhanced area-aware lookup)
   let myClasses = [];
   try {
-    const timetables = await dbAll("SELECT * FROM timetables WHERE is_current = 1");
-    for (const tt of timetables) {
-      let data = tt.data;
-      if (typeof data === 'string') try { data = JSON.parse(data); } catch(e) { continue; }
-      if (data && data.headers && data.rows) {
-        const dayCol = data.headers.findIndex(h => h.toLowerCase().includes(dayName.toLowerCase().substring(0,3)));
-        const nameInHeader = data.headers.findIndex(h => h.toLowerCase().includes(userName.toLowerCase().split(' ')[0]));
-        if (nameInHeader >= 0) {
-          data.rows.forEach(row => {
-            const cells = Array.isArray(row) ? row : data.headers.map(k => row[k] || '');
-            const timeCell = cells[0] || '';
-            const classCell = cells[nameInHeader] || '';
-            if (classCell && classCell !== '-' && classCell.toLowerCase() !== 'nft' && classCell.toLowerCase() !== 'planning') {
-              myClasses.push({ time: timeCell, class: classCell, timetable: tt.name });
-            }
-          });
-        }
-      }
-    }
+    myClasses = (await lookupClassesForStaff(userId, date)).map(c => ({ class: c }));
   } catch(e) {}
+
+  // Check if any of my classes are being covered (gives me NFT)
+  const allAbsToday = await dbAll("SELECT a.*, u.name as staff_name FROM absences a JOIN users u ON a.staff_id = u.id WHERE a.date_start <= ? AND a.date_end >= ? AND a.status != 'cancelled'", date, date);
+  const coveredByMe = allAbsToday.filter(a => a.crt_name && a.crt_name.toLowerCase().includes(userName.toLowerCase().split(' ')[0]));
+  // Am I being covered? (someone is subbing my classes)
+  const myCoverage = myAbsence && myAbsence.status === 'booked' ? { covered: true, crtName: myAbsence.crt_name || '' } : null;
 
   // Swap requests involving me
   const mySwaps = await dbAll(
@@ -1352,7 +1340,9 @@ app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
     dutyChanges: dutyChanges.filter(c => c.original_staff && c.original_staff.toLowerCase().includes(userName.toLowerCase().split(' ')[0])),
     coveringDuties,
     classes: myClasses,
-    swaps: mySwaps
+    swaps: mySwaps,
+    myCoverage,
+    nft: coveredByMe.length > 0 ? coveredByMe.map(a => ({ staffName: a.staff_name, classes: a.classes })) : []
   });
 }));
 

@@ -426,6 +426,7 @@
         if(state.currentView==='calendarmanage')this.loadCalendarEvents();
         if(state.currentView==='timetablemanage')this.loadTimetableList();
         if(state.currentView==='dashboard'&&(state.user.role==='leader'||state.user.role==='admin'))this.loadLeaderIntel();
+        if(state.currentView==='dashboard')this.loadMyDay();
         if(state.currentView==='dashboard'&&state.user.role==='staff')this.loadWellbeingNudge();
         if(state.currentView==='analytics')this.loadAnalytics();
         if(state.currentView==='schoolinfo')this.loadSchoolInfo();
@@ -815,7 +816,9 @@
         const booked=todayAbs.filter(a=>a.status==='booked');
         const upcoming=state.absences.filter(a=>a.date_start>todayStr).slice(0,5);
 
-        let h='<div class="stats"><div class="st '+(s.absentToday>0?'alert':'')+'"><div class="n">'+(s.absentToday||0)+'</div><div class="l">Away Today</div></div><div class="st ok"><div class="n">'+(s.crtsBooked||0)+'</div><div class="l">CRTs Booked</div></div><div class="st '+(s.needAction>0?'alert':'')+'"><div class="n">'+(s.needAction||0)+'</div><div class="l">Need Action</div></div><div class="st"><div class="n">'+(s.totalTerm||0)+'</div><div class="l">This Term</div></div></div>';
+        // My Day card (loads async) - leaders see this too
+        let h='<div id="myDayCard"><div class="cd" style="border-left:4px solid var(--navy)"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:1.3rem">📅</span><h3 style="margin:0">My Day</h3></div><div class="loading" style="padding:8px;font-size:.82rem">Loading your schedule...</div></div></div>';
+        h+='<div class="stats"><div class="st '+(s.absentToday>0?'alert':'')+'"><div class="n">'+(s.absentToday||0)+'</div><div class="l">Away Today</div></div><div class="st ok"><div class="n">'+(s.crtsBooked||0)+'</div><div class="l">CRTs Booked</div></div><div class="st '+(s.needAction>0?'alert':'')+'"><div class="n">'+(s.needAction||0)+'</div><div class="l">Need Action</div></div><div class="st"><div class="n">'+(s.totalTerm||0)+'</div><div class="l">This Term</div></div></div>';
 
         h+='<div class="qa"><button onclick="app.showView(\'zapedit\')" style="border-color:var(--gold)"><div class="qi">✏️</div><div class="ql">Edit Daily Zap</div><div class="qd">Today\'s bulletin</div></button><button onclick="app.showView(\'new\')"><div class="qi">🆕</div><div class="ql">Report Absence</div><div class="qd">Lodge new</div></button><button onclick="app.showView(\'report\')"><div class="qi">📄</div><div class="ql">Cover Report</div><div class="qd">Today\'s sheet</div></button></div><div class="qa"><button onclick="app.showView(\'yardduty\')"><div class="qi">🏃</div><div class="ql">Yard Duty</div><div class="qd">Manage roster</div></button><button onclick="app.showView(\'calendarmanage\')"><div class="qi">📅</div><div class="ql">Calendar</div><div class="qd">Add events</div></button><button onclick="app.showView(\'timetablemanage\')"><div class="qi">📊</div><div class="ql">Timetables</div><div class="qd">Upload/manage</div></button></div><div class="qa"><button onclick="app.showView(\'prebook\')"><div class="qi">📅</div><div class="ql">Pre-book Leave</div><div class="qd">PD, camps, etc</div></button><button onclick="app.showView(\'crtcalendar\')"><div class="qi">🗓️</div><div class="ql">CRT Calendar</div><div class="qd">Availability</div></button><button onclick="app.showView(\'reports\')"><div class="qi">📊</div><div class="ql">Reports</div><div class="qd">Export data</div></button></div><div class="qa"><button onclick="app.showView(\'logs\')"><div class="qi">📨</div><div class="ql">Activity Log</div><div class="qd">SMS & Email</div></button><button onclick="app.showView(\'directory\')"><div class="qi">👥</div><div class="ql">Staff Directory</div><div class="qd">All staff & CRTs</div></button><button onclick="app.showView(\'staffmanage\')"><div class="qi">👤</div><div class="ql">Manage Staff</div><div class="qd">Add/edit people</div></button></div><div class="qa"><button onclick="app.showView(\'settings\')"><div class="qi">⚙️</div><div class="ql">Settings</div><div class="qd">Preferences</div></button><button onclick="app.showView(\'yardswaps\')"><div class="qi">🔄</div><div class="ql">Duty Swaps</div><div class="qd">Swap requests</div></button></div><div class="qa"><button onclick="app.showView(\'analytics\')" style="border-color:var(--blue)"><div class="qi">📈</div><div class="ql">Analytics</div><div class="qd">Trends & insights</div></button><button onclick="app.showView(\'schoolinfo\')"><div class="qi">🏫</div><div class="ql">School Info</div><div class="qd">Bell times, contacts</div></button></div><div class="qa"><button onclick="app.showView(\'announcements\')" style="border-color:var(--warn)"><div class="qi">📢</div><div class="ql">Announcements</div><div class="qd">Post & view</div></button><button onclick="app.showView(\'wellbeing\')" style="border-color:var(--ok)"><div class="qi">💚</div><div class="ql">Wellbeing</div><div class="qd">Staff pulse check</div></button><button onclick="app.showView(\'incidents\')"><div class="qi">🚨</div><div class="ql">Incidents</div><div class="qd">Report & track</div></button></div><div class="qa"><button onclick="app.showView(\'coversummary\')" style="border-color:var(--navy)"><div class="qi">🖨️</div><div class="ql">Cover Sheet</div><div class="qd">Print for office</div></button><button onclick="app.showView(\'quickstatus\')"><div class="qi">📌</div><div class="ql">Quick Status</div><div class="qd">Staff updates</div></button></div>';
 
@@ -864,11 +867,68 @@
           el.innerHTML=h||'<div class="cd" style="border-left:4px solid var(--ok)"><p style="font-size:.84rem;color:var(--ok);font-weight:600">✓ All systems green — no pending items</p></div>'
         }catch(e){el.innerHTML=''}},
 
+      async loadMyDay(){
+        const el=document.getElementById('myDayCard');if(!el)return;
+        try{
+          const d=await this.fetchAPI('GET','/my-schedule/'+localToday());
+          const dayLabel=new Date(localToday()+'T12:00:00').toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
+          let h='<div class="cd" style="border-left:4px solid var(--navy)">';
+          h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:1.3rem">📅</span><div><h3 style="margin:0;font-size:1rem">My Day</h3><div class="text-sm text-dim">'+dayLabel+'</div></div></div>';
+          if(d.absent)h+='<span style="background:var(--acc);color:#fff;padding:3px 10px;border-radius:20px;font-size:.76rem;font-weight:700">AWAY</span>';
+          h+='</div>';
+
+          // Classes section
+          if(d.classes&&d.classes.length>0){
+            h+='<div style="margin-bottom:10px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">📚 My Classes</div>';
+            if(d.absent&&d.myCoverage&&d.myCoverage.covered){
+              h+='<div style="padding:6px 10px;background:#f0fff4;border-radius:8px;font-size:.84rem;border:1px solid #c6f6d5"><span style="color:var(--ok);font-weight:600">✅ Covered by '+this.esc(d.myCoverage.crtName)+'</span></div>';
+              h+='<div style="padding:4px 10px;font-size:.82rem;color:var(--dim)">'+d.classes.map(c=>c.class||c).join(', ')+'</div>';
+            }else{
+              d.classes.forEach(c=>{h+='<div style="padding:4px 10px;background:var(--bg);border-radius:6px;margin-bottom:2px;font-size:.84rem">'+(c.time?'<span style="color:var(--dim);min-width:70px;display:inline-block">'+this.esc(c.time)+'</span>':'')+' <strong>'+this.esc(c.class||c)+'</strong></div>'});
+            }
+            h+='</div>';
+          }else if(!d.absent){
+            h+='<div style="margin-bottom:10px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">📚 My Classes</div><div style="font-size:.84rem;color:var(--dim);padding:4px 10px">No classes scheduled today</div></div>';
+          }
+
+          // NFT section (when someone covers your class you get NFT)
+          if(d.absent&&d.myCoverage&&d.myCoverage.covered){
+            h+='<div style="margin-bottom:10px;padding:8px 10px;background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border-radius:8px;border:1px solid #a5d6a7"><div style="font-weight:700;font-size:.82rem;color:#2e7d32">🎉 NFT — Non Face-to-Face Time</div><div style="font-size:.82rem;color:#388e3c;margin-top:2px">Your classes are covered by '+this.esc(d.myCoverage.crtName)+' — enjoy your NFT!</div></div>';
+          }else if(d.coveringDuties&&d.coveringDuties.length>0){
+            h+='<div style="margin-bottom:10px;padding:8px 10px;background:linear-gradient(135deg,#fff3e0,#fff8e1);border-radius:8px;border:1px solid #ffe0b2"><div style="font-weight:700;font-size:.82rem;color:#e65100">📋 Covering Extra Duties</div>';
+            d.coveringDuties.forEach(cd=>{h+='<div style="font-size:.82rem;color:#bf360c;margin-top:2px">'+this.esc(cd.time_slot)+' at '+this.esc(cd.location)+' (covering for '+this.esc(cd.original_staff||'absent staff')+')</div>'});
+            h+='</div>';
+          }
+
+          // Yard Duty section
+          if(d.duties&&d.duties.length>0){
+            h+='<div style="margin-bottom:6px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">🏃 Yard Duty</div>';
+            const dutyChanges=d.dutyChanges||[];
+            d.duties.forEach(duty=>{
+              const change=dutyChanges.find(c=>c.time_slot===duty.time_slot&&c.location===duty.location);
+              const covered=change&&change.replacement;
+              h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:'+(covered?'#f0fff4':'var(--bg)')+';border-radius:6px;margin-bottom:2px;font-size:.84rem"><div><strong>'+this.esc(duty.time_slot)+'</strong> — '+this.esc(duty.location)+'</div>';
+              if(covered){h+='<span style="color:var(--ok);font-weight:600;font-size:.8rem">✅ Covered by '+this.esc(change.replacement)+'</span>'}
+              h+='</div>'});
+            if(d.duties.every(duty=>{const ch=dutyChanges.find(c=>c.time_slot===duty.time_slot&&c.location===duty.location);return ch&&ch.replacement})){
+              h+='<div style="padding:6px 10px;font-size:.82rem;color:var(--ok);font-weight:600">🎉 All your duties are covered — NFT!</div>';
+            }
+            h+='</div>';
+          }else{
+            h+='<div style="margin-bottom:6px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">🏃 Yard Duty</div><div style="font-size:.84rem;color:var(--dim);padding:4px 10px">No yard duty today ✓</div></div>';
+          }
+
+          h+='</div>';
+          el.innerHTML=h;
+        }catch(e){el.innerHTML=''}},
+
       renderStaffDashboard(){
         const mine=state.absences.filter(a=>a.staff_id===state.user.id);
         let h='';
         // URGENT HELP button
         h+='<button id="urgentHelpBtn" onclick="app.showUrgentHelp()" style="width:100%;padding:14px;margin-bottom:12px;background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 15px rgba(231,76,60,.4);letter-spacing:.5px">🚨 NEED HELP</button>';
+        // My Day card (loads async)
+        h+='<div id="myDayCard"><div class="cd" style="border-left:4px solid var(--navy)"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:1.3rem">📅</span><h3 style="margin:0">My Day</h3></div><div class="loading" style="padding:8px;font-size:.82rem">Loading your schedule...</div></div></div>';
         // Quick wellbeing nudge
         h+='<div id="wbNudge"></div>';
         // Welcome card
