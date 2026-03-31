@@ -1778,8 +1778,8 @@ async function lookupClassesForStaff(staffId, date) {
   const d = new Date(date + 'T12:00:00');
   const dayName = dayNames[d.getDay()].toLowerCase();
 
-  // Get all current timetables (general + specialist)
-  const timetables = await dbAll('SELECT * FROM timetables WHERE is_current = 1');
+  // Get all current timetables (general + specialist, NOT yard_duty)
+  const timetables = await dbAll("SELECT * FROM timetables WHERE is_current = 1 AND type != 'yard_duty'");
   if (timetables.length === 0) return [];
 
   const staffName = user.name.toLowerCase();
