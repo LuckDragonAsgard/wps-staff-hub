@@ -1328,6 +1328,29 @@ app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
   // Am I being covered? (someone is subbing my classes)
   const myCoverage = myAbsence && myAbsence.status === 'booked' ? { covered: true, crtName: myAbsence.crt_name || '' } : null;
 
+  // CRT covering info: what absences am I booked for today?
+  let crtCovering = [];
+  if (req.user.role === 'crt') {
+    const myCrtBookings = await dbAll(
+      "SELECT a.*, u.name as staff_name, u.area as staff_area FROM absences a JOIN users u ON a.staff_id = u.id WHERE a.assigned_crt_id = ? AND a.date_start <= ? AND a.date_end >= ? AND a.status = 'booked'",
+      userId, date, date);
+    for (const booking of myCrtBookings) {
+      // Look up the absent teacher's classes for this day
+      let theirClasses = [];
+      try { theirClasses = await lookupClassesForStaff(booking.staff_id, date); } catch(e) {}
+      // Look up their yard duties
+      const theirDuties = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ? AND staff_name = ?', dayName, booking.staff_name);
+      crtCovering.push({
+        staffName: booking.staff_name,
+        staffArea: booking.staff_area,
+        classes: booking.classes || '',
+        timetableClasses: theirClasses,
+        duties: theirDuties,
+        halfDay: booking.half_day || 'full'
+      });
+    }
+  }
+
   // Swap requests involving me
   const mySwaps = await dbAll(
     "SELECT * FROM yard_duty_swaps WHERE date = ? AND (requester_id = ? OR requested_staff_name = ?)",
@@ -1348,6 +1371,7 @@ app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
     swaps: mySwaps,
     myCoverage,
     nft: coveredByMe.length > 0 ? coveredByMe.map(a => ({ staffName: a.staff_name, classes: a.classes })) : [],
+    crtCovering,
     dayConfirmed,
     confirmedBy
   });

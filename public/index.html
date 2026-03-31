@@ -894,45 +894,68 @@
           // Today/Tomorrow toggle
           h+='<div class="tog" style="margin-bottom:10px"><button class="'+(isToday?'act':'')+'" onclick="app.loadMyDay(\''+localToday()+'\')">Today</button><button class="'+(isTomorrow?'act':'')+'" onclick="app.loadMyDay(\''+tomorrowStr+'\')">Tomorrow</button></div>';
 
-          // Classes section
-          if(d.classes&&d.classes.length>0){
-            h+='<div style="margin-bottom:10px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">📚 My Classes</div>';
+          // CRT covering section — show what they're covering today
+          const isCRT=state.user.role==='crt';
+          if(isCRT&&d.crtCovering&&d.crtCovering.length>0){
+            d.crtCovering.forEach(cov=>{
+              h+='<div style="margin-bottom:10px;padding:8px 10px;background:linear-gradient(135deg,#e3f2fd,#e8eaf6);border-radius:8px;border:1px solid #90caf9"><div style="font-weight:700;font-size:.82rem;color:#1565c0;margin-bottom:6px">📋 Covering for '+this.esc(cov.staffName)+' ('+this.esc(cov.staffArea)+')</div>';
+              h+='<div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">📚 Classes to Take</div>';
+              if(cov.timetableClasses&&cov.timetableClasses.length>0){
+                cov.timetableClasses.forEach(cl=>{h+='<div style="padding:4px 10px;background:rgba(255,255,255,.6);border-radius:6px;margin-bottom:2px;font-size:.84rem"><strong>'+this.esc(cl)+'</strong></div>'});
+              }else{
+                h+='<div style="font-size:.84rem;color:var(--dim);padding:4px 10px">Class: '+this.esc(cov.classes||'See office')+'</div>';
+              }
+              if(cov.duties&&cov.duties.length>0){
+                h+='<div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin:8px 0 4px">🏃 Yard Duties to Cover</div>';
+                cov.duties.forEach(duty=>{h+='<div style="padding:4px 10px;background:rgba(255,255,255,.6);border-radius:6px;margin-bottom:2px;font-size:.84rem"><strong>'+this.esc(duty.time_slot)+'</strong> — '+this.esc(duty.location)+'</div>'});
+              }
+              h+='</div>';
+            });
+          }else if(isCRT){
+            h+='<div style="margin-bottom:10px;padding:10px;background:var(--bg);border-radius:8px;font-size:.84rem;color:var(--dim);text-align:center">No bookings for this day</div>';
+          }
+
+          // Classes section (staff/leaders)
+          if(!isCRT){
+            if(d.classes&&d.classes.length>0){
+              h+='<div style="margin-bottom:10px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">📚 My Classes</div>';
+              if(d.absent&&d.myCoverage&&d.myCoverage.covered){
+                h+='<div style="padding:6px 10px;background:#f0fff4;border-radius:8px;font-size:.84rem;border:1px solid #c6f6d5"><span style="color:var(--ok);font-weight:600">✅ Covered by '+this.esc(d.myCoverage.crtName)+'</span></div>';
+                h+='<div style="padding:4px 10px;font-size:.82rem;color:var(--dim)">'+d.classes.map(c=>c.class||c).join(', ')+'</div>';
+              }else{
+                d.classes.forEach(c=>{h+='<div style="padding:4px 10px;background:var(--bg);border-radius:6px;margin-bottom:2px;font-size:.84rem">'+(c.time?'<span style="color:var(--dim);min-width:70px;display:inline-block">'+this.esc(c.time)+'</span>':'')+' <strong>'+this.esc(c.class||c)+'</strong></div>'});
+              }
+              h+='</div>';
+            }else if(!d.absent){
+              h+='<div style="margin-bottom:10px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">📚 My Classes</div><div style="font-size:.84rem;color:var(--dim);padding:4px 10px">No classes scheduled</div></div>';
+            }
+
+            // NFT section
             if(d.absent&&d.myCoverage&&d.myCoverage.covered){
-              h+='<div style="padding:6px 10px;background:#f0fff4;border-radius:8px;font-size:.84rem;border:1px solid #c6f6d5"><span style="color:var(--ok);font-weight:600">✅ Covered by '+this.esc(d.myCoverage.crtName)+'</span></div>';
-              h+='<div style="padding:4px 10px;font-size:.82rem;color:var(--dim)">'+d.classes.map(c=>c.class||c).join(', ')+'</div>';
+              h+='<div style="margin-bottom:10px;padding:8px 10px;background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border-radius:8px;border:1px solid #a5d6a7"><div style="font-weight:700;font-size:.82rem;color:#2e7d32">🎉 NFT — Non Face-to-Face Time</div><div style="font-size:.82rem;color:#388e3c;margin-top:2px">Your classes are covered by '+this.esc(d.myCoverage.crtName)+'</div></div>';
+            }else if(d.coveringDuties&&d.coveringDuties.length>0){
+              h+='<div style="margin-bottom:10px;padding:8px 10px;background:linear-gradient(135deg,#fff3e0,#fff8e1);border-radius:8px;border:1px solid #ffe0b2"><div style="font-weight:700;font-size:.82rem;color:#e65100">📋 Covering Extra Duties</div>';
+              d.coveringDuties.forEach(cd=>{h+='<div style="font-size:.82rem;color:#bf360c;margin-top:2px">'+this.esc(cd.time_slot)+' at '+this.esc(cd.location)+' (covering for '+this.esc(cd.original_staff||'absent staff')+')</div>'});
+              h+='</div>';
+            }
+
+            // Yard Duty section
+            if(d.duties&&d.duties.length>0){
+              h+='<div style="margin-bottom:6px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">🏃 Yard Duty</div>';
+              const dutyChanges=d.dutyChanges||[];
+              d.duties.forEach(duty=>{
+                const change=dutyChanges.find(c=>c.time_slot===duty.time_slot&&c.location===duty.location);
+                const covered=change&&change.replacement;
+                h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:'+(covered?'#f0fff4':'var(--bg)')+';border-radius:6px;margin-bottom:2px;font-size:.84rem"><div><strong>'+this.esc(duty.time_slot)+'</strong> — '+this.esc(duty.location)+'</div>';
+                if(covered){h+='<span style="color:var(--ok);font-weight:600;font-size:.8rem">✅ Covered by '+this.esc(change.replacement)+'</span>'}
+                h+='</div>'});
+              if(d.duties.every(duty=>{const ch=dutyChanges.find(c=>c.time_slot===duty.time_slot&&c.location===duty.location);return ch&&ch.replacement})){
+                h+='<div style="padding:6px 10px;font-size:.82rem;color:var(--ok);font-weight:600">🎉 All your duties are covered — NFT!</div>';
+              }
+              h+='</div>';
             }else{
-              d.classes.forEach(c=>{h+='<div style="padding:4px 10px;background:var(--bg);border-radius:6px;margin-bottom:2px;font-size:.84rem">'+(c.time?'<span style="color:var(--dim);min-width:70px;display:inline-block">'+this.esc(c.time)+'</span>':'')+' <strong>'+this.esc(c.class||c)+'</strong></div>'});
+              h+='<div style="margin-bottom:6px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">🏃 Yard Duty</div><div style="font-size:.84rem;color:var(--dim);padding:4px 10px">No yard duty ✓</div></div>';
             }
-            h+='</div>';
-          }else if(!d.absent){
-            h+='<div style="margin-bottom:10px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">📚 My Classes</div><div style="font-size:.84rem;color:var(--dim);padding:4px 10px">No classes scheduled</div></div>';
-          }
-
-          // NFT section
-          if(d.absent&&d.myCoverage&&d.myCoverage.covered){
-            h+='<div style="margin-bottom:10px;padding:8px 10px;background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border-radius:8px;border:1px solid #a5d6a7"><div style="font-weight:700;font-size:.82rem;color:#2e7d32">🎉 NFT — Non Face-to-Face Time</div><div style="font-size:.82rem;color:#388e3c;margin-top:2px">Your classes are covered by '+this.esc(d.myCoverage.crtName)+'</div></div>';
-          }else if(d.coveringDuties&&d.coveringDuties.length>0){
-            h+='<div style="margin-bottom:10px;padding:8px 10px;background:linear-gradient(135deg,#fff3e0,#fff8e1);border-radius:8px;border:1px solid #ffe0b2"><div style="font-weight:700;font-size:.82rem;color:#e65100">📋 Covering Extra Duties</div>';
-            d.coveringDuties.forEach(cd=>{h+='<div style="font-size:.82rem;color:#bf360c;margin-top:2px">'+this.esc(cd.time_slot)+' at '+this.esc(cd.location)+' (covering for '+this.esc(cd.original_staff||'absent staff')+')</div>'});
-            h+='</div>';
-          }
-
-          // Yard Duty section
-          if(d.duties&&d.duties.length>0){
-            h+='<div style="margin-bottom:6px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">🏃 Yard Duty</div>';
-            const dutyChanges=d.dutyChanges||[];
-            d.duties.forEach(duty=>{
-              const change=dutyChanges.find(c=>c.time_slot===duty.time_slot&&c.location===duty.location);
-              const covered=change&&change.replacement;
-              h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:'+(covered?'#f0fff4':'var(--bg)')+';border-radius:6px;margin-bottom:2px;font-size:.84rem"><div><strong>'+this.esc(duty.time_slot)+'</strong> — '+this.esc(duty.location)+'</div>';
-              if(covered){h+='<span style="color:var(--ok);font-weight:600;font-size:.8rem">✅ Covered by '+this.esc(change.replacement)+'</span>'}
-              h+='</div>'});
-            if(d.duties.every(duty=>{const ch=dutyChanges.find(c=>c.time_slot===duty.time_slot&&c.location===duty.location);return ch&&ch.replacement})){
-              h+='<div style="padding:6px 10px;font-size:.82rem;color:var(--ok);font-weight:600">🎉 All your duties are covered — NFT!</div>';
-            }
-            h+='</div>';
-          }else{
-            h+='<div style="margin-bottom:6px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">🏃 Yard Duty</div><div style="font-size:.84rem;color:var(--dim);padding:4px 10px">No yard duty ✓</div></div>';
           }
 
           // Confirm Day button (leaders only)
