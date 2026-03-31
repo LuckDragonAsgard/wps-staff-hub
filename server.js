@@ -1635,8 +1635,9 @@ async function notifySpecialists(absence) {
       const timeSlot = String(rowValues[0] || '');
 
       for (let ci = 1; ci < headers.length; ci++) {
-        const cellValue = String(rowValues[ci] || '').toLowerCase();
-        if (!cellValue || cellValue === '-' || cellValue === 'nft' || cellValue === 'planning') continue;
+        const cellRaw = String(rowValues[ci] || '').trim();
+        const cellValue = cellRaw.toLowerCase();
+        if (!cellValue || cellValue === '-' || ['nft','planning','recess','lunch','assembly','duty','easter','hat parade','good friday','resources',''].includes(cellValue)) continue;
 
         // Check if this cell references the absent teacher's class/area
         // Match on: staff name, class name from the classes field, or area keywords
@@ -1678,7 +1679,7 @@ async function notifySpecialists(absence) {
             if (!existing) {
               await dbRun(
                 'INSERT INTO class_absence_alerts (date, specialist_name, time_slot, class_name, absent_staff_id, absent_staff_name, absence_id, timetable_id) VALUES (?,?,?,?,?,?,?,?)',
-                [date, specialistName, timeSlot, cellValue, absence.staff_id, staffName, absence.id, tt.id]
+                [date, specialistName, timeSlot, cellRaw, absence.staff_id, staffName, absence.id, tt.id]
               );
               alertCount++;
             }
@@ -1693,7 +1694,7 @@ async function notifySpecialists(absence) {
             if (specUser) {
               await sendPushNotification(specUser.id, 'staff',
                 '⚠️ Class Cancelled',
-                `${staffName}'s class (${cellValue}) won't be in for ${specialistName} at ${timeSlot} on ${date}. ${staffName} is away — ${absence.reason}.`
+                `${staffName}'s class (${cellRaw}) won't be in for ${specialistName} at ${timeSlot} on ${date}. ${staffName} is away — ${absence.reason}.`
               );
             }
           } catch(e) { /* push is best-effort */ }

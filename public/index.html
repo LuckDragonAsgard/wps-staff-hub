@@ -514,7 +514,7 @@
             Object.entries(specGroups).forEach(([name,alerts])=>{
               h+='<div style="margin-bottom:8px"><div style="font-weight:600;font-size:.84rem;color:var(--navy)">'+this.esc(name)+'</div>';
               alerts.forEach(al=>{
-                h+='<div style="font-size:.82rem;padding:3px 0 3px 12px;border-left:2px solid var(--warn)"><span style="font-weight:600">'+this.esc(al.time_slot)+'</span> — <span style="text-decoration:line-through;color:var(--dim)">'+this.esc(al.class_name)+'</span> <span style="color:var(--acc);font-size:.76rem">('+this.esc(al.absent_staff_name)+' away)</span></div>'});
+                h+='<div style="font-size:.82rem;padding:3px 0 3px 12px;border-left:2px solid var(--warn)"><span style="font-weight:600">'+this.esc(al.time_slot)+'</span> — <span style="text-decoration:line-through;color:var(--dim)">'+this.esc(this.cleanClass(al.class_name))+'</span> <span style="color:var(--acc);font-size:.76rem">('+this.esc(al.absent_staff_name)+' away)</span></div>'});
               h+='</div>'});
             h+='</div>'}
 
@@ -570,6 +570,7 @@
       zapNav(dir){const d=new Date(state.zapDate+'T12:00:00');d.setDate(d.getDate()+dir);state.zapDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');this.loadZap()},
 
       esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')},
+      cleanClass(s){if(!s)return'';let c=String(s).trim();c=c.replace(/^(pe|art|music|french|perf\s*arts?|extra)\s*[-–—:]\s*/i,'');c=c.replace(/\b(prep)\b/gi,'Prep').replace(/\b(\d\/\d[a-z])\b/gi,m=>m.toUpperCase());if(c.length>0)c=c[0].toUpperCase()+c.slice(1);return c},
 
       async toggleTimetable(id){
         const el=document.getElementById('tt-'+id);if(!el)return;
@@ -862,7 +863,7 @@
           if(d.specialistAlerts&&d.specialistAlerts.length>0){
             h+='<div class="cd" style="border-left:4px solid var(--blue)"><h3 style="color:var(--blue)">🔔 '+d.specialistAlerts.length+' Specialist Alert'+(d.specialistAlerts.length>1?'s':'')+'</h3>';
             const grouped={};d.specialistAlerts.forEach(a=>{(grouped[a.specialist_name]=grouped[a.specialist_name]||[]).push(a)});
-            Object.entries(grouped).forEach(([name,alerts])=>{h+='<div style="padding:6px 0;border-bottom:1px solid var(--bdr);font-size:.84rem"><strong>'+this.esc(name)+'</strong>: '+alerts.map(a=>this.esc(a.class_name||a.alert_type)).join(', ')+'</div>'});
+            Object.entries(grouped).forEach(([name,alerts])=>{h+='<div style="padding:6px 0;border-bottom:1px solid var(--bdr);font-size:.84rem"><strong>'+this.esc(name)+'</strong>: '+alerts.map(a=>this.esc(this.cleanClass(a.class_name)||a.alert_type)).join(', ')+'</div>'});
             h+='</div>'}
           el.innerHTML=h||'<div class="cd" style="border-left:4px solid var(--ok)"><p style="font-size:.84rem;color:var(--ok);font-weight:600">✓ All systems green — no pending items</p></div>'
         }catch(e){el.innerHTML=''}},
