@@ -518,20 +518,25 @@
 
       async toggleTimetable(id){
         const el=document.getElementById('tt-'+id);if(!el)return;
-        if(el.classList.contains('open')){el.classList.remove('open');return}
-        el.classList.add('open');
+        if(el.classList.contains('open')){el.classList.remove('open');el.style.display='none';return}
+        el.classList.add('open');el.style.display='block';
+        el.innerHTML='<div class="loading" style="padding:12px;font-size:.82rem">Loading timetable...</div>';
         try{
           const tt=await this.fetchAPI('GET','/timetables/'+id);
           let headers,rows;
           if(tt.data&&tt.data.headers&&tt.data.rows){
             headers=tt.data.headers;rows=tt.data.rows;
           }else if(Array.isArray(tt.data)&&tt.data.length>0){
-            headers=Object.keys(tt.data[0]);rows=tt.data.map(r=>headers.map(k=>r[k]||''));
-          }else{el.innerHTML='<p class="text-sm text-dim">No data</p>';return}
-          let h='<table><thead><tr>'+headers.map(h=>'<th>'+this.esc(h)+'</th>').join('')+'</tr></thead><tbody>';
-          rows.forEach(row=>{h+='<tr>'+(Array.isArray(row)?row:headers.map(k=>row[k]||'')).map(c=>'<td>'+this.esc(String(c))+'</td>').join('')+'</tr>'});
+            if(Array.isArray(tt.data[0])){headers=tt.data[0];rows=tt.data.slice(1)}
+            else{headers=Object.keys(tt.data[0]);rows=tt.data.map(r=>headers.map(k=>r[k]||''))}
+          }else if(typeof tt.data==='string'){
+            try{const parsed=JSON.parse(tt.data);if(parsed.headers){headers=parsed.headers;rows=parsed.rows}else{el.innerHTML='<p class="text-sm text-dim" style="padding:12px">No timetable data found. Upload one via Timetable Manager.</p>';return}}catch(e2){el.innerHTML='<p class="text-sm text-dim" style="padding:12px">Could not parse timetable data.</p>';return}
+          }else{el.innerHTML='<p class="text-sm text-dim" style="padding:12px">No timetable data found. Upload one via Timetable Manager.</p>';return}
+          if(!headers||headers.length===0){el.innerHTML='<p class="text-sm text-dim" style="padding:12px">Timetable is empty.</p>';return}
+          let h='<table><thead><tr>'+headers.map(h=>'<th>'+this.esc(String(h))+'</th>').join('')+'</tr></thead><tbody>';
+          rows.forEach(row=>{h+='<tr>'+(Array.isArray(row)?row:headers.map(k=>row[k]||'')).map(c=>'<td>'+this.esc(String(c||''))+'</td>').join('')+'</tr>'});
           h+='</tbody></table>';el.innerHTML=h;
-        }catch(e){el.innerHTML='<p style="color:var(--acc)">Error loading timetable</p>'}},
+        }catch(e){el.innerHTML='<p style="color:var(--acc);padding:12px">Error loading timetable: '+this.esc(e.message)+'</p>'}},
 
       // ===== ZAP EDITOR (Leaders) =====
       renderZapEditor(){
