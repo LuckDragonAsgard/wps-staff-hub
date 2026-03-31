@@ -536,7 +536,7 @@
                 const isAway=absentNames.some(n=>d.staff_name.toLowerCase().includes(n.split(' ')[0]));
                 const change=yd.changes.find(c=>c.time_slot===d.time_slot&&c.location===d.location);
                 h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 8px;font-size:.84rem;background:'+(isAway?'#fff5f5':'#fff')+';border-radius:6px;margin-bottom:2px"><div><span style="font-weight:600">'+this.esc(d.location)+'</span> <span style="color:var(--dim)">'+this.esc(d.staff_name)+'</span></div>';
-                if(change){h+='<span style="color:var(--ok);font-weight:600;font-size:.8rem">→ '+this.esc(change.replacement)+'</span>'}
+                if(change){const repAlsoAway=change.replacement&&absentNames.some(n=>change.replacement.toLowerCase().includes(n.split(' ')[0]));if(repAlsoAway){h+='<span style="color:var(--acc);font-weight:600;font-size:.8rem">⚠ '+this.esc(change.replacement)+' also away — Needs cover</span>'}else{h+='<span style="color:var(--ok);font-weight:600;font-size:.8rem">→ '+this.esc(change.replacement)+'</span>'}}
                 else if(isAway){h+='<span style="color:var(--acc);font-weight:600;font-size:.8rem">⚠ Needs cover</span>'}
                 h+='</div>'});
               h+='</div>'});
