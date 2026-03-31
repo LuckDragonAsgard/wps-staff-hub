@@ -587,7 +587,8 @@ app.post('/api/absences', auth, wrap(async (req, res) => {
   }
 
   if (notifyLeaders) {
-    const leaders = await dbAll("SELECT * FROM users WHERE role = 'leader' AND active = 1");
+    // TEMP TEST: Only notify Jacky Rooney (id=42) during testing
+    const leaders = await dbAll("SELECT * FROM users WHERE role = 'leader' AND active = 1 AND id = 42");
     for (const leader of leaders) {
       if (leaderSms && leader.phone) {
         await sendSMS(leader.phone, `WPS ABSENCE: ${staffUser.name} (${staffUser.area}) is absent ${dateStart}${halfLabel}. Reason: ${reason}.${autoContact ? ' CRT auto-booking in progress.' : ' Manual CRT assignment needed.'}`);
