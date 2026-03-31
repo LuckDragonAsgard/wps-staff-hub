@@ -270,7 +270,7 @@
     <div class="ui">
       <span id="userDisplay" style="font-size:.82rem;font-weight:500"></span>
       <span id="roleBadge" class="role-badge"></span>
-      <button onclick="app.logout()" title="Sign Out" style="background:none;border:none;cursor:pointer;font-size:1.1rem;padding:4px 6px;margin-left:4px;opacity:.8">🚪</button>
+      <button onclick="app.logout()" title="Sign Out" style="background:rgba(231,76,60,.15);border:1px solid rgba(231,76,60,.3);cursor:pointer;font-size:.72rem;padding:5px 10px;margin-left:6px;border-radius:8px;color:#e74c3c;font-weight:700;display:inline-flex;align-items:center;gap:4px">🚪 Logout</button>
     </div>
   </nav>
 
@@ -471,11 +471,11 @@
             const absentNames=data.absences.map(a=>a.staff_name.toLowerCase());
             const slots={};
             yd.roster.forEach(r=>{if(!slots[r.time_slot])slots[r.time_slot]=[];slots[r.time_slot].push(r)});
-            const slotLabels={'before_school':'Before School (8:45-9:00)','recess_1':'Recess 1 (11:00-11:15)','recess_2':'Recess 2 (11:15-11:30)','lunch_eating':'Lunch Eating (1:30-1:40)','lunch_1':'Lunch 1 (1:40-2:10)','lunch_2':'Lunch 2 (2:10-2:30)','after_school':'After School (3:30-3:45)'};
-            const slotOrder=['before_school','recess_1','recess_2','lunch_eating','lunch_1','lunch_2','after_school'];
+            const slotRank=s=>{const l=s.toLowerCase();if(l.includes('8:45')||l.includes('before'))return 1;if(l.includes('recess')&&l.includes('11:10')||l==='recess_1')return 2;if(l.includes('recess')&&l.includes('11:20')||l==='recess_2')return 3;if(l.includes('recess'))return 2;if(l.includes('lunch')&&(l.includes('1:40')||l.includes('eating'))||l==='lunch_eating'||l==='lunch_1')return 4;if(l.includes('lunch')&&l.includes('2:00')||l==='lunch_2')return 5;if(l.includes('3:30')||l.includes('after'))return 6;return 3};
+            const sortedSlots=Object.keys(slots).sort((a,b)=>slotRank(a)-slotRank(b));
             h+='<div class="zap-duty-grid">';
-            slotOrder.filter(s=>slots[s]).forEach(slot=>{const duties=slots[slot];
-              h+='<div class="zap-duty-slot"><div class="slot-label">'+(slotLabels[slot]||slot)+'</div>';
+            sortedSlots.forEach(slot=>{const duties=slots[slot];
+              h+='<div class="zap-duty-slot"><div class="slot-label">'+slot.replace(/_/g,' ')+'</div>';
               duties.forEach(d=>{
                 const isAway=absentNames.some(n=>d.staff_name.toLowerCase().includes(n.split(' ')[0]));
                 const change=yd.changes.find(c=>c.time_slot===d.time_slot&&c.location===d.location);
@@ -597,11 +597,11 @@
           const roster=await this.fetchAPI('GET','/yard-duty/roster?term='+term);
           if(roster.length===0){body.innerHTML='<div class="empty"><div class="ei">🏃</div><p>No yard duty assigned yet for this term.<br><span style="font-size:.82rem;color:var(--dim)">Tap "+ Assign Yard Duty" above to get started.</span></p></div>';return}
           const days={};roster.forEach(r=>{if(!days[r.day_of_week])days[r.day_of_week]=[];days[r.day_of_week].push(r)});
-          const slotOrder=['before_school','recess_1','recess_2','lunch_eating','lunch_1','lunch_2','after_school'];
+          const slotRank=s=>{const l=s.toLowerCase();if(l.includes('8:45')||l.includes('before'))return 1;if(l.includes('recess')&&l.includes('11:10')||l==='recess_1')return 2;if(l.includes('recess')&&l.includes('11:20')||l==='recess_2')return 3;if(l.includes('recess'))return 2;if(l.includes('lunch')&&(l.includes('1:40')||l.includes('eating'))||l==='lunch_eating'||l==='lunch_1')return 4;if(l.includes('lunch')&&l.includes('2:00')||l==='lunch_2')return 5;if(l.includes('3:30')||l.includes('after'))return 6;return 3};
           const dayOrder=['Monday','Tuesday','Wednesday','Thursday','Friday'];
           let h='';
           dayOrder.filter(d=>days[d]).forEach(day=>{const entries=days[day];
-            entries.sort((a,b)=>slotOrder.indexOf(a.time_slot)-slotOrder.indexOf(b.time_slot));
+            entries.sort((a,b)=>slotRank(a.time_slot)-slotRank(b.time_slot));
             h+='<h4 style="font-size:.85rem;color:var(--navy);margin:12px 0 6px">'+day+'</h4><table class="yd-manage-grid"><thead><tr><th>Time</th><th>Location</th><th>Staff</th><th></th></tr></thead><tbody>';
             entries.forEach(e=>{
               const slotLabels={'before_school':'Before School','recess_1':'Recess 1','recess_2':'Recess 2','lunch_eating':'Lunch Eating','lunch_1':'Lunch 1','lunch_2':'Lunch 2','after_school':'After School'};
@@ -727,7 +727,7 @@
           if(data&&data.headers&&data.rows){
             h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.78rem">';
             h+='<thead><tr>';data.headers.forEach(col=>{h+='<th style="padding:10px 8px;background:var(--navy);color:#fff;font-weight:700;white-space:nowrap;text-align:left;border:1px solid var(--pd)">'+this.esc(col)+'</th>'});h+='</tr></thead><tbody>';
-            data.rows.forEach((row,ri)=>{h+='<tr style="background:'+(ri%2===0?'#fff':'var(--bg)')+'">'; data.headers.forEach(col=>{const cell=row[col]||'';const hasClass=cell&&cell.length>0&&col!=='Time'&&col!=='Period';h+='<td style="padding:8px;border:1px solid var(--bdr);'+(hasClass?'font-weight:600;color:var(--navy)':'color:var(--dim)')+'">'+this.esc(cell)+'</td>'});h+='</tr>'});
+            data.rows.forEach((row,ri)=>{h+='<tr style="background:'+(ri%2===0?'#fff':'var(--bg)')+'">'; data.headers.forEach((col,ci)=>{const cell=Array.isArray(row)?(row[ci]||''):(row[col]||'');const hasClass=cell&&cell.length>0&&col!=='Time'&&col!=='Period';h+='<td style="padding:8px;border:1px solid var(--bdr);'+(hasClass?'font-weight:600;color:var(--navy)':'color:var(--dim)')+'">'+this.esc(cell)+'</td>'});h+='</tr>'});
             h+='</tbody></table></div>'}
           else if(Array.isArray(data)&&data.length>0){
             const cols=Object.keys(data[0]);
@@ -2182,10 +2182,9 @@
           if(d.yardDuty.roster.length>0){
             h+='<div style="margin-bottom:14px"><div style="font-weight:700;font-size:.88rem;color:var(--navy);margin-bottom:8px">Yard Duty</div>';
             const slots={};d.yardDuty.roster.forEach(r=>{if(!slots[r.time_slot])slots[r.time_slot]=[];slots[r.time_slot].push(r)});
-            const _so=['before_school','recess_1','recess_2','lunch_eating','lunch_1','lunch_2','after_school'];
-            const _sl={'before_school':'Before School','recess_1':'Recess 1','recess_2':'Recess 2','lunch_eating':'Lunch Eating','lunch_1':'Lunch 1','lunch_2':'Lunch 2','after_school':'After School'};
-            _so.filter(s=>slots[s]).forEach(slot=>{const duties=slots[slot];
-              h+='<div style="margin-bottom:6px"><div style="font-weight:600;font-size:.82rem">'+(_sl[slot]||slot)+'</div>';
+            const _sr=s=>{const l=s.toLowerCase();if(l.includes('8:45')||l.includes('before'))return 1;if(l.includes('recess')&&l.includes('11:10'))return 2;if(l.includes('recess')&&l.includes('11:20'))return 3;if(l.includes('recess'))return 2;if(l.includes('lunch')&&(l.includes('1:40')||l.includes('eating')))return 4;if(l.includes('lunch')&&l.includes('2:00'))return 5;if(l.includes('3:30')||l.includes('after'))return 6;return 3};
+            Object.keys(slots).sort((a,b)=>_sr(a)-_sr(b)).forEach(slot=>{const duties=slots[slot];
+              h+='<div style="margin-bottom:6px"><div style="font-weight:600;font-size:.82rem">'+slot.replace(/_/g,' ')+'</div>';
               duties.forEach(d2=>{
                 const isAway=d.absentStaff.some(n=>d2.staff_name.toLowerCase().includes(n.toLowerCase().split(' ')[0]));
                 const change=d.yardDuty.changes.find(c=>c.time_slot===d2.time_slot&&c.location===d2.location);
