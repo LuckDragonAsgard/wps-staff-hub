@@ -580,7 +580,7 @@ app.post('/api/absences', auth, wrap(async (req, res) => {
   if (!finalClasses) {
     try {
       const autoClasses = await lookupClassesForStaff(staffUser.id, dateStart);
-      if (autoClasses.length > 0) finalClasses = autoClasses.join(', ');
+      if (autoClasses.length > 0) finalClasses = autoClasses.map(c => c.class || c).join(', ');
     } catch(e) { console.log('Timetable class lookup skipped:', e.message); }
   }
 
@@ -606,8 +606,7 @@ app.post('/api/absences', auth, wrap(async (req, res) => {
   }
 
   if (notifyLeaders) {
-    // TEMP TEST: Only notify Jacky Rooney (id=42) during testing
-    const leaders = await dbAll("SELECT * FROM users WHERE role = 'leader' AND active = 1 AND id = 42");
+    const leaders = await dbAll("SELECT * FROM users WHERE role = 'leader' AND active = 1");
     for (const leader of leaders) {
       if (leaderSms && leader.phone) {
         await sendSMS(leader.phone, `WPS ABSENCE: ${staffUser.name} (${staffUser.area}) is absent ${dateStart}${halfLabel}. Reason: ${reason}.${autoContact ? ' CRT auto-booking in progress.' : ' Manual CRT assignment needed.'}`);
@@ -1305,27 +1304,36 @@ app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
   const dayName = dayNames[d.getDay()];
   const userName = req.user.name;
   const userId = req.user.id;
+  const firstName = userName.split(' ')[0].toLowerCase();
 
-  // My yard duties (base roster + changes)
-  const myDuties = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ? AND staff_name = ?', dayName, userName);
+  // Yard duty roster uses FIRST NAMES only — must match with LIKE
+  const allRoster = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ?', dayName);
+  const myDuties = allRoster.filter(r => r.staff_name.toLowerCase() === firstName || r.staff_name.toLowerCase().includes(firstName));
+
   const dutyChanges = await dbAll('SELECT * FROM yard_duty_changes WHERE date = ?', date);
 
-  // Am I covering anyone else's duty?
-  const coveringDuties = dutyChanges.filter(c => c.replacement && c.replacement.toLowerCase().includes(userName.toLowerCase().split(' ')[0]));
+  // Duty changes where I'm the replacement (covering someone else)
+  const coveringDuties = dutyChanges.filter(c => c.replacement && c.replacement.toLowerCase().includes(firstName));
+
+  // Duty changes for MY duties (someone covering me)
+  const myDutyChanges = dutyChanges.filter(c => c.original_staff && c.original_staff.toLowerCase().includes(firstName));
 
   // Am I absent? (include CRT name via join)
   const myAbsence = await dbGet("SELECT a.*, c.name as crt_name FROM absences a LEFT JOIN crts c ON a.assigned_crt_id = c.id WHERE a.staff_id = ? AND a.date_start <= ? AND a.date_end >= ? AND a.status != 'cancelled'", userId, date, date);
 
-  // My timetable classes for this day (uses enhanced area-aware lookup)
+  // My timetable classes for this day
   let myClasses = [];
   try {
-    myClasses = (await lookupClassesForStaff(userId, date)).map(c => ({ class: c }));
+    myClasses = await lookupClassesForStaff(userId, date);
   } catch(e) {}
 
-  // Check if any of my classes are being covered (gives me NFT)
+  // All absences today (for NFT calculation)
   const allAbsToday = await dbAll("SELECT a.*, u.name as staff_name, c.name as crt_name FROM absences a JOIN users u ON a.staff_id = u.id LEFT JOIN crts c ON a.assigned_crt_id = c.id WHERE a.date_start <= ? AND a.date_end >= ? AND a.status != 'cancelled'", date, date);
-  const coveredByMe = allAbsToday.filter(a => a.crt_name && a.crt_name.toLowerCase().includes(userName.toLowerCase().split(' ')[0]));
-  // Am I being covered? (someone is subbing my classes)
+
+  // NFT: am I covering someone else's classes? (I'm the CRT for their absence)
+  const coveredByMe = allAbsToday.filter(a => a.crt_name && a.crt_name.toLowerCase().includes(firstName));
+
+  // Am I being covered? (someone is subbing my classes because I'm absent)
   const myCoverage = myAbsence && myAbsence.status === 'booked' ? { covered: true, crtName: myAbsence.crt_name || '' } : null;
 
   // CRT covering info: what absences am I booked for today?
@@ -1335,11 +1343,11 @@ app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
       "SELECT a.*, u.name as staff_name, u.area as staff_area FROM absences a JOIN users u ON a.staff_id = u.id WHERE a.assigned_crt_id = ? AND a.date_start <= ? AND a.date_end >= ? AND a.status = 'booked'",
       userId, date, date);
     for (const booking of myCrtBookings) {
-      // Look up the absent teacher's classes for this day
       let theirClasses = [];
       try { theirClasses = await lookupClassesForStaff(booking.staff_id, date); } catch(e) {}
-      // Look up their yard duties
-      const theirDuties = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ? AND staff_name = ?', dayName, booking.staff_name);
+      // Roster uses first names — match on first name of absent staff
+      const absentFirst = booking.staff_name.split(' ')[0].toLowerCase();
+      const theirDuties = allRoster.filter(r => r.staff_name.toLowerCase() === absentFirst || r.staff_name.toLowerCase().includes(absentFirst));
       crtCovering.push({
         staffName: booking.staff_name,
         staffArea: booking.staff_area,
@@ -1365,7 +1373,7 @@ app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
     date, dayName, userName,
     absent: myAbsence || null,
     duties: myDuties,
-    dutyChanges: dutyChanges.filter(c => c.original_staff && c.original_staff.toLowerCase().includes(userName.toLowerCase().split(' ')[0])),
+    dutyChanges: myDutyChanges,
     coveringDuties,
     classes: myClasses,
     swaps: mySwaps,
@@ -1823,7 +1831,7 @@ app.post('/api/timetables/from-csv', auth, leaderOnly, wrap(async (req, res) => 
 }));
 
 // ===== TIMETABLE CLASS LOOKUP =====
-// Given a staff member and date, scan all current timetables to find which classes they teach that day
+// Returns array of {time, class} objects for the given staff member on the given date
 async function lookupClassesForStaff(staffId, date) {
   const user = await dbGet('SELECT id, name, area FROM users WHERE id = ?', staffId);
   if (!user) return [];
@@ -1832,16 +1840,16 @@ async function lookupClassesForStaff(staffId, date) {
   const d = new Date(date + 'T12:00:00');
   const dayName = dayNames[d.getDay()].toLowerCase();
 
-  // Get all current timetables (general + specialist, NOT yard_duty)
   const timetables = await dbAll("SELECT * FROM timetables WHERE is_current = 1 AND type != 'yard_duty'");
   if (timetables.length === 0) return [];
 
   const staffName = user.name.toLowerCase();
   const staffFirst = staffName.split(' ')[0];
   const staffLast = staffName.split(' ').slice(1).join(' ');
-  // Build area keywords for specialist matching (e.g. "PE / Health" → ["pe", "health"])
   const areaKeywords = user.area ? user.area.toLowerCase().split(/[\s\/,&]+/).filter(w => w.length > 1) : [];
-  const classes = [];
+  const classes = []; // Array of {time, class} objects
+
+  const skip = ['nft','planning','recess','lunch','assembly','duty','easter','hat parade','good friday','resources',''];
 
   for (const tt of timetables) {
     let data;
@@ -1851,14 +1859,13 @@ async function lookupClassesForStaff(staffId, date) {
     const headers = data.headers;
     const rows = data.rows;
 
-    // Check if a header column matches the staff member's name OR area
+    // Find this staff member's column
     let staffColIndex = -1;
     for (let ci = 0; ci < headers.length; ci++) {
       const h = headers[ci].toLowerCase().trim();
       if (h === staffName) { staffColIndex = ci; break; }
       if (staffFirst.length > 2 && h.includes(staffFirst)) { staffColIndex = ci; break; }
       if (staffLast.length > 2 && h.includes(staffLast)) { staffColIndex = ci; break; }
-      // Match specialist area keywords (e.g. PE, Art, Music, French)
       if (tt.type === 'specialist' && areaKeywords.length > 0) {
         for (const kw of areaKeywords) {
           if (h === kw || (kw.length > 2 && h.includes(kw))) { staffColIndex = ci; break; }
@@ -1867,7 +1874,6 @@ async function lookupClassesForStaff(staffId, date) {
       }
     }
 
-    // If staff has a dedicated column, read their classes for the correct day
     if (staffColIndex >= 0) {
       let inCorrectDay = false;
       let dayRowStarted = false;
@@ -1876,16 +1882,13 @@ async function lookupClassesForStaff(staffId, date) {
         const rowValues = Array.isArray(row) ? row : headers.map(h2 => row[h2] || '');
         const firstCell = String(rowValues[0] || '').trim().toLowerCase();
 
-        // Day header row (may also contain data for classroom teacher timetables)
         if (['monday','tuesday','wednesday','thursday','friday'].includes(firstCell)) {
           inCorrectDay = firstCell === dayName;
           dayRowStarted = true;
-          // Check if this day row ALSO has class data (classroom teacher timetable format)
           if (inCorrectDay) {
             const cellValue = String(rowValues[staffColIndex] || '').trim();
-            const skip2 = ['nft','planning','recess','lunch','assembly','duty','easter','hat parade','good friday','resources',''];
-            if (cellValue && cellValue !== '-' && !skip2.includes(cellValue.toLowerCase())) {
-              if (!classes.includes(cellValue)) classes.push(cellValue);
+            if (cellValue && cellValue !== '-' && !skip.includes(cellValue.toLowerCase())) {
+              classes.push({ time: '', class: cellValue });
             }
           }
           continue;
@@ -1894,38 +1897,30 @@ async function lookupClassesForStaff(staffId, date) {
         if (!inCorrectDay) continue;
 
         const cellValue = String(rowValues[staffColIndex] || '').trim();
-        const skip = ['nft','planning','recess','lunch','assembly','duty','easter','hat parade','good friday','resources',''];
         if (cellValue && cellValue !== '-' && !skip.includes(cellValue.toLowerCase())) {
-          // This is a class the teacher teaches at this time slot
-          if (!classes.includes(cellValue)) classes.push(cellValue);
+          const timeSlot = String(rowValues[0] || '').trim();
+          classes.push({ time: timeSlot, class: cellValue });
         }
       }
     }
 
-    // Also scan all cells for the teacher's name (e.g. specialist timetables where cells contain teacher names)
+    // Fallback: scan cells for teacher name references
     if (staffColIndex < 0) {
       let inCorrectDay = false;
       let dayRowStarted = false;
-
       for (const row of rows) {
         const rowValues = Array.isArray(row) ? row : headers.map(h2 => row[h2] || '');
         const firstCell = String(rowValues[0] || '').trim().toLowerCase();
-
         if (['monday','tuesday','wednesday','thursday','friday'].includes(firstCell)) {
-          inCorrectDay = firstCell === dayName;
-          dayRowStarted = true;
-          continue;
+          inCorrectDay = firstCell === dayName; dayRowStarted = true; continue;
         }
         if (!dayRowStarted) inCorrectDay = true;
         if (!inCorrectDay) continue;
-
         for (let ci = 1; ci < rowValues.length; ci++) {
-          const cellValue = String(rowValues[ci] || '').trim();
-          const cellLower = cellValue.toLowerCase();
+          const cellLower = String(rowValues[ci] || '').trim().toLowerCase();
           if (staffFirst.length > 2 && cellLower.includes(staffFirst)) {
-            // The cell references this staff member — the header for this column is likely the class
             const className = headers[ci] || '';
-            if (className && !classes.includes(className)) classes.push(className);
+            if (className) classes.push({ time: String(rowValues[0] || '').trim(), class: className });
           }
         }
       }
@@ -1940,7 +1935,7 @@ app.get('/api/timetable/classes-for', auth, wrap(async (req, res) => {
   const { staffId, date } = req.query;
   if (!staffId || !date) return res.status(400).json({ error: 'staffId and date required' });
   const classes = await lookupClassesForStaff(parseInt(staffId), date);
-  res.json({ classes, classesText: classes.join(', ') });
+  res.json({ classes, classesText: classes.map(c => c.class || c).join(', ') });
 }));
 
 // Get all staff lesson plans (leader view)
