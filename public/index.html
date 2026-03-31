@@ -1429,7 +1429,29 @@
       async checkPushStatus(){
         if(!('serviceWorker' in navigator)||!('PushManager' in window)){state.pushSupported=false;return}
         state.pushSupported=true;
-        try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();state.pushSubscribed=!!sub}catch(e){state.pushSubscribed=false}},
+        try{
+          const reg=await navigator.serviceWorker.ready;
+          const sub=await reg.pushManager.getSubscription();
+          state.pushSubscribed=!!sub;
+          // Auto-prompt if not subscribed and permission not denied
+          if(!sub && Notification.permission !== 'denied'){
+            setTimeout(()=>{
+              if(Notification.permission === 'default'){
+                this._showPushPrompt();
+              } else if(Notification.permission === 'granted'){
+                this.setupPush();
+              }
+            }, 2000);
+          }
+        }catch(e){state.pushSubscribed=false}},
+
+      _showPushPrompt(){
+        const m=document.createElement('div');
+        m.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--card);border:2px solid var(--gold);border-radius:14px;padding:16px 20px;z-index:300;box-shadow:0 8px 30px rgba(0,0,0,.15);max-width:340px;width:90%;animation:fadeUp .3s';
+        m.innerHTML='<div style="display:flex;align-items:flex-start;gap:12px"><div style="font-size:1.6rem;flex-shrink:0">🔔</div><div><div style="font-weight:700;font-size:.92rem;color:var(--navy);margin-bottom:4px">Enable Notifications?</div><div style="font-size:.8rem;color:var(--dim);margin-bottom:10px">Get alerts for sick days, urgent help, and chat messages — even when the app is closed.</div><div style="display:flex;gap:8px"><button onclick="app.setupPush();this.closest(\'div[style]\').remove()" style="padding:6px 14px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:.8rem;cursor:pointer">Enable</button><button onclick="this.closest(\'div[style]\').remove()" style="padding:6px 14px;background:var(--bg);color:var(--dim);border:1px solid var(--bdr);border-radius:8px;font-size:.8rem;cursor:pointer">Later</button></div></div></div>';
+        document.body.appendChild(m);
+        setTimeout(()=>{if(m.parentNode)m.remove()},15000);
+      },
 
       // ===== DEMO GUIDE =====
       showDemoGuide(){

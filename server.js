@@ -211,8 +211,18 @@ async function addNotification(message, type, forRoles, absenceId) {
     const roles = (forRoles || 'leader').split(',').map(r => r.trim());
     const pushTitle = type === 'urgent' ? '🚨 WPS Staff Hub' : 'WPS Staff Hub';
     for (const role of roles) {
-      const userType = role === 'crt' ? 'crt' : 'staff';
-      const subs = await dbAll('SELECT DISTINCT user_id FROM push_subscriptions WHERE user_type = ?', userType);
+      const userType = role === 'crt' ? 'crt' : 'staff'; // leaders subscribe as 'staff' user_type
+      // Get subscribed users matching the target role(s)
+      let subs;
+      if (role === 'leader') {
+        subs = await dbAll(
+          `SELECT DISTINCT ps.user_id FROM push_subscriptions ps
+           INNER JOIN users u ON u.id = ps.user_id AND u.active = 1
+           WHERE ps.user_type = 'staff' AND u.role IN ('leader','admin')`
+        );
+      } else {
+        subs = await dbAll('SELECT DISTINCT user_id FROM push_subscriptions WHERE user_type = ?', userType);
+      }
       for (const s of subs) {
         // Check notification preferences - determine category from message content
         let category = 'general_updates';
@@ -2130,12 +2140,16 @@ app.post('/api/urgent-help', auth, wrap(async (req, res) => {
   // Add high-priority notification visible to leaders
   await addNotification(alertMsg, 'urgent', 'leader,admin');
 
-  // Send push notifications to ALL leaders
-  const leaders = await dbAll("SELECT id FROM users WHERE role IN ('leader','admin') AND active != 0");
+  // Send push notifications and SMS to ALL leaders (push user_type is 'staff' for non-CRTs)
+  const leaders = await dbAll("SELECT id, phone FROM users WHERE role IN ('leader','admin') AND active != 0");
   for (const leader of leaders) {
     try {
-      await sendPushNotification(leader.id, 'leader', '🚨 URGENT HELP NEEDED', alertMsg);
+      await sendPushNotification(leader.id, 'staff', '🚨 URGENT HELP NEEDED', alertMsg);
     } catch(e) { /* push may fail, continue */ }
+    // Also send SMS for urgent help
+    if (leader.phone) {
+      try { await sendSMS(leader.phone, alertMsg); } catch(e) {}
+    }
   }
 
   // Log it
@@ -2760,6 +2774,17 @@ app.post('/api/chat/groups/:id/messages', auth, wrap(async (req, res) => {
       await dbRun(`INSERT INTO chat_read_status (group_id, user_id, last_read_msg_id) VALUES (?, ?, ?)`, [groupId, userId, msg.id]);
     }
   } catch(e) { /* ok */ }
+
+  // Send push notifications to other group members
+  try {
+    const group = await dbGet(`SELECT name FROM chat_groups WHERE id = ?`, groupId);
+    const groupName = group ? group.name : 'Chat';
+    const members = await dbAll(`SELECT user_id FROM chat_group_members WHERE group_id = ? AND user_id != ?`, groupId, userId);
+    const truncMsg = message.trim().length > 80 ? message.trim().substring(0, 80) + '...' : message.trim();
+    for (const m of members) {
+      sendPushNotification(m.user_id, 'staff', `💬 ${groupName}`, `${req.user.name}: ${truncMsg}`).catch(() => {});
+    }
+  } catch(e) { /* push is best-effort */ }
 
   res.json(msg);
 }));
