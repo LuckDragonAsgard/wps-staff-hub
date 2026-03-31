@@ -1333,6 +1333,11 @@ app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
     "SELECT * FROM yard_duty_swaps WHERE date = ? AND (requester_id = ? OR requested_staff_name = ?)",
     date, userId, userName);
 
+  // Day confirmation status
+  const zapRow = await dbGet('SELECT day_confirmed, confirmed_by_name, confirmed_at FROM daily_zaps WHERE date = ?', date);
+  const dayConfirmed = zapRow && zapRow.day_confirmed === 1;
+  const confirmedBy = zapRow ? zapRow.confirmed_by_name || '' : '';
+
   res.json({
     date, dayName, userName,
     absent: myAbsence || null,
@@ -1342,7 +1347,9 @@ app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
     classes: myClasses,
     swaps: mySwaps,
     myCoverage,
-    nft: coveredByMe.length > 0 ? coveredByMe.map(a => ({ staffName: a.staff_name, classes: a.classes })) : []
+    nft: coveredByMe.length > 0 ? coveredByMe.map(a => ({ staffName: a.staff_name, classes: a.classes })) : [],
+    dayConfirmed,
+    confirmedBy
   });
 }));
 
@@ -1361,6 +1368,29 @@ app.post('/api/daily-zap/:date', auth, leaderOnly, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// Confirm/unconfirm day (leader only)
+app.put('/api/day-confirm/:date', auth, leaderOnly, wrap(async (req, res) => {
+  const date = req.params.date;
+  const confirm = (req.body.confirm !== false && req.body.confirmed !== false); // default true
+  const existing = await dbGet('SELECT id FROM daily_zaps WHERE date = ?', date);
+  if (existing) {
+    if (confirm) {
+      await dbRun('UPDATE daily_zaps SET day_confirmed = 1, confirmed_by = ?, confirmed_by_name = ?, confirmed_at = CURRENT_TIMESTAMP WHERE date = ?',
+        [req.user.id, req.user.name, date]);
+    } else {
+      await dbRun('UPDATE daily_zaps SET day_confirmed = 0, confirmed_by = NULL, confirmed_by_name = NULL, confirmed_at = NULL WHERE date = ?',
+        [date]);
+    }
+  } else {
+    // Create a minimal daily_zaps row with confirmation
+    if (confirm) {
+      await dbRun('INSERT INTO daily_zaps (date, day_confirmed, confirmed_by, confirmed_by_name, confirmed_at, created_by) VALUES (?, 1, ?, ?, CURRENT_TIMESTAMP, ?)',
+        [date, req.user.id, req.user.name, req.user.id]);
+    }
+  }
+  res.json({ ok: true, confirmed: confirm });
+}));
+
 // ===== YARD DUTY =====
 // Get full roster
 app.get('/api/yard-duty/roster', auth, wrap(async (req, res) => {
@@ -1368,7 +1398,7 @@ app.get('/api/yard-duty/roster', auth, wrap(async (req, res) => {
   let sql = 'SELECT * FROM yard_duty_roster';
   const params = [];
   if (term) { sql += ' WHERE term = ?'; params.push(parseInt(term)); }
-  sql += " ORDER BY CASE day_of_week WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3 WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 END, CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END, location";
+  sql += " ORDER BY CASE day_of_week WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3 WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 END, CASE time_slot WHEN '8:45-9:00' THEN 1 WHEN 'Recess 11:10' THEN 2 WHEN 'Recess 11:20' THEN 3 WHEN 'Lunch 1:40' THEN 4 WHEN 'Lunch 2:00' THEN 5 WHEN 'Extra 2:10-2:30' THEN 6 WHEN '3:30-3:45' THEN 7 ELSE 8 END, location";
   res.json(await dbAll(sql, ...params));
 }));
 
@@ -2533,7 +2563,7 @@ app.get('/api/dashboard/leadership', auth, leaderOnly, wrap(async (req, res) => 
 
   // Today's yard duty roster with changes
   const roster = await dbAll(`SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY CASE time_slot WHEN '8:45-9:00' THEN 1 WHEN 'Recess 11:10' THEN 2 WHEN 'Recess 11:20' THEN 3 WHEN 'Lunch 1:40' THEN 4 WHEN 'Lunch 2:00' THEN 5 WHEN 'Extra 2:10-2:30' THEN 6 WHEN '3:30-3:45' THEN 7 ELSE 8 END, location`, dayName);
-  const changes = await dbAll(`SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END`, today);
+  const changes = await dbAll(`SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY CASE time_slot WHEN '8:45-9:00' THEN 1 WHEN 'Recess 11:10' THEN 2 WHEN 'Recess 11:20' THEN 3 WHEN 'Lunch 1:40' THEN 4 WHEN 'Lunch 2:00' THEN 5 WHEN 'Extra 2:10-2:30' THEN 6 WHEN '3:30-3:45' THEN 7 ELSE 8 END`, today);
 
   res.json({
     date: today, dayName,
@@ -3403,6 +3433,12 @@ async function start() {
     }
     if (created > 0) console.log('v7.7 migration: ' + created + ' chat groups created');
   } catch(e) { console.log('v7.7 chat seed skipped:', e.message); }
+
+  // v8.8 migration: day confirmation columns on daily_zaps
+  try { await dbRun("ALTER TABLE daily_zaps ADD COLUMN day_confirmed INTEGER DEFAULT 0"); } catch(e) {}
+  try { await dbRun("ALTER TABLE daily_zaps ADD COLUMN confirmed_by INTEGER"); } catch(e) {}
+  try { await dbRun("ALTER TABLE daily_zaps ADD COLUMN confirmed_by_name TEXT"); } catch(e) {}
+  try { await dbRun("ALTER TABLE daily_zaps ADD COLUMN confirmed_at DATETIME"); } catch(e) {}
 
   // v7.6 migration: add Jacky Rooney as leader
   try {

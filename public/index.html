@@ -867,15 +867,32 @@
           el.innerHTML=h||'<div class="cd" style="border-left:4px solid var(--ok)"><p style="font-size:.84rem;color:var(--ok);font-weight:600">✓ All systems green — no pending items</p></div>'
         }catch(e){el.innerHTML=''}},
 
-      async loadMyDay(){
+      async loadMyDay(dateOverride){
         const el=document.getElementById('myDayCard');if(!el)return;
+        const targetDate=dateOverride||state._myDayDate||localToday();
+        state._myDayDate=targetDate;
+        const isToday=targetDate===localToday();
+        const tomorrow=new Date(localToday()+'T12:00:00');tomorrow.setDate(tomorrow.getDate()+1);
+        const tomorrowStr=tomorrow.getFullYear()+'-'+String(tomorrow.getMonth()+1).padStart(2,'0')+'-'+String(tomorrow.getDate()).padStart(2,'0');
+        const isTomorrow=targetDate===tomorrowStr;
         try{
-          const d=await this.fetchAPI('GET','/my-schedule/'+localToday());
-          const dayLabel=new Date(localToday()+'T12:00:00').toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
-          let h='<div class="cd" style="border-left:4px solid var(--navy)">';
+          const d=await this.fetchAPI('GET','/my-schedule/'+targetDate);
+          const dayLabel=new Date(targetDate+'T12:00:00').toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
+          const isL=state.user.role==='leader'||state.user.role==='admin';
+          const confirmed=d.dayConfirmed;
+          const confirmColor=confirmed?'var(--ok)':'var(--warn)';
+          const confirmBorder=confirmed?'4px solid var(--ok)':'4px solid var(--navy)';
+          let h='<div class="cd" style="border-left:'+confirmBorder+'">';
+          // Header with toggle
           h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:1.3rem">📅</span><div><h3 style="margin:0;font-size:1rem">My Day</h3><div class="text-sm text-dim">'+dayLabel+'</div></div></div>';
+          h+='<div style="display:flex;align-items:center;gap:6px">';
           if(d.absent)h+='<span style="background:var(--acc);color:#fff;padding:3px 10px;border-radius:20px;font-size:.76rem;font-weight:700">AWAY</span>';
-          h+='</div>';
+          // Confirmed badge
+          if(confirmed)h+='<span style="background:var(--ok);color:#fff;padding:3px 10px;border-radius:20px;font-size:.76rem;font-weight:700">✓ Confirmed</span>';
+          else h+='<span style="background:var(--warn);color:#fff;padding:3px 10px;border-radius:20px;font-size:.76rem;font-weight:700">Unconfirmed</span>';
+          h+='</div></div>';
+          // Today/Tomorrow toggle
+          h+='<div class="tog" style="margin-bottom:10px"><button class="'+(isToday?'act':'')+'" onclick="app.loadMyDay(\''+localToday()+'\')">Today</button><button class="'+(isTomorrow?'act':'')+'" onclick="app.loadMyDay(\''+tomorrowStr+'\')">Tomorrow</button></div>';
 
           // Classes section
           if(d.classes&&d.classes.length>0){
@@ -888,12 +905,12 @@
             }
             h+='</div>';
           }else if(!d.absent){
-            h+='<div style="margin-bottom:10px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">📚 My Classes</div><div style="font-size:.84rem;color:var(--dim);padding:4px 10px">No classes scheduled today</div></div>';
+            h+='<div style="margin-bottom:10px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">📚 My Classes</div><div style="font-size:.84rem;color:var(--dim);padding:4px 10px">No classes scheduled</div></div>';
           }
 
-          // NFT section (when someone covers your class you get NFT)
+          // NFT section
           if(d.absent&&d.myCoverage&&d.myCoverage.covered){
-            h+='<div style="margin-bottom:10px;padding:8px 10px;background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border-radius:8px;border:1px solid #a5d6a7"><div style="font-weight:700;font-size:.82rem;color:#2e7d32">🎉 NFT — Non Face-to-Face Time</div><div style="font-size:.82rem;color:#388e3c;margin-top:2px">Your classes are covered by '+this.esc(d.myCoverage.crtName)+' — enjoy your NFT!</div></div>';
+            h+='<div style="margin-bottom:10px;padding:8px 10px;background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border-radius:8px;border:1px solid #a5d6a7"><div style="font-weight:700;font-size:.82rem;color:#2e7d32">🎉 NFT — Non Face-to-Face Time</div><div style="font-size:.82rem;color:#388e3c;margin-top:2px">Your classes are covered by '+this.esc(d.myCoverage.crtName)+'</div></div>';
           }else if(d.coveringDuties&&d.coveringDuties.length>0){
             h+='<div style="margin-bottom:10px;padding:8px 10px;background:linear-gradient(135deg,#fff3e0,#fff8e1);border-radius:8px;border:1px solid #ffe0b2"><div style="font-weight:700;font-size:.82rem;color:#e65100">📋 Covering Extra Duties</div>';
             d.coveringDuties.forEach(cd=>{h+='<div style="font-size:.82rem;color:#bf360c;margin-top:2px">'+this.esc(cd.time_slot)+' at '+this.esc(cd.location)+' (covering for '+this.esc(cd.original_staff||'absent staff')+')</div>'});
@@ -915,12 +932,28 @@
             }
             h+='</div>';
           }else{
-            h+='<div style="margin-bottom:6px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">🏃 Yard Duty</div><div style="font-size:.84rem;color:var(--dim);padding:4px 10px">No yard duty today ✓</div></div>';
+            h+='<div style="margin-bottom:6px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">🏃 Yard Duty</div><div style="font-size:.84rem;color:var(--dim);padding:4px 10px">No yard duty ✓</div></div>';
+          }
+
+          // Confirm Day button (leaders only)
+          if(isL){
+            if(confirmed){
+              h+='<div style="text-align:center;padding:8px;margin-top:6px"><span style="color:var(--ok);font-weight:700;font-size:.84rem">✅ Day confirmed by '+this.esc(d.confirmedBy||'Leadership')+'</span><br><button class="btn btn-o btn-s" style="margin-top:6px" onclick="app.confirmDay(\''+targetDate+'\',false)">Undo Confirmation</button></div>';
+            }else{
+              h+='<button onclick="app.confirmDay(\''+targetDate+'\',true)" style="width:100%;padding:12px;margin-top:8px;background:linear-gradient(135deg,var(--navy),#2c3e7a);color:var(--gold);border:none;border-radius:10px;font-size:.92rem;font-weight:700;cursor:pointer">✓ Confirm Day</button>';
+            }
           }
 
           h+='</div>';
           el.innerHTML=h;
         }catch(e){el.innerHTML=''}},
+
+      async confirmDay(date,confirm){
+        try{
+          await this.fetchAPI('PUT','/day-confirm/'+date,{confirmed:confirm});
+          toast(confirm?'Day confirmed!':'Confirmation removed','success');
+          this.loadMyDay(date);
+        }catch(e){toast('Error: '+e.message,'error')}},
 
       renderStaffDashboard(){
         const mine=state.absences.filter(a=>a.staff_id===state.user.id);
