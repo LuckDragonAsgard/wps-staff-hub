@@ -405,55 +405,67 @@
           const data=await this.fetchAPI('GET','/daily-zap/'+state.zapDate);
           state.zapData=data;
           const dd=document.getElementById('zapDateDisplay');
-          if(dd){const pd=this.parseDate(data.date);dd.textContent=data.dayName+', '+pd.getDate()+' '+pd.toLocaleDateString('en-AU',{month:'short'})}
+          if(dd){const pd=this.parseDate(data.date);dd.textContent=data.dayName+', '+pd.getDate()+' '+pd.toLocaleDateString('en-AU',{month:'long',year:'numeric'})}
           let h='';
 
           // Date nav
           h+='<div style="display:flex;justify-content:center;gap:12px;margin-bottom:14px"><button class="btn btn-g btn-s" onclick="app.zapNav(-1)">← Prev</button><button class="btn btn-g btn-s" onclick="state.zapDate=localToday();app.loadZap()">Today</button><button class="btn btn-g btn-s" onclick="app.zapNav(1)">Next →</button></div>';
 
-          // Quote
           const z=data.zap||{};
-          if(z.weekly_quote){h+='<div class="zap-quote">"'+this.esc(z.weekly_quote)+'"<div class="qa">— '+(z.quote_author?this.esc(z.quote_author):'Unknown')+'</div></div>'}
 
-          // Pinned announcements on today's zap
+          // ── WEEKLY QUOTE ──
+          if(z.weekly_quote){h+='<div class="zap-quote" style="background:linear-gradient(135deg,#f0f4ff,#fdf6e3);border:none;padding:16px 20px;border-radius:12px;margin-bottom:14px;text-align:center"><div style="font-size:.95rem;font-style:italic;color:var(--navy);line-height:1.5">"'+this.esc(z.weekly_quote)+'"</div><div style="font-size:.78rem;color:var(--dim);margin-top:6px">— '+(z.quote_author?this.esc(z.quote_author):'')+'</div></div>'}
+
+          // ── PINNED ANNOUNCEMENTS ──
           try{
             const anns=await this.fetchAPI('GET','/announcements?limit=5');
             const pinned=anns.filter(a=>a.pinned||a.priority==='urgent');
-            if(pinned.length>0){
-              pinned.forEach(a=>{
-                const isUrg=a.priority==='urgent';
-                h+='<div class="cd" style="border-left:4px solid '+(isUrg?'var(--acc)':'var(--gold)')+';background:'+(isUrg?'#fff5f5':'#fffbf0')+'"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:.85rem">'+(isUrg?'🚨':'📢')+'</span><span style="font-weight:700;font-size:.88rem">'+this.esc(a.title)+'</span></div><div style="font-size:.84rem;line-height:1.5;white-space:pre-line">'+this.esc(a.content)+'</div></div>'})}
+            if(pinned.length>0){pinned.forEach(a=>{
+              const isUrg=a.priority==='urgent';
+              h+='<div class="cd" style="border-left:4px solid '+(isUrg?'var(--acc)':'var(--gold)')+';background:'+(isUrg?'#fff5f5':'#fffbf0')+'"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:.85rem">'+(isUrg?'🚨':'📢')+'</span><span style="font-weight:700;font-size:.88rem">'+this.esc(a.title)+'</span></div><div style="font-size:.84rem;line-height:1.5;white-space:pre-line">'+this.esc(a.content)+'</div></div>'})}
           }catch(e){}
 
-          // Daily Organisation
-          if(z.daily_org){h+='<div class="cd zap-section"><h4><span class="icon">📋</span> Daily Organisation</h4><div class="zap-notes-text">'+this.esc(z.daily_org)+'</div></div>'}
+          // ── MY DAY (personal schedule) ──
+          if(state.user.role!=='crt'){
+            h+='<div class="cd zap-section" style="border-left:4px solid var(--navy);background:#f8f9ff"><h4><span class="icon">👤</span> My Day</h4><div id="myDaySchedule"><div class="loading" style="font-size:.82rem">Loading your schedule...</div></div></div>';
+            // Load async after render
+            setTimeout(async()=>{const el=document.getElementById('myDaySchedule');if(!el)return;try{
+              const sched=await app.fetchAPI('GET','/my-schedule/'+state.zapDate);let sh='';
+              if(sched.absent){sh+='<div style="background:#fff5f5;padding:8px 12px;border-radius:8px;margin-bottom:8px;font-size:.84rem;color:var(--acc);font-weight:600">📋 You are marked absent today'+(sched.absent.reason?' — '+app.esc(sched.absent.reason):'')+'</div>'}
+              // My classes
+              if(sched.classes.length>0){sh+='<div style="margin-bottom:8px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">Classes</div>';
+                sched.classes.forEach(c=>{sh+='<div style="display:flex;gap:8px;padding:4px 0;font-size:.84rem;border-bottom:1px solid var(--bdr)"><span style="font-weight:600;min-width:70px;color:var(--navy)">'+app.esc(c.time)+'</span><span>'+app.esc(c.class)+'</span></div>'});sh+='</div>'}
+              // My yard duties
+              if(sched.duties.length>0||sched.coveringDuties.length>0){sh+='<div style="margin-bottom:8px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">Yard Duty</div>';
+                sched.duties.forEach(d=>{const ch=sched.dutyChanges.find(c=>c.time_slot===d.time_slot&&c.location===d.location);
+                  sh+='<div style="padding:4px 0;font-size:.84rem">🏃 <strong>'+app.esc(d.time_slot)+'</strong> — '+app.esc(d.location)+(ch?' <span style="color:var(--ok)">→ Covered by '+app.esc(ch.replacement)+'</span>':'')+'</div>'});
+                sched.coveringDuties.forEach(c=>{sh+='<div style="padding:4px 0;font-size:.84rem;color:var(--blue)">🔄 <strong>'+app.esc(c.time_slot)+'</strong> — '+app.esc(c.location)+' <span style="font-size:.76rem">(covering for '+app.esc(c.original_staff)+')</span></div>'});
+                sh+='</div>'}
+              if(!sched.absent&&sched.classes.length===0&&sched.duties.length===0&&sched.coveringDuties.length===0){sh+='<div style="font-size:.84rem;color:var(--dim)">No schedule data for this day yet. Upload a timetable to see your classes here.</div>'}
+              el.innerHTML=sh;
+            }catch(e){el.innerHTML='<div style="font-size:.82rem;color:var(--dim)">Schedule unavailable</div>'}},150);
+          }
 
-          // Staff Absences & Movements (AUTO)
+          // ── DAILY ORGANISATION ──
+          if(z.daily_org){h+='<div class="cd zap-section"><h4><span class="icon">📋</span> Daily Organisation</h4><div class="zap-notes-text" style="white-space:pre-line">'+this.esc(z.daily_org)+'</div></div>'}
+
+          // ── STAFF ABSENCES & MOVEMENTS ──
           h+='<div class="cd zap-section"><h4><span class="icon">🚶</span> Staff Absences & Movements</h4>';
-          if(z.movements){h+='<div class="zap-notes-text mb-1" style="font-size:.82rem;color:var(--dim)">'+this.esc(z.movements)+'</div>'}
+          if(z.movements){h+='<div style="font-size:.84rem;line-height:1.6;white-space:pre-line;margin-bottom:10px;padding:8px 12px;background:#f8f9ff;border-radius:8px">'+this.esc(z.movements)+'</div>'}
           if(data.absences.length>0){
             data.absences.forEach(a=>{
               const coverClass=a.status==='booked'?'booked':(a.status==='contacting'?'pending':'nocrt');
               const coverText=a.status==='booked'?(a.crt_name||'CRT booked'):(a.status==='contacting'?'Contacting '+(a.crt_name||'...'):'No cover');
-              h+='<div class="zap-absence-row" onclick="app.showAbsenceDetail('+a.id+')"><div><div class="staff">'+this.esc(a.staff_name)+'</div><div class="reason">'+this.esc(a.reason||'')+(a.half_day&&a.half_day!=='full'?' ('+a.half_day.toUpperCase()+')':'')+'</div></div><div class="cover '+coverClass+'">'+coverText+'</div></div>'});
+              h+='<div class="zap-absence-row" onclick="app.showAbsenceDetail('+a.id+')"><div><div class="staff">'+this.esc(a.staff_name)+'</div><div class="reason">'+this.esc(a.reason||'')+(a.half_day&&a.half_day!=='full'?' ('+a.half_day.toUpperCase()+')':'')+(a.classes?' · '+this.esc(a.classes):'')+'</div></div><div class="cover '+coverClass+'">'+coverText+'</div></div>'});
           }else{h+='<div style="text-align:center;padding:12px;color:var(--ok);font-size:.88rem;font-weight:600">✓ All staff in today</div>'}
           h+='</div>';
 
-          // Specialist Alerts — classes cancelled due to absent teachers
+          // ── SPECIALIST ALERTS ──
           if(data.specialistAlerts&&data.specialistAlerts.length>0){
             h+='<div class="cd zap-section" style="border-left:4px solid var(--warn)">';
-            h+='<h4><span class="icon">⚠️</span> Specialist Alerts — Classes Cancelled</h4>';
-            // Group by specialist name
+            h+='<h4><span class="icon">⚠️</span> Specialist Alerts — Classes Affected</h4>';
             const specGroups={};
             data.specialistAlerts.forEach(al=>{if(!specGroups[al.specialist_name])specGroups[al.specialist_name]=[];specGroups[al.specialist_name].push(al)});
-            // Check if current user is a specialist with affected classes
-            const myName=(state.user.name||'').toLowerCase().split(' ')[0];
-            const myAlerts=data.specialistAlerts.filter(al=>al.specialist_name.toLowerCase().includes(myName)&&myName.length>2);
-            if(myAlerts.length>0){
-              h+='<div style="background:#fff5f5;border:2px solid var(--acc);border-radius:10px;padding:12px;margin-bottom:12px">';
-              h+='<div style="font-weight:700;color:var(--acc);font-size:.88rem;margin-bottom:6px">🔔 Your lessons affected today:</div>';
-              myAlerts.forEach(al=>{h+='<div style="padding:4px 0;font-size:.84rem"><strong>'+this.esc(al.time_slot)+'</strong> — '+this.esc(al.class_name)+' <span style="color:var(--dim)">('+this.esc(al.absent_staff_name)+' away — '+this.esc(al.reason||'')+')</span></div>'});
-              h+='</div>'}
             Object.entries(specGroups).forEach(([name,alerts])=>{
               h+='<div style="margin-bottom:8px"><div style="font-weight:600;font-size:.84rem;color:var(--navy)">'+this.esc(name)+'</div>';
               alerts.forEach(al=>{
@@ -461,10 +473,10 @@
               h+='</div>'});
             h+='</div>'}
 
-          // ES Team Notes
-          if(z.es_notes){h+='<div class="cd zap-section"><h4><span class="icon">👷</span> ES Team</h4><div class="zap-notes-text">'+this.esc(z.es_notes)+'</div></div>'}
+          // ── ES TEAM ──
+          if(z.es_notes){h+='<div class="cd zap-section"><h4><span class="icon">👷</span> ES Team</h4><div class="zap-notes-text" style="white-space:pre-line">'+this.esc(z.es_notes)+'</div></div>'}
 
-          // Yard Duty Changes
+          // ── YARD DUTY (Compass style: "1120 Back Melati - Anna M") ──
           const yd=data.yardDuty;
           if(yd.roster.length>0){
             h+='<div class="cd zap-section"><h4><span class="icon">🏃</span> Yard Duty</h4>';
@@ -473,23 +485,22 @@
             yd.roster.forEach(r=>{if(!slots[r.time_slot])slots[r.time_slot]=[];slots[r.time_slot].push(r)});
             const slotRank=s=>{const l=s.toLowerCase();if(l.includes('8:45')||l.includes('before'))return 1;if(l.includes('recess')&&l.includes('11:10')||l==='recess_1')return 2;if(l.includes('recess')&&l.includes('11:20')||l==='recess_2')return 3;if(l.includes('recess'))return 2;if(l.includes('lunch')&&(l.includes('1:40')||l.includes('eating'))||l==='lunch_eating'||l==='lunch_1')return 4;if(l.includes('lunch')&&l.includes('2:00')||l==='lunch_2')return 5;if(l.includes('3:30')||l.includes('after'))return 6;return 3};
             const sortedSlots=Object.keys(slots).sort((a,b)=>slotRank(a)-slotRank(b));
-            h+='<div class="zap-duty-grid">';
             sortedSlots.forEach(slot=>{const duties=slots[slot];
-              h+='<div class="zap-duty-slot"><div class="slot-label">'+slot.replace(/_/g,' ')+'</div>';
+              h+='<div style="margin-bottom:10px"><div style="font-weight:700;font-size:.82rem;color:var(--navy);margin-bottom:4px;border-bottom:1px solid var(--bdr);padding-bottom:3px">'+slot.replace(/_/g,' ')+'</div>';
               duties.forEach(d=>{
                 const isAway=absentNames.some(n=>d.staff_name.toLowerCase().includes(n.split(' ')[0]));
                 const change=yd.changes.find(c=>c.time_slot===d.time_slot&&c.location===d.location);
-                h+='<div class="duty-item"><div><span style="font-weight:600;font-size:.78rem">'+this.esc(d.location)+'</span> — '+(isAway?'<span class="away">'+this.esc(d.staff_name)+'</span>':'<span>'+this.esc(d.staff_name)+'</span>')+'</div>';
-                if(change){h+='<span class="replacement">→ '+this.esc(change.replacement)+'</span>'}
-                else if(isAway){h+='<span style="color:var(--acc);font-size:.76rem;font-weight:600">⚠ Needs cover</span>'}
+                h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 8px;font-size:.84rem;background:'+(isAway?'#fff5f5':'#fff')+';border-radius:6px;margin-bottom:2px"><div><span style="font-weight:600">'+this.esc(d.location)+'</span> <span style="color:var(--dim)">'+this.esc(d.staff_name)+'</span></div>';
+                if(change){h+='<span style="color:var(--ok);font-weight:600;font-size:.8rem">→ '+this.esc(change.replacement)+'</span>'}
+                else if(isAway){h+='<span style="color:var(--acc);font-weight:600;font-size:.8rem">⚠ Needs cover</span>'}
                 h+='</div>'});
               h+='</div>'});
-            h+='</div></div>'}
+            h+='</div>'}
 
-          // NFT Notes
-          if(z.nft_notes){h+='<div class="cd zap-section"><h4><span class="icon">📝</span> NFT</h4><div class="zap-notes-text">'+this.esc(z.nft_notes)+'</div></div>'}
+          // ── NFT ──
+          if(z.nft_notes){h+='<div class="cd zap-section"><h4><span class="icon">⏱️</span> NFT</h4><div class="zap-notes-text" style="white-space:pre-line">'+this.esc(z.nft_notes)+'</div></div>'}
 
-          // Calendar
+          // ── CALENDAR REMINDERS ──
           if(data.calendar.thisWeek.length>0||data.calendar.nextWeek.length>0){
             h+='<div class="cd zap-section"><h4><span class="icon">📅</span> Calendar Reminders</h4>';
             if(data.calendar.thisWeek.length>0){h+='<div class="mb-1" style="font-size:.76rem;font-weight:700;color:var(--dim);text-transform:uppercase">This Week</div>';
@@ -498,17 +509,17 @@
               data.calendar.nextWeek.forEach(e=>{h+='<div class="zap-event"><span class="ev-date">'+this.formatDate(e.date)+'</span> '+this.esc(e.title)+'</div>'})}
             h+='</div>'}
 
-          // Timetables
+          // ── TIMETABLES ──
           if(data.timetables.length>0){
             h+='<div class="cd zap-section"><h4><span class="icon">📊</span> Timetables</h4>';
             data.timetables.forEach(tt=>{
               h+='<button class="zap-tt-btn" onclick="app.toggleTimetable('+tt.id+')"><span>'+this.esc(tt.name)+'</span><span style="font-size:.75rem;color:var(--dim)">▼</span></button><div class="zap-tt-content" id="tt-'+tt.id+'"><div class="loading">Loading...</div></div>'});
             h+='</div>'}
 
-          // Extra notes
-          if(z.extra_notes){h+='<div class="cd zap-section"><h4><span class="icon">📌</span> Additional Notes</h4><div class="zap-notes-text">'+this.esc(z.extra_notes)+'</div></div>'}
+          // ── EXTRA NOTES ──
+          if(z.extra_notes){h+='<div class="cd zap-section"><h4><span class="icon">📌</span> Additional Notes</h4><div class="zap-notes-text" style="white-space:pre-line">'+this.esc(z.extra_notes)+'</div></div>'}
 
-          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:8px">WPS Staff Hub v7.5 — Daily Zap</div>';
+          h+='<div style="text-align:center;font-size:.7rem;color:var(--dim);padding:8px">WPS Staff Hub v7.6 — Daily Zap</div>';
           body.innerHTML=h;
         }catch(e){body.innerHTML='<p class="text-dim" style="text-align:center;padding:20px">Unable to load zap: '+e.message+'</p>'}},
 
@@ -814,6 +825,8 @@
       renderStaffDashboard(){
         const mine=state.absences.filter(a=>a.staff_id===state.user.id);
         let h='';
+        // URGENT HELP button
+        h+='<button id="urgentHelpBtn" onclick="app.showUrgentHelp()" style="width:100%;padding:14px;margin-bottom:12px;background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 15px rgba(231,76,60,.4);letter-spacing:.5px">🚨 NEED HELP</button>';
         // Quick wellbeing nudge
         h+='<div id="wbNudge"></div>';
         // Welcome card
@@ -823,6 +836,20 @@
             h+='<div class="li" onclick="app.showAbsenceDetail('+a.id+')"><div class="li-row"><div style="flex:1"><div class="nm">'+this.formatDate(a.date_start)+(a.date_end!==a.date_start?' – '+this.formatDate(a.date_end):'')+'</div><div class="dt">'+a.reason+(a.half_day&&a.half_day!=='full'?' ('+a.half_day.toUpperCase()+')':'')+'</div>'+(a.crt_name?'<div class="dt" style="color:var(--ok)">CRT: '+a.crt_name+'</div>':'')+'</div><span class="sb '+sc+'">'+a.status+'</span></div></div>'});
           h+='</div>'}else h+='<div class="cd"><div class="empty"><div class="ei">✓</div><p>No absences on record. All good!</p></div></div>';
         return h},
+
+      showUrgentHelp(){
+        const area=state.user.area||'';
+        const html='<div class="mo" onclick="if(event.target===this)this.remove()" style="z-index:9999"><div class="mc" style="max-width:400px;border-top:4px solid #e74c3c"><div class="handle"></div><div style="text-align:center;margin-bottom:16px"><div style="font-size:2.5rem;margin-bottom:8px">🚨</div><h3 style="color:#e74c3c;font-size:1.1rem">Need Urgent Help?</h3><p style="font-size:.84rem;color:var(--dim);margin-top:4px">This sends an immediate alert to all leadership</p></div><div class="fg"><label>Your location / classroom</label><input type="text" id="urgentLocation" placeholder="e.g. Room 12, Oval, Hall" value="'+this.esc(area)+'" style="padding:12px;font-size:.95rem;border:2px solid #e74c3c;border-radius:10px"></div><div class="fg"><label>What do you need? (optional)</label><input type="text" id="urgentMessage" placeholder="e.g. Student injury, behaviour issue" style="padding:12px;font-size:.95rem;border:2px solid var(--bdr);border-radius:10px"></div><button onclick="app.sendUrgentHelp()" style="width:100%;padding:14px;background:#e74c3c;color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;margin-top:8px">🚨 SEND ALERT NOW</button><button onclick="this.closest(\'.mo\').remove()" style="width:100%;padding:10px;background:none;border:1px solid var(--bdr);border-radius:10px;font-size:.88rem;cursor:pointer;margin-top:8px;color:var(--dim)">Cancel</button></div></div>';
+        document.body.insertAdjacentHTML('beforeend',html)},
+
+      async sendUrgentHelp(){
+        const loc=document.getElementById('urgentLocation')?.value||'';
+        const msg=document.getElementById('urgentMessage')?.value||'';
+        try{
+          const r=await this.fetchAPI('POST','/urgent-help',{location:loc,message:msg});
+          document.querySelector('.mo')?.remove();
+          toast('🚨 Alert sent to '+r.sent+' leader'+(r.sent!==1?'s':'')+'!','success');
+        }catch(e){toast('Error: '+e.message,'error')}},
 
       renderCRTDashboard(){
         const my=state.absences.filter(a=>a.assigned_crt_id===state.user.id);
@@ -1107,7 +1134,10 @@
         const s=state.userSettings||{};const notifOn=s.notifications_enabled!==0;const smsOn=s.notify_sms!==0;const emailOn=s.notify_email!==0;const appOn=s.notify_app!==0;const qStart=s.quiet_start||'21:00';const qEnd=s.quiet_end||'06:00';
         const isL=state.user.role==='leader'||state.user.role==='admin';
         const sys=state.systemSettings||{};
-        let h='<div class="cd"><h3>⚙️ Settings</h3><div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:12px"><div style="width:44px;height:44px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--gold);font-weight:700;font-size:1.1rem">'+state.user.name.charAt(0)+'</div><div><div style="font-weight:600;font-size:.95rem">'+state.user.name+'</div><div class="text-sm text-dim">'+(state.user.area||state.user.role)+' · '+state.user.role+'</div><div class="text-sm text-dim">'+(state.user.email||'')+'</div></div></div>';
+        let h='<div class="cd"><h3>⚙️ Settings</h3><div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:12px"><div style="width:44px;height:44px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--gold);font-weight:700;font-size:1.1rem">'+state.user.name.charAt(0)+'</div><div><div style="font-weight:600;font-size:.95rem">'+state.user.name+'</div><div class="text-sm text-dim">'+(state.user.area||state.user.role)+' · '+state.user.role+'</div></div></div>';
+        // My Contact Details
+        if(state.user.role!=='crt'){
+          h+='<div style="margin-bottom:16px"><h4 style="margin-bottom:8px;font-size:.88rem">📱 My Contact Details</h4><div style="padding:14px;background:var(--bg);border-radius:10px"><div class="fg"><label>Mobile</label><input type="tel" id="profilePhone" placeholder="0400 000 000" value="'+this.esc(state.user.phone||'')+'" style="padding:10px;border:1px solid var(--bdr);border-radius:8px;width:100%;font-size:.88rem"></div><div class="fg"><label>Email</label><input type="email" id="profileEmail" placeholder="name@email.com" value="'+this.esc(state.user.email||'')+'" style="padding:10px;border:1px solid var(--bdr);border-radius:8px;width:100%;font-size:.88rem"></div><button class="btn btn-ok btn-s" onclick="app.saveProfile()">Save Details</button></div></div><div class="divider"></div>';}
         // Profile stats
         h+='<div id="profileStats" style="margin-bottom:16px"></div>';
         // Load profile stats async
@@ -1200,6 +1230,8 @@
       async updateSysSetting(k,v){try{const b={};b[k]=v;state.systemSettings=await this.fetchAPI('PUT','/system-settings',b);toast('System setting updated','success');this.render()}catch(e){toast('Error: '+e.message,'error')}},
 
       async updateSetting(k,v){try{const b={};b[k]=v;state.userSettings=await this.fetchAPI('PUT','/settings',b);toast('Setting updated','success');this.render()}catch(e){toast('Error: '+e.message,'error')}},
+
+      async saveProfile(){const phone=document.getElementById('profilePhone')?.value||'';const email=document.getElementById('profileEmail')?.value||'';try{await this.fetchAPI('PUT','/staff/me',{phone,email});state.user.phone=phone;state.user.email=email;localStorage.setItem('wps_user',JSON.stringify(state.user));toast('Contact details saved!','success')}catch(e){toast('Error: '+e.message,'error')}},
 
       async populateAreaDropdown(){const sel=document.getElementById('prefArea');if(!sel||sel.options.length>1)return;try{const p=await this.fetchAPI('GET','/preferences');Object.keys(p).sort().forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;sel.appendChild(o)});if(state.user.area&&p[state.user.area]){sel.value=state.user.area;this.loadAreaPrefs(state.user.area)}}catch(e){}},
 

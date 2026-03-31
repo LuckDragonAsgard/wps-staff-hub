@@ -1277,6 +1277,65 @@ app.get('/api/daily-zap/:date', auth, wrap(async (req, res) => {
   });
 }));
 
+// Personal daily schedule for a teacher
+app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
+  const date = req.params.date;
+  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const d = new Date(date + 'T12:00:00');
+  const dayName = dayNames[d.getDay()];
+  const userName = req.user.name;
+  const userId = req.user.id;
+
+  // My yard duties (base roster + changes)
+  const myDuties = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ? AND staff_name = ?', dayName, userName);
+  const dutyChanges = await dbAll('SELECT * FROM yard_duty_changes WHERE date = ?', date);
+
+  // Am I covering anyone else's duty?
+  const coveringDuties = dutyChanges.filter(c => c.replacement && c.replacement.toLowerCase().includes(userName.toLowerCase().split(' ')[0]));
+
+  // Am I absent?
+  const myAbsence = await dbGet("SELECT * FROM absences WHERE staff_id = ? AND date_start <= ? AND date_end >= ? AND status != 'cancelled'", userId, date, date);
+
+  // My timetable for this day
+  let myClasses = [];
+  try {
+    const timetables = await dbAll("SELECT * FROM timetables WHERE is_current = 1");
+    for (const tt of timetables) {
+      let data = tt.data;
+      if (typeof data === 'string') try { data = JSON.parse(data); } catch(e) { continue; }
+      if (data && data.headers && data.rows) {
+        const dayCol = data.headers.findIndex(h => h.toLowerCase().includes(dayName.toLowerCase().substring(0,3)));
+        const nameInHeader = data.headers.findIndex(h => h.toLowerCase().includes(userName.toLowerCase().split(' ')[0]));
+        if (nameInHeader >= 0) {
+          data.rows.forEach(row => {
+            const cells = Array.isArray(row) ? row : data.headers.map(k => row[k] || '');
+            const timeCell = cells[0] || '';
+            const classCell = cells[nameInHeader] || '';
+            if (classCell && classCell !== '-' && classCell.toLowerCase() !== 'nft' && classCell.toLowerCase() !== 'planning') {
+              myClasses.push({ time: timeCell, class: classCell, timetable: tt.name });
+            }
+          });
+        }
+      }
+    }
+  } catch(e) {}
+
+  // Swap requests involving me
+  const mySwaps = await dbAll(
+    "SELECT * FROM yard_duty_swaps WHERE date = ? AND (requester_id = ? OR requested_staff_name = ?)",
+    date, userId, userName);
+
+  res.json({
+    date, dayName, userName,
+    absent: myAbsence || null,
+    duties: myDuties,
+    dutyChanges: dutyChanges.filter(c => c.original_staff && c.original_staff.toLowerCase().includes(userName.toLowerCase().split(' ')[0])),
+    coveringDuties,
+    classes: myClasses,
+    swaps: mySwaps
+  });
+}));
+
 // Create/update daily zap
 app.post('/api/daily-zap/:date', auth, leaderOnly, wrap(async (req, res) => {
   const date = req.params.date;
@@ -1422,6 +1481,23 @@ async function autoYardDutyCover(date) {
           [date, duty.time_slot, duty.location, duty.staff_name, crtName, 'crt']);
       }
       assigned++;
+
+      // Auto-create NFT record for duty cover
+      try {
+        const coverUser = await dbGet("SELECT id FROM users WHERE name LIKE ? OR name LIKE ?",
+          `%${crtName.split(' ')[0]}%`, crtName);
+        if (coverUser) {
+          const existingNft = await dbGet(
+            "SELECT id FROM nft_records WHERE staff_id = ? AND date = ? AND period_slot = ? AND type = 'covered_duty'",
+            coverUser.id, date, duty.time_slot);
+          if (!existingNft) {
+            await dbRun(
+              `INSERT INTO nft_records (staff_id, staff_name, date, period_slot, type, minutes, reason, notes, created_by) VALUES (?,?,?,?,?,?,?,?,?)`,
+              [coverUser.id, crtName, date, duty.time_slot, 'covered_duty', 30,
+               `Yard duty cover: ${duty.time_slot} at ${duty.location} (for ${duty.staff_name})`, 'auto', 0]);
+          }
+        }
+      } catch(nftErr) { console.log('Auto NFT skip:', nftErr.message); }
     }
   }
   return { assigned, needsCover: needsCover.length };
@@ -2042,12 +2118,44 @@ app.get('/api/yard-duty/swap-requests', auth, wrap(async (req, res) => {
   res.json(await dbAll(sql, ...params));
 }));
 
+// ===== URGENT HELP / PANIC BUTTON =====
+app.post('/api/urgent-help', auth, wrap(async (req, res) => {
+  const { location, message } = req.body;
+  const userName = req.user.name;
+  const userId = req.user.id;
+  const area = req.user.area || '';
+  const alertMsg = `🚨 URGENT HELP: ${userName}${location ? ' in ' + location : ''}${area ? ' (' + area + ')' : ''}${message ? ' — ' + message : ''}`;
+
+  // Add high-priority notification visible to leaders
+  await addNotification(alertMsg, 'urgent', 'leader,admin');
+
+  // Send push notifications to ALL leaders
+  const leaders = await dbAll("SELECT id FROM users WHERE role IN ('leader','admin') AND active != 0");
+  for (const leader of leaders) {
+    try {
+      await sendPushNotification(leader.id, 'leader', '🚨 URGENT HELP NEEDED', alertMsg);
+    } catch(e) { /* push may fail, continue */ }
+  }
+
+  // Log it
+  console.log(`[URGENT HELP] ${new Date().toISOString()} — ${alertMsg}`);
+
+  res.json({ ok: true, sent: leaders.length });
+}));
+
 // ===== NFT (Non-Face-to-Face Time) TRACKING =====
 app.get('/api/nft', auth, wrap(async (req, res) => {
   const { staffId, weekOf, date } = req.query;
+  const isLeader = req.user.role === 'leader' || req.user.role === 'admin';
+  // Staff can only see their own NFT
+  const effectiveStaffId = staffId ? parseInt(staffId) : null;
+  if (effectiveStaffId && effectiveStaffId !== req.user.id && !isLeader) {
+    return res.status(403).json({ error: 'You can only view your own NFT records' });
+  }
   let sql = 'SELECT * FROM nft_records WHERE 1=1';
   const params = [];
-  if (staffId) { sql += ' AND staff_id = ?'; params.push(parseInt(staffId)); }
+  if (effectiveStaffId) { sql += ' AND staff_id = ?'; params.push(effectiveStaffId); }
+  else if (!isLeader) { sql += ' AND staff_id = ?'; params.push(req.user.id); }
   if (weekOf) { sql += ' AND date >= ? AND date <= date(?, "+4 days")'; params.push(weekOf, weekOf); }
   if (date) { sql += ' AND date = ?'; params.push(date); }
   sql += ' ORDER BY date DESC, created_at DESC';
