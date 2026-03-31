@@ -1795,6 +1795,8 @@ async function lookupClassesForStaff(staffId, date) {
   const staffName = user.name.toLowerCase();
   const staffFirst = staffName.split(' ')[0];
   const staffLast = staffName.split(' ').slice(1).join(' ');
+  // Build area keywords for specialist matching (e.g. "PE / Health" → ["pe", "health"])
+  const areaKeywords = user.area ? user.area.toLowerCase().split(/[\s\/,&]+/).filter(w => w.length > 1) : [];
   const classes = [];
 
   for (const tt of timetables) {
@@ -1805,13 +1807,20 @@ async function lookupClassesForStaff(staffId, date) {
     const headers = data.headers;
     const rows = data.rows;
 
-    // Check if a header column matches the staff member's name
+    // Check if a header column matches the staff member's name OR area
     let staffColIndex = -1;
     for (let ci = 0; ci < headers.length; ci++) {
       const h = headers[ci].toLowerCase().trim();
       if (h === staffName) { staffColIndex = ci; break; }
       if (staffFirst.length > 2 && h.includes(staffFirst)) { staffColIndex = ci; break; }
       if (staffLast.length > 2 && h.includes(staffLast)) { staffColIndex = ci; break; }
+      // Match specialist area keywords (e.g. PE, Art, Music, French)
+      if (tt.type === 'specialist' && areaKeywords.length > 0) {
+        for (const kw of areaKeywords) {
+          if (h === kw || (kw.length > 2 && h.includes(kw))) { staffColIndex = ci; break; }
+        }
+        if (staffColIndex >= 0) break;
+      }
     }
 
     // If staff has a dedicated column, read their classes for the correct day
@@ -1823,20 +1832,26 @@ async function lookupClassesForStaff(staffId, date) {
         const rowValues = Array.isArray(row) ? row : headers.map(h2 => row[h2] || '');
         const firstCell = String(rowValues[0] || '').trim().toLowerCase();
 
-        // Day header row
+        // Day header row (may also contain data for classroom teacher timetables)
         if (['monday','tuesday','wednesday','thursday','friday'].includes(firstCell)) {
           inCorrectDay = firstCell === dayName;
           dayRowStarted = true;
+          // Check if this day row ALSO has class data (classroom teacher timetable format)
+          if (inCorrectDay) {
+            const cellValue = String(rowValues[staffColIndex] || '').trim();
+            const skip2 = ['nft','planning','recess','lunch','assembly','duty','easter','hat parade','good friday','resources',''];
+            if (cellValue && cellValue !== '-' && !skip2.includes(cellValue.toLowerCase())) {
+              if (!classes.includes(cellValue)) classes.push(cellValue);
+            }
+          }
           continue;
         }
         if (!dayRowStarted) inCorrectDay = true;
         if (!inCorrectDay) continue;
 
         const cellValue = String(rowValues[staffColIndex] || '').trim();
-        if (cellValue && cellValue !== '-' && cellValue.toLowerCase() !== 'nft' &&
-            cellValue.toLowerCase() !== 'planning' && cellValue.toLowerCase() !== 'recess' &&
-            cellValue.toLowerCase() !== 'lunch' && cellValue.toLowerCase() !== 'assembly' &&
-            cellValue.toLowerCase() !== 'duty') {
+        const skip = ['nft','planning','recess','lunch','assembly','duty','easter','hat parade','good friday','resources',''];
+        if (cellValue && cellValue !== '-' && !skip.includes(cellValue.toLowerCase())) {
           // This is a class the teacher teaches at this time slot
           if (!classes.includes(cellValue)) classes.push(cellValue);
         }
