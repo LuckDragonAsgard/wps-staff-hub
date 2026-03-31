@@ -1237,8 +1237,8 @@ app.get('/api/daily-zap/:date', auth, wrap(async (req, res) => {
   );
 
   // Yard duty: base roster for this day + any changes
-  const roster = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY time_slot, location', dayName);
-  const changes = await dbAll('SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY time_slot, location', date);
+  const roster = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END, location', dayName);
+  const changes = await dbAll('SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END, location', date);
 
   // Calendar events for this week and next
   const weekStart = new Date(d);
@@ -1299,7 +1299,7 @@ app.get('/api/yard-duty/roster', auth, wrap(async (req, res) => {
   let sql = 'SELECT * FROM yard_duty_roster';
   const params = [];
   if (term) { sql += ' WHERE term = ?'; params.push(parseInt(term)); }
-  sql += " ORDER BY CASE day_of_week WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3 WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 END, time_slot, location";
+  sql += " ORDER BY CASE day_of_week WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3 WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 END, CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END, location";
   res.json(await dbAll(sql, ...params));
 }));
 
@@ -1336,8 +1336,8 @@ app.get('/api/yard-duty/today', auth, wrap(async (req, res) => {
   const d = new Date(date + 'T12:00:00');
   const dayName = dayNames[d.getDay()];
 
-  const roster = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY time_slot, location', dayName);
-  const changes = await dbAll('SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY time_slot, location', date);
+  const roster = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END, location', dayName);
+  const changes = await dbAll('SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END, location', date);
 
   // Check which rostered staff are absent today
   const absences = await dbAll(
@@ -2290,8 +2290,8 @@ app.get('/api/dashboard/leadership', auth, leaderOnly, wrap(async (req, res) => 
   }
 
   // Today's yard duty roster with changes
-  const roster = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY time_slot, location', dayName);
-  const changes = await dbAll('SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY time_slot', today);
+  const roster = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END, location', dayName);
+  const changes = await dbAll('SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END', today);
 
   res.json({
     date: today, dayName,
@@ -2522,7 +2522,7 @@ app.get('/api/cover-summary', auth, wrap(async (req, res) => {
     date, date
   );
   // Get yard duty roster for the day
-  const roster = await dbAll("SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY time_slot, location", dayName);
+  const roster = await dbAll("SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END, location", dayName);
   const changes = await dbAll("SELECT * FROM yard_duty_changes WHERE date = ?", date);
   // Quick statuses for today
   const statuses = await dbAll("SELECT * FROM quick_status WHERE date = ? ORDER BY created_at DESC", date);
@@ -2869,6 +2869,23 @@ async function start() {
     await dbRun("UPDATE yard_duty_swaps SET time_slot = 'recess_1' WHERE time_slot = 'recess'", []);
     console.log('v7.3 migration: recess slots updated');
   } catch(e) { console.log('v7.3 migration skipped:', e.message); }
+
+  // v7.5 migration: rename yard duty locations to match actual WPS names
+  try {
+    await dbRun("UPDATE yard_duty_roster SET location = 'Back' WHERE location = 'Back-Blue South'", []);
+    await dbRun("UPDATE yard_duty_roster SET location = 'Front' WHERE location = 'Front-Blue North'", []);
+    await dbRun("UPDATE yard_duty_roster SET location = 'Oval' WHERE location IN ('Bluestone Lounge', 'Oval')", []);
+    await dbRun("UPDATE yard_duty_roster SET location = 'Redbrick' WHERE location IN ('Gallery-Deck', 'Redbrick')", []);
+    await dbRun("UPDATE yard_duty_changes SET location = 'Back' WHERE location = 'Back-Blue South'", []);
+    await dbRun("UPDATE yard_duty_changes SET location = 'Front' WHERE location = 'Front-Blue North'", []);
+    await dbRun("UPDATE yard_duty_changes SET location = 'Oval' WHERE location IN ('Bluestone Lounge', 'Oval')", []);
+    await dbRun("UPDATE yard_duty_changes SET location = 'Redbrick' WHERE location IN ('Gallery-Deck', 'Redbrick')", []);
+    await dbRun("UPDATE yard_duty_swaps SET location = 'Back' WHERE location = 'Back-Blue South'", []);
+    await dbRun("UPDATE yard_duty_swaps SET location = 'Front' WHERE location = 'Front-Blue North'", []);
+    await dbRun("UPDATE yard_duty_swaps SET location = 'Oval' WHERE location IN ('Bluestone Lounge', 'Oval')", []);
+    await dbRun("UPDATE yard_duty_swaps SET location = 'Redbrick' WHERE location IN ('Gallery-Deck', 'Redbrick')", []);
+    console.log('v7.5 migration: yard duty locations renamed');
+  } catch(e) { console.log('v7.5 migration skipped:', e.message); }
 
   if (!USE_TURSO) {
     process.on('SIGINT', () => { saveLocalDbNow(); process.exit(); });
