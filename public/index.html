@@ -94,6 +94,31 @@
     .qa .ql{font-weight:600;font-size:.82rem}
     .qa .qd{font-size:.68rem;color:var(--dim);margin-top:2px}
 
+    .chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 150px);margin:-16px -12px;padding:0}
+    .chat-groups{display:flex;gap:6px;padding:10px 12px;overflow-x:auto;background:var(--card);border-bottom:1px solid var(--bdr);flex-shrink:0;-webkit-overflow-scrolling:touch}
+    .chat-groups::-webkit-scrollbar{display:none}
+    .chat-grp{padding:8px 14px;border-radius:20px;font-size:.78rem;font-weight:600;white-space:nowrap;cursor:pointer;border:2px solid var(--bdr);background:#fff;color:var(--txt);transition:all .15s;position:relative;flex-shrink:0}
+    .chat-grp.act{background:var(--navy);color:#fff;border-color:var(--navy)}
+    .chat-grp .chat-badge{position:absolute;top:-4px;right:-4px;background:var(--acc);color:#fff;font-size:.55rem;font-weight:700;padding:1px 5px;border-radius:10px;min-width:16px;text-align:center}
+    .chat-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:6px;background:var(--bg)}
+    .chat-msg{max-width:80%;padding:10px 14px;border-radius:16px;font-size:.85rem;line-height:1.4;animation:fadeUp .2s}
+    .chat-msg.me{align-self:flex-end;background:var(--navy);color:#fff;border-bottom-right-radius:4px}
+    .chat-msg.other{align-self:flex-start;background:var(--card);border:1px solid var(--bdr);border-bottom-left-radius:4px}
+    .chat-msg .chat-sender{font-size:.68rem;font-weight:700;margin-bottom:2px;opacity:.8}
+    .chat-msg.me .chat-sender{color:var(--gold)}
+    .chat-msg .chat-time{font-size:.6rem;opacity:.6;margin-top:3px;text-align:right}
+    .chat-input-bar{display:flex;gap:8px;padding:10px 12px;background:var(--card);border-top:1px solid var(--bdr);flex-shrink:0}
+    .chat-input-bar input{flex:1;padding:10px 14px;border:2px solid var(--bdr);border-radius:24px;font-size:.88rem;font-family:inherit;outline:none;transition:border-color .2s}
+    .chat-input-bar input:focus{border-color:var(--pl)}
+    .chat-input-bar button{padding:10px 18px;border-radius:24px;border:none;background:var(--navy);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:.85rem;transition:background .15s}
+    .chat-input-bar button:hover{background:var(--pl)}
+    .chat-date-sep{text-align:center;font-size:.68rem;color:var(--dim);padding:8px 0;font-weight:600}
+    .chat-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:.9rem;text-align:center;padding:20px}
+    .chat-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--card);border-bottom:1px solid var(--bdr);flex-shrink:0}
+    .chat-header h3{font-size:.95rem;color:var(--navy);margin:0}
+    .chat-header .chat-members-count{font-size:.7rem;color:var(--dim)}
+    @media(min-width:600px){.chat-wrap{height:calc(100vh - 130px)}.chat-msg{max-width:65%}}
+
     .mo{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;justify-content:center;align-items:flex-end;z-index:200;animation:fadeIn .2s}
     .mo .mc{background:#fff;border-radius:20px 20px 0 0;padding:20px 18px 32px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;animation:slideUp .3s ease-out}
     @media(min-width:600px){.mo{align-items:center;padding:20px}.mo .mc{border-radius:var(--r);max-height:90vh}}
@@ -281,6 +306,10 @@
     <button id="navZap" class="act" onclick="app.showView('zap')" title="Daily briefing">
       <div class="bi">📰</div><div>Zap</div>
     </button>
+    <button id="navChat" onclick="app.showView('chat')" title="Staff Chat">
+      <div class="bi">💬</div><div>Chat</div>
+      <span class="badge" id="chatBadge" style="display:none"></span>
+    </button>
     <button id="navDashboard" onclick="app.showView('dashboard')" title="Analytics and reports">
       <div class="bi">📊</div><div>Dashboard</div>
     </button>
@@ -299,7 +328,7 @@
   <script>
     const API='/api';
     function localToday(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
-    let state={token:null,user:null,currentView:'zap',allUsers:[],allCRTs:[],absences:[],notifications:[],stats:{},userSettings:null,systemSettings:{},lastPollTime:new Date().toISOString(),_currentPrefArea:null,_currentPrefs:[],smsLogs:[],emailLogs:[],absenceFilter:'all',_logTab:'sms',pushSupported:false,pushSubscribed:false,reportData:null,reportFilters:{from:'',to:'',area:'',status:'all'},zapData:null,zapDate:localToday()};
+    let state={token:null,user:null,currentView:'zap',allUsers:[],allCRTs:[],absences:[],notifications:[],stats:{},userSettings:null,systemSettings:{},lastPollTime:new Date().toISOString(),_currentPrefArea:null,_currentPrefs:[],smsLogs:[],emailLogs:[],absenceFilter:'all',_logTab:'sms',pushSupported:false,pushSubscribed:false,reportData:null,reportFilters:{from:'',to:'',area:'',status:'all'},zapData:null,zapDate:localToday(),chatGroups:[],chatMessages:[],chatActiveGroup:null,chatUnread:0};
 
     function toast(msg,type='info',dur=4000){const c=document.getElementById('toasts');const icons={success:'✓',error:'✕',info:'ℹ'};const el=document.createElement('div');el.className='toast '+type;el.innerHTML='<span>'+(icons[type]||'ℹ')+'</span> '+msg;el.onclick=()=>{el.classList.add('hiding');setTimeout(()=>el.remove(),300)};c.appendChild(el);setTimeout(()=>{el.classList.add('hiding');setTimeout(()=>el.remove(),300)},dur)}
 
@@ -316,9 +345,9 @@
         const nav=document.getElementById('bottomNav');if(!nav||!state.user)return;
         const r=state.user.role;
         if(r==='crt'){
-          nav.innerHTML='<button id="navZap" class="act" onclick="app.showView(\'zap\')"><div class="bi">📰</div><div>Zap</div></button><button id="navDashboard" onclick="app.showView(\'dashboard\')"><div class="bi">📊</div><div>Dashboard</div></button><button id="navCrtportal" onclick="app.showView(\'crtportal\')"><div class="bi">📋</div><div>My Day</div></button><button id="navNotifications" onclick="app.showView(\'notifications\')"><div class="bi">🔔</div><div>Alerts</div><span class="badge" id="notifBadge" style="display:none"></span></button><button id="navSettings" onclick="app.showView(\'settings\')"><div class="bi">⚙️</div><div>More</div></button>'
+          nav.innerHTML='<button id="navZap" class="act" onclick="app.showView(\'zap\')"><div class="bi">📰</div><div>Zap</div></button><button id="navChat" onclick="app.showView(\'chat\')"><div class="bi">💬</div><div>Chat</div><span class="badge" id="chatBadge" style="display:none"></span></button><button id="navCrtportal" onclick="app.showView(\'crtportal\')"><div class="bi">📋</div><div>My Day</div></button><button id="navNotifications" onclick="app.showView(\'notifications\')"><div class="bi">🔔</div><div>Alerts</div><span class="badge" id="notifBadge" style="display:none"></span></button><button id="navSettings" onclick="app.showView(\'settings\')"><div class="bi">⚙️</div><div>More</div></button>'
         } else if(r==='leader'||r==='admin'){
-          nav.innerHTML='<button id="navZap" class="act" onclick="app.showView(\'zap\')"><div class="bi">📰</div><div>Zap</div></button><button id="navDashboard" onclick="app.showView(\'dashboard\')"><div class="bi">📊</div><div>Dashboard</div></button><button id="navNew" onclick="app.showView(\'new\')"><div class="bi">➕</div><div>New</div></button><button id="navNotifications" onclick="app.showView(\'notifications\')"><div class="bi">🔔</div><div>Alerts</div><span class="badge" id="notifBadge" style="display:none"></span></button><button id="navYardswaps" onclick="app.showView(\'yardswaps\')"><div class="bi">🔄</div><div>Swaps</div></button>'
+          nav.innerHTML='<button id="navZap" class="act" onclick="app.showView(\'zap\')"><div class="bi">📰</div><div>Zap</div></button><button id="navChat" onclick="app.showView(\'chat\')"><div class="bi">💬</div><div>Chat</div><span class="badge" id="chatBadge" style="display:none"></span></button><button id="navNew" onclick="app.showView(\'new\')"><div class="bi">➕</div><div>New</div></button><button id="navNotifications" onclick="app.showView(\'notifications\')"><div class="bi">🔔</div><div>Alerts</div><span class="badge" id="notifBadge" style="display:none"></span></button><button id="navYardswaps" onclick="app.showView(\'yardswaps\')"><div class="bi">🔄</div><div>Swaps</div></button>'
         }
         this.updateNotifBadge()},
       hideApp(){document.getElementById('topNav').style.display='none';document.getElementById('bottomNav').style.display='none'},
@@ -356,7 +385,21 @@
           if(notif&&notif.length>0){notif.forEach(n=>{const t=n.type==='success'?'success':n.type==='urgent'?'error':'info';toast(n.message,t)});state.notifications=[...notif,...state.notifications].slice(0,50)}
           state.lastPollTime=pt;this.updateNotifBadge();
           if(changed&&(state.currentView==='dashboard'||state.currentView==='zap'))this.render()
-        }catch(e){}},30000)},
+        }catch(e){}},30000);
+        // Chat polling — every 5 seconds
+        if(this._chatPoll)clearInterval(this._chatPoll);
+        this._chatPoll=setInterval(async()=>{try{
+          const u=await this.fetchAPI('GET','/chat/unread');
+          state.chatUnread=u.unread||0;this.updateChatBadge();
+          // If viewing chat, poll for new messages in active group
+          if(state.currentView==='chat'&&state.chatActiveGroup&&state.chatMessages.length>0){
+            const lastId=state.chatMessages[state.chatMessages.length-1].id;
+            const newMsgs=await this.fetchAPI('GET','/chat/groups/'+state.chatActiveGroup+'/messages?since='+lastId);
+            if(newMsgs&&newMsgs.length>0){state.chatMessages.push(...newMsgs);this._renderChatMessages();this._scrollChatBottom();
+              // Refresh group list for updated unread counts
+              try{const grps=await this.fetchAPI('GET','/chat/groups');state.chatGroups=grps||[];this._renderChatGroups()}catch(e){}}
+          }
+        }catch(e){}},5000)},
 
       updateNotifBadge(){const b=document.getElementById('notifBadge');if(!b)return;const c=state.notifications.length;if(c>0){b.textContent=c>9?'9+':c;b.style.display='block'}else b.style.display='none'},
 
@@ -366,7 +409,7 @@
         const content=document.getElementById('content');if(!state.user){content.innerHTML='';return}
         document.getElementById('userDisplay').textContent=state.user.name;
         document.getElementById('roleBadge').textContent=state.user.role;
-        const views={zap:()=>this.renderZap(),dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs(),directory:()=>this.renderDirectory(),reports:()=>this.renderReports(),prebook:()=>this.renderPrebook(),crtcalendar:()=>this.renderCRTCalendar(),zapedit:()=>this.renderZapEditor(),yardduty:()=>this.renderYardDutyManager(),calendarmanage:()=>this.renderCalendarManager(),timetablemanage:()=>this.renderTimetableManager(),staffmanage:()=>this.renderStaffManage(),lessonlab:()=>this.renderLessonLab(),crtportal:()=>this.renderCRTPortal(),yardswaps:()=>this.renderYardDutySwaps(),nft:()=>this.renderNFTTracking(),crtpack:()=>this.renderCRTPack(),analytics:()=>this.renderAnalytics(),schoolinfo:()=>this.renderSchoolInfo(),announcements:()=>this.renderAnnouncements(),wellbeing:()=>this.renderWellbeing(),incidents:()=>this.renderIncidents(),quickstatus:()=>this.renderQuickStatus(),pdlog:()=>this.renderPDLog(),coversummary:()=>this.renderCoverSummary()};
+        const views={zap:()=>this.renderZap(),dashboard:()=>this.renderDashboard(),absences:()=>this.renderAbsences(),new:()=>this.renderNewAbsence(),notifications:()=>this.renderNotifications(),settings:()=>this.renderSettings(),report:()=>this.renderCoverReport(),logs:()=>this.renderActivityLogs(),directory:()=>this.renderDirectory(),reports:()=>this.renderReports(),prebook:()=>this.renderPrebook(),crtcalendar:()=>this.renderCRTCalendar(),zapedit:()=>this.renderZapEditor(),yardduty:()=>this.renderYardDutyManager(),calendarmanage:()=>this.renderCalendarManager(),timetablemanage:()=>this.renderTimetableManager(),staffmanage:()=>this.renderStaffManage(),lessonlab:()=>this.renderLessonLab(),crtportal:()=>this.renderCRTPortal(),yardswaps:()=>this.renderYardDutySwaps(),nft:()=>this.renderNFTTracking(),crtpack:()=>this.renderCRTPack(),analytics:()=>this.renderAnalytics(),schoolinfo:()=>this.renderSchoolInfo(),announcements:()=>this.renderAnnouncements(),wellbeing:()=>this.renderWellbeing(),incidents:()=>this.renderIncidents(),quickstatus:()=>this.renderQuickStatus(),pdlog:()=>this.renderPDLog(),coversummary:()=>this.renderCoverSummary(),chat:()=>this.renderChat()};
         content.innerHTML=(views[state.currentView]||views.zap)();
         if(state.currentView==='settings'){if(state.user.role==='leader'||state.user.role==='admin')this.populateAreaDropdown();if(state.user.role==='crt')this.loadUnavailDates()}
         if(state.currentView==='new')this.setupAbsenceForm();
@@ -392,7 +435,8 @@
         if(state.currentView==='incidents')this.loadIncidents();
         if(state.currentView==='logs')this.loadActivityLogs();
         if(state.currentView==='pdlog')this.loadPDLog();
-        if(state.currentView==='coversummary')this.loadCoverSummary()},
+        if(state.currentView==='coversummary')this.loadCoverSummary();
+        if(state.currentView==='chat')this.loadChat()},
 
       // ===== DAILY ZAP =====
       renderZap(){
@@ -2350,7 +2394,130 @@
         }catch(e){toast('Error: '+e.message,'error')}
       },
 
-      logout(){localStorage.removeItem('wps_token');localStorage.removeItem('wps_user');state.token=null;state.user=null;if(this._poll)clearInterval(this._poll);this.showLoginView()}
+      // ===== CHAT =====
+      updateChatBadge(){const b=document.getElementById('chatBadge');if(!b)return;if(state.chatUnread>0){b.textContent=state.chatUnread>99?'99+':state.chatUnread;b.style.display='block'}else b.style.display='none'},
+
+      renderChat(){
+        const isLeader=state.user.role==='leader'||state.user.role==='admin';
+        return `<div class="chat-wrap">
+          <div class="chat-groups" id="chatGroupList"><div style="padding:10px;color:var(--dim);font-size:.8rem">Loading groups...</div></div>
+          <div class="chat-header" id="chatHeader" style="display:none"><h3 id="chatGroupName">Select a group</h3><div style="display:flex;gap:6px;align-items:center"><span class="chat-members-count" id="chatMemberCount"></span>${isLeader?'<button class="btn btn-p btn-s" onclick="app.showCreateGroupModal()" style="padding:5px 10px;font-size:.7rem">+ Group</button>':''}</div></div>
+          <div class="chat-msgs" id="chatMsgArea"><div class="chat-empty">Select a group to start chatting</div></div>
+          <div class="chat-input-bar" id="chatInputBar" style="display:none">
+            <input type="text" id="chatInput" placeholder="Type a message..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();app.sendChatMessage()}" autocomplete="off">
+            <button onclick="app.sendChatMessage()">Send</button>
+          </div>
+        </div>`;
+      },
+
+      async loadChat(){
+        try{
+          const[groups,unread]=await Promise.all([this.fetchAPI('GET','/chat/groups'),this.fetchAPI('GET','/chat/unread')]);
+          state.chatGroups=groups||[];state.chatUnread=unread.unread||0;this.updateChatBadge();
+          this._renderChatGroups();
+          // Auto-select first group or previously active
+          if(state.chatActiveGroup){
+            const exists=state.chatGroups.find(g=>g.id===state.chatActiveGroup);
+            if(exists)this.selectChatGroup(state.chatActiveGroup);
+            else if(state.chatGroups.length>0)this.selectChatGroup(state.chatGroups[0].id);
+          }else if(state.chatGroups.length>0){this.selectChatGroup(state.chatGroups[0].id)}
+        }catch(e){console.error('Chat load error:',e)}
+      },
+
+      _renderChatGroups(){
+        const el=document.getElementById('chatGroupList');if(!el)return;
+        if(state.chatGroups.length===0){el.innerHTML='<div style="padding:10px;color:var(--dim);font-size:.8rem">No groups yet</div>';return}
+        el.innerHTML=state.chatGroups.map(g=>{
+          const active=g.id===state.chatActiveGroup?'act':'';
+          const badge=g.unread>0?`<span class="chat-badge">${g.unread>99?'99+':g.unread}</span>`:'';
+          return `<div class="chat-grp ${active}" onclick="app.selectChatGroup(${g.id})">${g.name}${badge}</div>`;
+        }).join('');
+      },
+
+      async selectChatGroup(groupId){
+        state.chatActiveGroup=groupId;
+        this._renderChatGroups();
+        const group=state.chatGroups.find(g=>g.id===groupId);
+        const hdr=document.getElementById('chatHeader');if(hdr)hdr.style.display='flex';
+        const nm=document.getElementById('chatGroupName');if(nm)nm.textContent=group?group.name:'Chat';
+        const mc=document.getElementById('chatMemberCount');if(mc&&group)mc.textContent=group.member_count+' members';
+        const bar=document.getElementById('chatInputBar');if(bar)bar.style.display='flex';
+        const area=document.getElementById('chatMsgArea');if(area)area.innerHTML='<div class="chat-empty">Loading messages...</div>';
+
+        try{
+          const msgs=await this.fetchAPI('GET','/chat/groups/'+groupId+'/messages?limit=100');
+          state.chatMessages=msgs||[];
+          this._renderChatMessages();
+          this._scrollChatBottom();
+          // Refresh groups to update unread
+          try{const grps=await this.fetchAPI('GET','/chat/groups');state.chatGroups=grps||[];this._renderChatGroups()}catch(e){}
+          this.updateChatBadge();
+        }catch(e){if(area)area.innerHTML='<div class="chat-empty">Error loading messages</div>'}
+
+        setTimeout(()=>{const inp=document.getElementById('chatInput');if(inp)inp.focus()},100);
+      },
+
+      _renderChatMessages(){
+        const area=document.getElementById('chatMsgArea');if(!area)return;
+        if(state.chatMessages.length===0){area.innerHTML='<div class="chat-empty">No messages yet. Say hello!</div>';return}
+        let html='';let lastDate='';
+        state.chatMessages.forEach(m=>{
+          const d=new Date(m.created_at+'Z');
+          const dateStr=d.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
+          if(dateStr!==lastDate){html+=`<div class="chat-date-sep">${dateStr}</div>`;lastDate=dateStr}
+          const isMe=m.sender_id===state.user.id;
+          const time=d.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'});
+          html+=`<div class="chat-msg ${isMe?'me':'other'}">`;
+          if(!isMe)html+=`<div class="chat-sender">${m.sender_name}</div>`;
+          html+=`<div>${this._escChat(m.message)}</div><div class="chat-time">${time}</div></div>`;
+        });
+        area.innerHTML=html;
+      },
+
+      _escChat(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')},
+
+      _scrollChatBottom(){const area=document.getElementById('chatMsgArea');if(area)setTimeout(()=>area.scrollTop=area.scrollHeight,50)},
+
+      async sendChatMessage(){
+        const inp=document.getElementById('chatInput');if(!inp)return;
+        const msg=inp.value.trim();if(!msg||!state.chatActiveGroup)return;
+        inp.value='';inp.focus();
+        try{
+          const sent=await this.fetchAPI('POST','/chat/groups/'+state.chatActiveGroup+'/messages',{message:msg});
+          if(sent){state.chatMessages.push(sent);this._renderChatMessages();this._scrollChatBottom()}
+        }catch(e){toast('Failed to send message','error');inp.value=msg}
+      },
+
+      showCreateGroupModal(){
+        const users=state.allUsers.filter(u=>u.id!==state.user.id);
+        const html=`<div class="mo" onclick="if(event.target===this)this.remove()"><div class="mc"><div class="handle"></div>
+          <h3 style="margin-bottom:14px">Create Chat Group</h3>
+          <div class="fg"><label>Group Name</label><input type="text" id="newGroupName" placeholder="e.g. Year 1 Parents Meeting"></div>
+          <div class="fg"><label>Select Members</label>
+            <div id="groupMemberList" style="max-height:250px;overflow-y:auto;border:1px solid var(--bdr);border-radius:10px;padding:8px">
+              ${users.map(u=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;font-size:.85rem"><input type="checkbox" value="${u.id}" class="grp-member-cb"><span>${u.name}</span><span style="font-size:.68rem;color:var(--dim)">${u.area||u.role}</span></label>`).join('')}
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn-p" onclick="app.createChatGroup()">Create Group</button><button class="btn btn-g" onclick="this.closest('.mo').remove()">Cancel</button></div>
+        </div></div>`;
+        document.body.insertAdjacentHTML('beforeend',html);
+      },
+
+      async createChatGroup(){
+        const name=document.getElementById('newGroupName')?.value?.trim();
+        const cbs=document.querySelectorAll('.grp-member-cb:checked');
+        const memberIds=Array.from(cbs).map(cb=>parseInt(cb.value));
+        if(!name){toast('Enter a group name','error');return}
+        if(memberIds.length===0){toast('Select at least one member','error');return}
+        try{
+          await this.fetchAPI('POST','/chat/groups',{name,memberIds});
+          document.querySelector('.mo')?.remove();
+          toast('Group "'+name+'" created!','success');
+          this.loadChat();
+        }catch(e){toast('Error: '+e.message,'error')}
+      },
+
+      logout(){localStorage.removeItem('wps_token');localStorage.removeItem('wps_user');state.token=null;state.user=null;if(this._poll)clearInterval(this._poll);if(this._chatPoll)clearInterval(this._chatPoll);this.showLoginView()}
     };
     app.init();
     // Register service worker for PWA

@@ -2643,6 +2643,204 @@ app.get('/api/cover-summary', auth, wrap(async (req, res) => {
   res.json({ date, dayName, absences: packs, yardDuty: { roster, changes }, statuses, absentStaff: absences.map(a => a.staff_name) });
 }));
 
+// ===== CHAT =====
+
+// Get user's chat groups with unread counts
+app.get('/api/chat/groups', auth, wrap(async (req, res) => {
+  const userId = req.user.id;
+  const groups = await dbAll(
+    `SELECT g.id, g.name, g.type, g.created_by,
+      (SELECT COUNT(*) FROM chat_group_members WHERE group_id = g.id) as member_count,
+      (SELECT m.message FROM chat_messages m WHERE m.group_id = g.id ORDER BY m.id DESC LIMIT 1) as last_message,
+      (SELECT m.sender_name FROM chat_messages m WHERE m.group_id = g.id ORDER BY m.id DESC LIMIT 1) as last_sender,
+      (SELECT m.created_at FROM chat_messages m WHERE m.group_id = g.id ORDER BY m.id DESC LIMIT 1) as last_message_at,
+      (SELECT MAX(m.id) FROM chat_messages m WHERE m.group_id = g.id) as max_msg_id,
+      COALESCE((SELECT rs.last_read_msg_id FROM chat_read_status rs WHERE rs.group_id = g.id AND rs.user_id = ?), 0) as last_read
+    FROM chat_groups g
+    INNER JOIN chat_group_members gm ON gm.group_id = g.id AND gm.user_id = ?
+    ORDER BY last_message_at DESC NULLS LAST, g.name ASC`,
+    userId, userId
+  );
+  // Calculate unread for each
+  const result = groups.map(g => ({
+    ...g,
+    unread: Math.max(0, (g.max_msg_id || 0) - (g.last_read || 0))
+  }));
+  res.json(result);
+}));
+
+// Get messages for a group (with optional since parameter for polling)
+app.get('/api/chat/groups/:id/messages', auth, wrap(async (req, res) => {
+  const groupId = parseInt(req.params.id);
+  const userId = req.user.id;
+  // Verify membership
+  const member = await dbGet(
+    `SELECT id FROM chat_group_members WHERE group_id = ? AND user_id = ?`,
+    groupId, userId
+  );
+  if (!member) return res.status(403).json({ error: 'Not a member of this group' });
+
+  const since = req.query.since ? parseInt(req.query.since) : 0;
+  const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+
+  let messages;
+  if (since > 0) {
+    messages = await dbAll(
+      `SELECT id, sender_id, sender_name, message, created_at FROM chat_messages
+       WHERE group_id = ? AND id > ? ORDER BY id ASC LIMIT ?`,
+      groupId, since, limit
+    );
+  } else {
+    messages = await dbAll(
+      `SELECT id, sender_id, sender_name, message, created_at FROM chat_messages
+       WHERE group_id = ? ORDER BY id DESC LIMIT ?`,
+      groupId, limit
+    );
+    messages.reverse();
+  }
+
+  // Mark as read
+  if (messages.length > 0) {
+    const maxId = messages[messages.length - 1].id;
+    try {
+      const existing = await dbGet(
+        `SELECT id FROM chat_read_status WHERE group_id = ? AND user_id = ?`,
+        groupId, userId
+      );
+      if (existing) {
+        await dbRun(
+          `UPDATE chat_read_status SET last_read_msg_id = MAX(last_read_msg_id, ?) WHERE group_id = ? AND user_id = ?`,
+          [maxId, groupId, userId]
+        );
+      } else {
+        await dbRun(
+          `INSERT INTO chat_read_status (group_id, user_id, last_read_msg_id) VALUES (?, ?, ?)`,
+          [groupId, userId, maxId]
+        );
+      }
+    } catch(e) { /* ok */ }
+  }
+
+  res.json(messages);
+}));
+
+// Send a message
+app.post('/api/chat/groups/:id/messages', auth, wrap(async (req, res) => {
+  const groupId = parseInt(req.params.id);
+  const userId = req.user.id;
+  const { message } = req.body;
+  if (!message || !message.trim()) return res.status(400).json({ error: 'Message required' });
+
+  // Verify membership
+  const member = await dbGet(
+    `SELECT id FROM chat_group_members WHERE group_id = ? AND user_id = ?`,
+    groupId, userId
+  );
+  if (!member) return res.status(403).json({ error: 'Not a member of this group' });
+
+  await dbRun(
+    `INSERT INTO chat_messages (group_id, sender_id, sender_name, message) VALUES (?, ?, ?, ?)`,
+    [groupId, userId, req.user.name, message.trim()]
+  );
+  const msg = await dbGet(
+    `SELECT id, sender_id, sender_name, message, created_at FROM chat_messages WHERE group_id = ? ORDER BY id DESC LIMIT 1`,
+    groupId
+  );
+
+  // Update sender's read status
+  try {
+    const existing = await dbGet(
+      `SELECT id FROM chat_read_status WHERE group_id = ? AND user_id = ?`,
+      groupId, userId
+    );
+    if (existing) {
+      await dbRun(`UPDATE chat_read_status SET last_read_msg_id = ? WHERE group_id = ? AND user_id = ?`, [msg.id, groupId, userId]);
+    } else {
+      await dbRun(`INSERT INTO chat_read_status (group_id, user_id, last_read_msg_id) VALUES (?, ?, ?)`, [groupId, userId, msg.id]);
+    }
+  } catch(e) { /* ok */ }
+
+  res.json(msg);
+}));
+
+// Create a custom chat group (leaders only)
+app.post('/api/chat/groups', auth, leaderOnly, wrap(async (req, res) => {
+  const { name, memberIds } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Group name required' });
+  if (!memberIds || !Array.isArray(memberIds) || memberIds.length === 0) return res.status(400).json({ error: 'At least one member required' });
+
+  await dbRun(
+    `INSERT INTO chat_groups (name, type, created_by) VALUES (?, 'custom', ?)`,
+    [name.trim(), req.user.id]
+  );
+  const group = await dbGet(`SELECT id FROM chat_groups WHERE name = ? AND created_by = ? ORDER BY id DESC LIMIT 1`, name.trim(), req.user.id);
+  if (!group) return res.status(500).json({ error: 'Failed to create group' });
+
+  // Add creator as member
+  const allMembers = new Set([req.user.id, ...memberIds.map(Number)]);
+  for (const uid of allMembers) {
+    try {
+      await dbRun(`INSERT INTO chat_group_members (group_id, user_id) VALUES (?, ?)`, [group.id, uid]);
+    } catch(e) { /* duplicate ok */ }
+  }
+
+  res.json({ id: group.id, name: name.trim(), type: 'custom', member_count: allMembers.size });
+}));
+
+// Get group members
+app.get('/api/chat/groups/:id/members', auth, wrap(async (req, res) => {
+  const groupId = parseInt(req.params.id);
+  const members = await dbAll(
+    `SELECT u.id, u.name, u.role, u.area FROM users u
+     INNER JOIN chat_group_members gm ON gm.user_id = u.id
+     WHERE gm.group_id = ? ORDER BY u.name`,
+    groupId
+  );
+  res.json(members);
+}));
+
+// Add members to group (leaders only)
+app.post('/api/chat/groups/:id/members', auth, leaderOnly, wrap(async (req, res) => {
+  const groupId = parseInt(req.params.id);
+  const { memberIds } = req.body;
+  if (!memberIds || !Array.isArray(memberIds)) return res.status(400).json({ error: 'memberIds required' });
+  for (const uid of memberIds) {
+    try {
+      await dbRun(`INSERT INTO chat_group_members (group_id, user_id) VALUES (?, ?)`, [groupId, Number(uid)]);
+    } catch(e) { /* duplicate ok */ }
+  }
+  res.json({ ok: true });
+}));
+
+// Delete a custom group (leaders only)
+app.delete('/api/chat/groups/:id', auth, leaderOnly, wrap(async (req, res) => {
+  const groupId = parseInt(req.params.id);
+  const group = await dbGet(`SELECT type FROM chat_groups WHERE id = ?`, groupId);
+  if (!group) return res.status(404).json({ error: 'Group not found' });
+  if (group.type === 'preset') return res.status(403).json({ error: 'Cannot delete preset groups' });
+  await dbRun(`DELETE FROM chat_messages WHERE group_id = ?`, [groupId]);
+  await dbRun(`DELETE FROM chat_read_status WHERE group_id = ?`, [groupId]);
+  await dbRun(`DELETE FROM chat_group_members WHERE group_id = ?`, [groupId]);
+  await dbRun(`DELETE FROM chat_groups WHERE id = ?`, [groupId]);
+  res.json({ ok: true });
+}));
+
+// Poll for total unread count across all groups
+app.get('/api/chat/unread', auth, wrap(async (req, res) => {
+  const userId = req.user.id;
+  const rows = await dbAll(
+    `SELECT g.id as group_id,
+      COALESCE((SELECT MAX(m.id) FROM chat_messages m WHERE m.group_id = g.id), 0) as max_msg_id,
+      COALESCE((SELECT rs.last_read_msg_id FROM chat_read_status rs WHERE rs.group_id = g.id AND rs.user_id = ?), 0) as last_read
+    FROM chat_groups g
+    INNER JOIN chat_group_members gm ON gm.group_id = g.id AND gm.user_id = ?`,
+    userId, userId
+  );
+  let total = 0;
+  for (const r of rows) total += Math.max(0, (r.max_msg_id || 0) - (r.last_read || 0));
+  res.json({ unread: total });
+}));
+
 // ===== SERVE FRONTEND =====
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -2993,6 +3191,72 @@ async function start() {
     await dbRun("UPDATE yard_duty_swaps SET location = 'Redbrick' WHERE location IN ('Gallery-Deck', 'Redbrick')", []);
     console.log('v7.5 migration: yard duty locations renamed');
   } catch(e) { console.log('v7.5 migration skipped:', e.message); }
+
+  // v7.7 chat tables
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS chat_groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'preset',
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`); } catch(e) {}
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS chat_group_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(group_id, user_id)
+  )`); } catch(e) {}
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL,
+    sender_id INTEGER NOT NULL,
+    sender_name TEXT NOT NULL,
+    message TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`); } catch(e) {}
+  try { await dbRun(`CREATE TABLE IF NOT EXISTS chat_read_status (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    last_read_msg_id INTEGER DEFAULT 0,
+    UNIQUE(group_id, user_id)
+  )`); } catch(e) {}
+  try { await dbRun(`CREATE INDEX IF NOT EXISTS idx_chat_msgs_group ON chat_messages(group_id, created_at)`); } catch(e) {}
+  try { await dbRun(`CREATE INDEX IF NOT EXISTS idx_chat_members ON chat_group_members(user_id)`); } catch(e) {}
+
+  // v7.7 seed preset chat groups (idempotent — creates missing groups)
+  try {
+    const allUsers = await dbAll(`SELECT id, role, area FROM users WHERE active = 1`);
+    const presets = [
+      { name: 'All Staff', filter: u => true },
+      { name: 'Leaders', filter: u => u.role === 'leader' || u.role === 'admin' },
+      { name: '5/6 Team', filter: u => u.area === 'Year 5/6' },
+      { name: '3/4 Team', filter: u => u.area === 'Year 3/4' },
+      { name: 'Prep Team', filter: u => u.area === 'Prep' },
+      { name: 'Year 1/2 Team', filter: u => u.area === 'Year 1' || u.area === 'Year 2' },
+      { name: 'Specialists', filter: u => ['PE / Health','Visual Arts','Performing Arts','French (LoTE)','Kitchen Garden'].includes(u.area) },
+      { name: 'ES Staff', filter: u => u.area && u.area.startsWith('ES') },
+    ];
+    let created = 0;
+    for (const p of presets) {
+      try {
+        let grp = await dbGet(`SELECT id FROM chat_groups WHERE name = ? AND type = 'preset'`, p.name);
+        if (!grp) {
+          await dbRun(`INSERT INTO chat_groups (name, type) VALUES (?, 'preset')`, [p.name]);
+          grp = await dbGet(`SELECT id FROM chat_groups WHERE name = ? AND type = 'preset'`, p.name);
+          created++;
+        }
+        if (grp) {
+          const members = allUsers.filter(p.filter);
+          for (const m of members) {
+            try { await dbRun(`INSERT OR IGNORE INTO chat_group_members (group_id, user_id) VALUES (?, ?)`, [grp.id, m.id]); } catch(e) {}
+          }
+        }
+      } catch(e) { console.log('Chat group "' + p.name + '" skip:', e.message); }
+    }
+    if (created > 0) console.log('v7.7 migration: ' + created + ' chat groups created');
+  } catch(e) { console.log('v7.7 chat seed skipped:', e.message); }
 
   // v7.6 migration: add Jacky Rooney as leader
   try {

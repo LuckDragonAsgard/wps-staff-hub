@@ -128,6 +128,49 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS chat_groups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'preset',
+  created_by INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS chat_group_members (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  group_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (group_id) REFERENCES chat_groups(id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  UNIQUE(group_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  group_id INTEGER NOT NULL,
+  sender_id INTEGER NOT NULL,
+  sender_name TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (group_id) REFERENCES chat_groups(id),
+  FOREIGN KEY (sender_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS chat_read_status (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  group_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  last_read_msg_id INTEGER DEFAULT 0,
+  FOREIGN KEY (group_id) REFERENCES chat_groups(id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  UNIQUE(group_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_msgs_group ON chat_messages(group_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_chat_members ON chat_group_members(user_id);
+
 CREATE INDEX IF NOT EXISTS idx_absences_date ON absences(date_start, date_end);
 CREATE INDEX IF NOT EXISTS idx_absences_staff ON absences(staff_id);
 CREATE INDEX IF NOT EXISTS idx_absences_status ON absences(status);
