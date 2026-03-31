@@ -177,6 +177,13 @@ app.use((req, res, next) => {
 });
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Executive leadership (Principal, AP) — never assigned classes, yard duty, or covers
+function isExecLeadership(area) {
+  if (!area) return false;
+  const a = area.toLowerCase();
+  return a.includes('principal') || a === 'ap' || a === 'assistant principal';
+}
+
 function wrap(fn) {
   return function(req, res, next) {
     fn(req, res, next).catch(function(err) {
@@ -1588,6 +1595,9 @@ async function autoYardDutyCover(date) {
 // When a classroom teacher is absent, check the specialist timetable to see which
 // specialist teachers are affected and auto-notify them before they set up for a lesson.
 async function notifySpecialists(absence) {
+  // Executive leadership has no classes — nothing to notify
+  if (isExecLeadership(absence.area)) return { alerts: 0 };
+
   const date = absence.date_start;
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const d = new Date(date + 'T12:00:00');
@@ -1845,6 +1855,8 @@ app.post('/api/timetables/from-csv', auth, leaderOnly, wrap(async (req, res) => 
 async function lookupClassesForStaff(staffId, date) {
   const user = await dbGet('SELECT id, name, area FROM users WHERE id = ?', staffId);
   if (!user) return [];
+  // Executive leadership never has classes
+  if (isExecLeadership(user.area)) return [];
 
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const d = new Date(date + 'T12:00:00');
