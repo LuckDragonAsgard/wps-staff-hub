@@ -1257,8 +1257,8 @@ app.get('/api/daily-zap/:date', auth, wrap(async (req, res) => {
   );
 
   // Yard duty: base roster for this day + any changes
-  const roster = await dbAll(`SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END, location`, dayName);
-  const changes = await dbAll(`SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END, location`, date);
+  const roster = await dbAll(`SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY CASE time_slot WHEN '8:45-9:00' THEN 1 WHEN 'Recess 11:10' THEN 2 WHEN 'Recess 11:20' THEN 3 WHEN 'Lunch 1:40' THEN 4 WHEN 'Lunch 2:00' THEN 5 WHEN 'Extra 2:10-2:30' THEN 6 WHEN '3:30-3:45' THEN 7 ELSE 8 END, location`, dayName);
+  const changes = await dbAll(`SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY CASE time_slot WHEN '8:45-9:00' THEN 1 WHEN 'Recess 11:10' THEN 2 WHEN 'Recess 11:20' THEN 3 WHEN 'Lunch 1:40' THEN 4 WHEN 'Lunch 2:00' THEN 5 WHEN 'Extra 2:10-2:30' THEN 6 WHEN '3:30-3:45' THEN 7 ELSE 8 END, location`, date);
 
   // Calendar events for this week and next
   const weekStart = new Date(d);
@@ -1405,8 +1405,8 @@ app.get('/api/yard-duty/today', auth, wrap(async (req, res) => {
   const d = new Date(date + 'T12:00:00');
   const dayName = dayNames[d.getDay()];
 
-  const roster = await dbAll(`SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END, location`, dayName);
-  const changes = await dbAll(`SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END, location`, date);
+  const roster = await dbAll(`SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY CASE time_slot WHEN '8:45-9:00' THEN 1 WHEN 'Recess 11:10' THEN 2 WHEN 'Recess 11:20' THEN 3 WHEN 'Lunch 1:40' THEN 4 WHEN 'Lunch 2:00' THEN 5 WHEN 'Extra 2:10-2:30' THEN 6 WHEN '3:30-3:45' THEN 7 ELSE 8 END, location`, dayName);
+  const changes = await dbAll(`SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY CASE time_slot WHEN '8:45-9:00' THEN 1 WHEN 'Recess 11:10' THEN 2 WHEN 'Recess 11:20' THEN 3 WHEN 'Lunch 1:40' THEN 4 WHEN 'Lunch 2:00' THEN 5 WHEN 'Extra 2:10-2:30' THEN 6 WHEN '3:30-3:45' THEN 7 ELSE 8 END, location`, date);
 
   // Check which rostered staff are absent today
   const absences = await dbAll(
@@ -2532,7 +2532,7 @@ app.get('/api/dashboard/leadership', auth, leaderOnly, wrap(async (req, res) => 
   }
 
   // Today's yard duty roster with changes
-  const roster = await dbAll(`SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END, location`, dayName);
+  const roster = await dbAll(`SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY CASE time_slot WHEN '8:45-9:00' THEN 1 WHEN 'Recess 11:10' THEN 2 WHEN 'Recess 11:20' THEN 3 WHEN 'Lunch 1:40' THEN 4 WHEN 'Lunch 2:00' THEN 5 WHEN 'Extra 2:10-2:30' THEN 6 WHEN '3:30-3:45' THEN 7 ELSE 8 END, location`, dayName);
   const changes = await dbAll(`SELECT * FROM yard_duty_changes WHERE date = ? ORDER BY CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END`, today);
 
   res.json({
@@ -2764,7 +2764,7 @@ app.get('/api/cover-summary', auth, wrap(async (req, res) => {
     date, date
   );
   // Get yard duty roster for the day
-  const roster = await dbAll("SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY CASE time_slot WHEN 'before_school' THEN 1 WHEN 'recess_1' THEN 2 WHEN 'recess_2' THEN 3 WHEN 'lunch_eating' THEN 4 WHEN 'lunch_1' THEN 5 WHEN 'lunch_2' THEN 6 WHEN 'after_school' THEN 7 ELSE 8 END, location", dayName);
+  const roster = await dbAll("SELECT * FROM yard_duty_roster WHERE day_of_week = ? ORDER BY CASE time_slot WHEN '8:45-9:00' THEN 1 WHEN 'Recess 11:10' THEN 2 WHEN 'Recess 11:20' THEN 3 WHEN 'Lunch 1:40' THEN 4 WHEN 'Lunch 2:00' THEN 5 WHEN 'Extra 2:10-2:30' THEN 6 WHEN '3:30-3:45' THEN 7 ELSE 8 END, location", dayName);
   const changes = await dbAll("SELECT * FROM yard_duty_changes WHERE date = ?", date);
   // Quick statuses for today
   const statuses = await dbAll("SELECT * FROM quick_status WHERE date = ? ORDER BY created_at DESC", date);
