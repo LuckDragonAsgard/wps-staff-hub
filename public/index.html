@@ -528,7 +528,7 @@
             const absentNames=data.absences.map(a=>a.staff_name.toLowerCase());
             const slots={};
             yd.roster.forEach(r=>{if(!slots[r.time_slot])slots[r.time_slot]=[];slots[r.time_slot].push(r)});
-            const slotRank=s=>{const l=s.toLowerCase();if(l.includes('8:45')||l.includes('before'))return 1;if(l.includes('recess')&&l.includes('11:10')||l==='recess_1')return 2;if(l.includes('recess')&&l.includes('11:20')||l==='recess_2')return 3;if(l.includes('recess'))return 2;if(l.includes('lunch')&&(l.includes('1:40')||l.includes('eating'))||l==='lunch_eating'||l==='lunch_1')return 4;if(l.includes('lunch')&&l.includes('2:00')||l==='lunch_2')return 5;if(l.includes('3:30')||l.includes('after'))return 6;return 3};
+            const slotRank=s=>{const l=s.toLowerCase();if(l.includes('8:45')||l.includes('before'))return 1;if(l.includes('recess')&&l.includes('11:10')||l==='recess_1')return 2;if(l.includes('recess')&&l.includes('11:20')||l==='recess_2')return 3;if(l.includes('recess'))return 2;if(l.includes('lunch')&&(l.includes('1:40')||l.includes('eating'))||l==='lunch_eating'||l==='lunch_1')return 4;if(l.includes('lunch')&&l.includes('2:00')||l==='lunch_2')return 5;if(l.includes('extra')&&l.includes('2:10'))return 5.5;if(l.includes('3:30')||l.includes('after'))return 6;return 3};
             const sortedSlots=Object.keys(slots).sort((a,b)=>slotRank(a)-slotRank(b));
             sortedSlots.forEach(slot=>{const duties=slots[slot];
               h+='<div style="margin-bottom:10px"><div style="font-weight:700;font-size:.82rem;color:var(--navy);margin-bottom:4px;border-bottom:1px solid var(--bdr);padding-bottom:3px">'+slot.replace(/_/g,' ')+'</div>';

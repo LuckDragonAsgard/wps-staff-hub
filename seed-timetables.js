@@ -298,6 +298,12 @@ async function seed() {
     { day: 'Friday', slot: 'Lunch 2:00', loc: 'Oval', staff: 'Joel', is_l: 0 },
     { day: 'Friday', slot: 'Lunch 2:00', loc: 'Bluestone Lounge', staff: 'Anna', is_l: 0 },
     { day: 'Friday', slot: '3:30-3:45', loc: 'Front', staff: 'Leadership', is_l: 1 },
+    // Additional Duty: Front 2:10-2:30 (Week 10 rotating roster)
+    { day: 'Monday', slot: 'Extra 2:10-2:30', loc: 'Front', staff: 'Caitlin', is_l: 0 },
+    { day: 'Tuesday', slot: 'Extra 2:10-2:30', loc: 'Front', staff: 'Katja', is_l: 0 },
+    { day: 'Wednesday', slot: 'Extra 2:10-2:30', loc: 'Front', staff: 'Steph', is_l: 0 },
+    { day: 'Thursday', slot: 'Extra 2:10-2:30', loc: 'Front', staff: 'Bianca R', is_l: 0 },
+    { day: 'Friday', slot: 'Extra 2:10-2:30', loc: 'Front', staff: 'Claire', is_l: 0 },
   ];
 
   for (const e of rosterEntries) {
