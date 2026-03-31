@@ -166,6 +166,15 @@ async function sendEmail(to, subject, html) {
 // ===== MIDDLEWARE =====
 app.use(cors());
 app.use(express.json());
+// No-cache headers for index.html and sw.js so updates load immediately
+app.use((req, res, next) => {
+  if (req.path === '/' || req.path === '/index.html' || req.path === '/sw.js') {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 function wrap(fn) {

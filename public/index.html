@@ -2683,7 +2683,27 @@
     };
     app.init();
     // Register service worker for PWA
-    if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(()=>console.log('SW registered')).catch(e=>console.log('SW failed:',e))}
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.register('/sw.js').then(reg=>{
+        console.log('SW registered');
+        // Check for updates on every page load
+        reg.update();
+        // When a new SW is found, tell it to activate immediately
+        reg.addEventListener('updatefound',()=>{
+          const newSW=reg.installing;
+          if(newSW){newSW.addEventListener('statechange',()=>{
+            if(newSW.state==='installed'&&navigator.serviceWorker.controller){
+              newSW.postMessage('SKIP_WAITING');
+            }
+          })}
+        });
+      }).catch(e=>console.log('SW failed:',e));
+      // When the new SW takes over, reload to get fresh content
+      let refreshing=false;
+      navigator.serviceWorker.addEventListener('controllerchange',()=>{
+        if(!refreshing){refreshing=true;window.location.reload()}
+      });
+    }
   </script>
 </body>
 </html>

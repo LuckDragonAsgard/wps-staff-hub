@@ -1,5 +1,5 @@
 // WPS Staff Hub Service Worker
-const CACHE_NAME = 'wps-hub-v9.4.0';
+const CACHE_NAME = 'wps-hub-v9.5.0';
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', event => {
@@ -43,14 +43,33 @@ self.addEventListener('notificationclick', event => {
   );
 });
 
+// Notify all open tabs to reload when this SW activates
+self.addEventListener('message', event => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
+});
+
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  // API calls - network first, no cache
+
+  // API calls — network only, no cache
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(fetch(event.request).catch(() => new Response(JSON.stringify({ error: 'Offline' }), { headers: { 'Content-Type': 'application/json' } })));
     return;
   }
-  // Static assets - cache first, then network
+
+  // HTML and SW — network first, fall back to cache (ensures updates load immediately)
+  if (event.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
+    event.respondWith(
+      fetch(event.request).then(resp => {
+        const clone = resp.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        return resp;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Other static assets (icons, manifest) — cache first, then network
   event.respondWith(
     caches.match(event.request).then(cached => cached || fetch(event.request).then(resp => {
       const clone = resp.clone();
