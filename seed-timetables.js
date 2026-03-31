@@ -187,6 +187,127 @@ async function seed() {
   });
   console.log('✓ Yard Duty uploaded');
 
+  // 6. Populate yard_duty_roster table (used by Zap view and CRT pack)
+  console.log('Clearing old yard duty roster...');
+  await db.execute('DELETE FROM yard_duty_roster');
+
+  console.log('Populating yard duty roster...');
+  const rosterEntries = [
+    // MONDAY
+    { day: 'Monday', slot: '8:45-9:00', loc: 'Front', staff: 'Leadership', is_l: 1 },
+    { day: 'Monday', slot: 'Recess 11:10', loc: 'Front', staff: 'Edan', is_l: 0 },
+    { day: 'Monday', slot: 'Recess 11:10', loc: 'Back', staff: 'Matt EJ', is_l: 0 },
+    { day: 'Monday', slot: 'Recess 11:10', loc: 'Redbrick', staff: 'Anna', is_l: 0 },
+    { day: 'Monday', slot: 'Recess 11:10', loc: 'Oval', staff: 'Paddy', is_l: 0 },
+    { day: 'Monday', slot: 'Recess 11:20', loc: 'Front', staff: 'Joel', is_l: 0 },
+    { day: 'Monday', slot: 'Recess 11:20', loc: 'Back', staff: 'Katherine', is_l: 0 },
+    { day: 'Monday', slot: 'Recess 11:20', loc: 'Redbrick', staff: 'Caitlin', is_l: 0 },
+    { day: 'Monday', slot: 'Recess 11:20', loc: 'Oval', staff: 'Melati', is_l: 0 },
+    { day: 'Monday', slot: 'Lunch 1:40', loc: 'Front', staff: 'Melati', is_l: 0 },
+    { day: 'Monday', slot: 'Lunch 1:40', loc: 'Back', staff: 'Hayley', is_l: 0 },
+    { day: 'Monday', slot: 'Lunch 1:40', loc: 'Redbrick', staff: 'Steven', is_l: 0 },
+    { day: 'Monday', slot: 'Lunch 1:40', loc: 'Oval', staff: 'Matt EJ', is_l: 0 },
+    { day: 'Monday', slot: 'Lunch 1:40', loc: 'Bluestone Lounge', staff: 'Bee', is_l: 0 },
+    { day: 'Monday', slot: 'Lunch 2:00', loc: 'Front', staff: 'Molly', is_l: 0 },
+    { day: 'Monday', slot: 'Lunch 2:00', loc: 'Back', staff: 'Rebecca', is_l: 0 },
+    { day: 'Monday', slot: 'Lunch 2:00', loc: 'Redbrick', staff: 'Georgia', is_l: 0 },
+    { day: 'Monday', slot: 'Lunch 2:00', loc: 'Oval', staff: 'Paddy', is_l: 0 },
+    { day: 'Monday', slot: 'Lunch 2:00', loc: 'Bluestone Lounge', staff: 'Anna', is_l: 0 },
+    { day: 'Monday', slot: '3:30-3:45', loc: 'Front', staff: 'Leadership', is_l: 1 },
+    // TUESDAY
+    { day: 'Tuesday', slot: '8:45-9:00', loc: 'Front', staff: 'Leadership', is_l: 1 },
+    { day: 'Tuesday', slot: 'Recess 11:10', loc: 'Front', staff: 'Molly', is_l: 0 },
+    { day: 'Tuesday', slot: 'Recess 11:10', loc: 'Back', staff: 'Sara', is_l: 0 },
+    { day: 'Tuesday', slot: 'Recess 11:10', loc: 'Redbrick', staff: 'Caitlin', is_l: 0 },
+    { day: 'Tuesday', slot: 'Recess 11:10', loc: 'Oval', staff: 'Matt EJ', is_l: 0 },
+    { day: 'Tuesday', slot: 'Recess 11:20', loc: 'Front', staff: 'Grace', is_l: 0 },
+    { day: 'Tuesday', slot: 'Recess 11:20', loc: 'Back', staff: 'Katherine', is_l: 0 },
+    { day: 'Tuesday', slot: 'Recess 11:20', loc: 'Redbrick', staff: 'Emma', is_l: 0 },
+    { day: 'Tuesday', slot: 'Recess 11:20', loc: 'Oval', staff: 'Steven', is_l: 0 },
+    { day: 'Tuesday', slot: 'Lunch 1:40', loc: 'Front', staff: 'Sara', is_l: 0 },
+    { day: 'Tuesday', slot: 'Lunch 1:40', loc: 'Back', staff: 'Molly', is_l: 0 },
+    { day: 'Tuesday', slot: 'Lunch 1:40', loc: 'Redbrick', staff: 'Joel', is_l: 0 },
+    { day: 'Tuesday', slot: 'Lunch 1:40', loc: 'Oval', staff: 'Paddy', is_l: 0 },
+    { day: 'Tuesday', slot: 'Lunch 1:40', loc: 'Bluestone Lounge', staff: 'Anna', is_l: 0 },
+    { day: 'Tuesday', slot: 'Lunch 2:00', loc: 'Front', staff: 'Claire', is_l: 0 },
+    { day: 'Tuesday', slot: 'Lunch 2:00', loc: 'Back', staff: 'Steph', is_l: 0 },
+    { day: 'Tuesday', slot: 'Lunch 2:00', loc: 'Redbrick', staff: 'Caitlin', is_l: 0 },
+    { day: 'Tuesday', slot: 'Lunch 2:00', loc: 'Oval', staff: 'Edan', is_l: 0 },
+    { day: 'Tuesday', slot: 'Lunch 2:00', loc: 'Bluestone Lounge', staff: 'Bee', is_l: 0 },
+    { day: 'Tuesday', slot: '3:30-3:45', loc: 'Front', staff: 'Leadership', is_l: 1 },
+    // WEDNESDAY
+    { day: 'Wednesday', slot: '8:45-9:00', loc: 'Front', staff: 'Leadership', is_l: 1 },
+    { day: 'Wednesday', slot: 'Recess 11:10', loc: 'Front', staff: 'Grace', is_l: 0 },
+    { day: 'Wednesday', slot: 'Recess 11:10', loc: 'Back', staff: 'Katherine', is_l: 0 },
+    { day: 'Wednesday', slot: 'Recess 11:10', loc: 'Redbrick', staff: 'Georgia', is_l: 0 },
+    { day: 'Wednesday', slot: 'Recess 11:10', loc: 'Oval', staff: 'Edan', is_l: 0 },
+    { day: 'Wednesday', slot: 'Recess 11:20', loc: 'Front', staff: 'Anna', is_l: 0 },
+    { day: 'Wednesday', slot: 'Recess 11:20', loc: 'Back', staff: 'Melati', is_l: 0 },
+    { day: 'Wednesday', slot: 'Recess 11:20', loc: 'Redbrick', staff: 'Caitlin', is_l: 0 },
+    { day: 'Wednesday', slot: 'Recess 11:20', loc: 'Oval', staff: 'Matt EJ', is_l: 0 },
+    { day: 'Wednesday', slot: 'Lunch 1:40', loc: 'Front', staff: 'Grace', is_l: 0 },
+    { day: 'Wednesday', slot: 'Lunch 1:40', loc: 'Back', staff: 'Marcia', is_l: 0 },
+    { day: 'Wednesday', slot: 'Lunch 1:40', loc: 'Redbrick', staff: 'Georgia', is_l: 0 },
+    { day: 'Wednesday', slot: 'Lunch 1:40', loc: 'Oval', staff: 'Christina', is_l: 0 },
+    { day: 'Wednesday', slot: 'Lunch 1:40', loc: 'Bluestone Lounge', staff: 'Anna', is_l: 0 },
+    { day: 'Wednesday', slot: 'Lunch 2:00', loc: 'Front', staff: 'Alison', is_l: 0 },
+    { day: 'Wednesday', slot: 'Lunch 2:00', loc: 'Back', staff: 'Bianca I', is_l: 0 },
+    { day: 'Wednesday', slot: 'Lunch 2:00', loc: 'Redbrick', staff: 'Emma', is_l: 0 },
+    { day: 'Wednesday', slot: 'Lunch 2:00', loc: 'Oval', staff: 'Steven', is_l: 0 },
+    { day: 'Wednesday', slot: 'Lunch 2:00', loc: 'Bluestone Lounge', staff: 'Bee', is_l: 0 },
+    { day: 'Wednesday', slot: '3:30-3:45', loc: 'Front', staff: 'Leadership', is_l: 1 },
+    // THURSDAY
+    { day: 'Thursday', slot: '8:45-9:00', loc: 'Front', staff: 'Leadership', is_l: 1 },
+    { day: 'Thursday', slot: 'Recess 11:10', loc: 'Front', staff: 'Alison', is_l: 0 },
+    { day: 'Thursday', slot: 'Recess 11:10', loc: 'Back', staff: 'Kayleen', is_l: 0 },
+    { day: 'Thursday', slot: 'Recess 11:10', loc: 'Redbrick', staff: 'Rochelle', is_l: 0 },
+    { day: 'Thursday', slot: 'Recess 11:10', loc: 'Oval', staff: 'Claire', is_l: 0 },
+    { day: 'Thursday', slot: 'Recess 11:20', loc: 'Front', staff: 'Bianca R', is_l: 0 },
+    { day: 'Thursday', slot: 'Recess 11:20', loc: 'Back', staff: 'Hayley', is_l: 0 },
+    { day: 'Thursday', slot: 'Recess 11:20', loc: 'Redbrick', staff: 'Edan', is_l: 0 },
+    { day: 'Thursday', slot: 'Recess 11:20', loc: 'Oval', staff: 'Matt EJ', is_l: 0 },
+    { day: 'Thursday', slot: 'Lunch 1:40', loc: 'Front', staff: 'Katja', is_l: 0 },
+    { day: 'Thursday', slot: 'Lunch 1:40', loc: 'Back', staff: 'Rochelle', is_l: 0 },
+    { day: 'Thursday', slot: 'Lunch 1:40', loc: 'Redbrick', staff: 'Claire', is_l: 0 },
+    { day: 'Thursday', slot: 'Lunch 1:40', loc: 'Oval', staff: 'Bianca I', is_l: 0 },
+    { day: 'Thursday', slot: 'Lunch 1:40', loc: 'Bluestone Lounge', staff: 'Belinda', is_l: 0 },
+    { day: 'Thursday', slot: 'Lunch 2:00', loc: 'Front', staff: 'Sara', is_l: 0 },
+    { day: 'Thursday', slot: 'Lunch 2:00', loc: 'Back', staff: 'Katherine', is_l: 0 },
+    { day: 'Thursday', slot: 'Lunch 2:00', loc: 'Redbrick', staff: 'Rebecca', is_l: 0 },
+    { day: 'Thursday', slot: 'Lunch 2:00', loc: 'Oval', staff: 'Christina', is_l: 0 },
+    { day: 'Thursday', slot: 'Lunch 2:00', loc: 'Bluestone Lounge', staff: 'Anna', is_l: 0 },
+    { day: 'Thursday', slot: '3:30-3:45', loc: 'Front', staff: 'Leadership', is_l: 1 },
+    // FRIDAY
+    { day: 'Friday', slot: '8:45-9:00', loc: 'Front', staff: 'Leadership', is_l: 1 },
+    { day: 'Friday', slot: 'Recess 11:10', loc: 'Front', staff: 'Kayleen', is_l: 0 },
+    { day: 'Friday', slot: 'Recess 11:10', loc: 'Back', staff: 'Rochelle', is_l: 0 },
+    { day: 'Friday', slot: 'Recess 11:10', loc: 'Redbrick', staff: 'Zoe', is_l: 0 },
+    { day: 'Friday', slot: 'Recess 11:10', loc: 'Oval', staff: 'Anna', is_l: 0 },
+    { day: 'Friday', slot: 'Recess 11:20', loc: 'Front', staff: 'Steph', is_l: 0 },
+    { day: 'Friday', slot: 'Recess 11:20', loc: 'Back', staff: 'Katja', is_l: 0 },
+    { day: 'Friday', slot: 'Recess 11:20', loc: 'Redbrick', staff: 'Marcia', is_l: 0 },
+    { day: 'Friday', slot: 'Recess 11:20', loc: 'Oval', staff: 'Bianca R', is_l: 0 },
+    { day: 'Friday', slot: 'Lunch 1:40', loc: 'Front', staff: 'Alison', is_l: 0 },
+    { day: 'Friday', slot: 'Lunch 1:40', loc: 'Back', staff: 'Rochelle', is_l: 0 },
+    { day: 'Friday', slot: 'Lunch 1:40', loc: 'Redbrick', staff: 'Steph', is_l: 0 },
+    { day: 'Friday', slot: 'Lunch 1:40', loc: 'Oval', staff: 'Emma', is_l: 0 },
+    { day: 'Friday', slot: 'Lunch 1:40', loc: 'Bluestone Lounge', staff: 'Anna', is_l: 0 },
+    { day: 'Friday', slot: 'Lunch 2:00', loc: 'Front', staff: 'Marcia', is_l: 0 },
+    { day: 'Friday', slot: 'Lunch 2:00', loc: 'Back', staff: 'Katja', is_l: 0 },
+    { day: 'Friday', slot: 'Lunch 2:00', loc: 'Redbrick', staff: 'Hayley', is_l: 0 },
+    { day: 'Friday', slot: 'Lunch 2:00', loc: 'Oval', staff: 'Joel', is_l: 0 },
+    { day: 'Friday', slot: 'Lunch 2:00', loc: 'Bluestone Lounge', staff: 'Anna', is_l: 0 },
+    { day: 'Friday', slot: '3:30-3:45', loc: 'Front', staff: 'Leadership', is_l: 1 },
+  ];
+
+  for (const e of rosterEntries) {
+    await db.execute({
+      sql: 'INSERT INTO yard_duty_roster (day_of_week, time_slot, location, staff_name, is_leadership, term) VALUES (?,?,?,?,?,?)',
+      args: [e.day, e.slot, e.loc, e.staff, e.is_l, 1]
+    });
+  }
+  console.log('✓ Yard duty roster populated (' + rosterEntries.length + ' entries)');
+
   console.log('\n✅ All timetables uploaded successfully!');
   console.log('Verifying...');
 
