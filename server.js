@@ -1313,8 +1313,8 @@ app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
   // Am I covering anyone else's duty?
   const coveringDuties = dutyChanges.filter(c => c.replacement && c.replacement.toLowerCase().includes(userName.toLowerCase().split(' ')[0]));
 
-  // Am I absent?
-  const myAbsence = await dbGet("SELECT * FROM absences WHERE staff_id = ? AND date_start <= ? AND date_end >= ? AND status != 'cancelled'", userId, date, date);
+  // Am I absent? (include CRT name via join)
+  const myAbsence = await dbGet("SELECT a.*, c.name as crt_name FROM absences a LEFT JOIN crts c ON a.assigned_crt_id = c.id WHERE a.staff_id = ? AND a.date_start <= ? AND a.date_end >= ? AND a.status != 'cancelled'", userId, date, date);
 
   // My timetable classes for this day (uses enhanced area-aware lookup)
   let myClasses = [];
@@ -1323,7 +1323,7 @@ app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
   } catch(e) {}
 
   // Check if any of my classes are being covered (gives me NFT)
-  const allAbsToday = await dbAll("SELECT a.*, u.name as staff_name FROM absences a JOIN users u ON a.staff_id = u.id WHERE a.date_start <= ? AND a.date_end >= ? AND a.status != 'cancelled'", date, date);
+  const allAbsToday = await dbAll("SELECT a.*, u.name as staff_name, c.name as crt_name FROM absences a JOIN users u ON a.staff_id = u.id LEFT JOIN crts c ON a.assigned_crt_id = c.id WHERE a.date_start <= ? AND a.date_end >= ? AND a.status != 'cancelled'", date, date);
   const coveredByMe = allAbsToday.filter(a => a.crt_name && a.crt_name.toLowerCase().includes(userName.toLowerCase().split(' ')[0]));
   // Am I being covered? (someone is subbing my classes)
   const myCoverage = myAbsence && myAbsence.status === 'booked' ? { covered: true, crtName: myAbsence.crt_name || '' } : null;
