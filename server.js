@@ -10,7 +10,7 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'wps-dev-secret-change-me';
-const LIVE = process.env.NOTIFICATIONS_LIVE === 'true';
+const LIVE = process.env.NOTIFICATIONS_LIVEh === 'true';
 const DEMO = process.env.DEMO_MODE !== 'false';
 // Turso cloud database credentials (env vars override these defaults)
 const TURSO_URL = process.env.TURSO_URL || 'libsql://wps-staff-hub-paddygallivan.aws-us-east-1.turso.io';
@@ -1614,9 +1614,16 @@ async function autoYardDutyCover(date) {
 
   // Get roster for today
   const roster = await dbAll('SELECT * FROM yard_duty_roster WHERE day_of_week = ?', dayName);
+    // Filter out leadership from roster — Principal/AP never get covers assigned
+    const leadershipNames = (await dbAll("SELECT name FROM users WHERE area IN ('Principal','Assistant Principal','AP') OR role = 'admin'")).map(u => u.name.toLowerCase());
+    const nonLeadershipRoster = roster.filter(r => {
+          if (r.is_leadership) return false;
+          if (leadershipNames.some(ln => r.staff_name.toLowerCase().includes(ln.split(' ')[0]))) return false;
+          return true;
+    });
 
   // Find duties that need cover
-  const needsCover = roster.filter(r => absentNames.some(n => r.staff_name.toLowerCase().includes(n.toLowerCase().split(' ')[0])));
+  const needsCover = nonLeadershipRoster.filter(r => absentNames.some(n => r.staff_name.toLowerCase().includes(n.toLowerCase().split(' ')[0])));
 
   // Get existing changes (don't override manual ones)
   const existingChanges = await dbAll('SELECT * FROM yard_duty_changes WHERE date = ? AND auto_assigned = 0', date);
@@ -1798,7 +1805,7 @@ async function notifySpecialists(absence) {
       }
     }
   }
-
+h
   // Create a single in-app notification summarising the specialist alerts
   if (alertCount > 0) {
     await addNotification(
