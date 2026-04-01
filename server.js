@@ -1951,6 +1951,11 @@ async function lookupClassesForStaff(staffId, date) {
   const staffFirst = staffName.split(' ')[0];
   const staffLast = staffName.split(' ').slice(1).join(' ');
   const areaKeywords = user.area ? user.area.toLowerCase().split(/[\s\/,&]+/).filter(w => w.length > 1) : [];
+  // Add known specialist aliases (area term → timetable header)
+  const specAliases = {'performing':'music','visual':'art','lote':'french','health':'pe','kitchen':'extra','garden':'extra'};
+  for (const kw of [...areaKeywords]) {
+    if (specAliases[kw]) areaKeywords.push(specAliases[kw]);
+  }
   const classes = []; // Array of {time, class} objects
 
   const skip = ['nft','planning','recess','lunch','assembly','duty','easter','hat parade','good friday','resources',''];
@@ -1972,7 +1977,7 @@ async function lookupClassesForStaff(staffId, date) {
       if (staffLast.length > 2 && h.includes(staffLast)) { staffColIndex = ci; break; }
       if (tt.type === 'specialist' && areaKeywords.length > 0) {
         for (const kw of areaKeywords) {
-          if (h === kw || (kw.length > 2 && h.includes(kw))) { staffColIndex = ci; break; }
+          if (h === kw || (kw.length > 2 && (h.includes(kw) || kw.includes(h)))) { staffColIndex = ci; break; }
         }
         if (staffColIndex >= 0) break;
       }

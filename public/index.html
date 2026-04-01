@@ -1896,7 +1896,7 @@ h+='<style>@keyframes pulse-help{0%,100%{box-shadow:0 4px 15px rgba(231,76,60,.4
           // Yard duties
           if(data.yardDuties.length>0){
             h+='<h4 style="font-size:.88rem;color:var(--navy);margin:12px 0 6px">🏃 Yard Duty</h4>';
-            data.yardDuties.forEach(yd=>{h+='<div style="padding:6px 10px;background:var(--bg);border-radius:8px;margin-bottom:3px;font-size:.84rem"><strong>'+this.esc(yd.time_slot)+'</strong> at '+this.esc(yd.location)+(yd.covered?' — <span style="color:var(--ok)">Covered by '+this.esc(yd.coveredBy)+'</span>':' — <span style="color:var(--acc)">Needs cover</span>')+'</div>'});}
+            data.yardDuties.forEach(yd=>{h+='<div style="padding:6px 10px;background:var(--bg);border-radius:8px;margin-bottom:3px;font-size:.84rem"><strong>'+this.esc(yd.time_slot)+'</strong> at '+this.esc(yd.location)+(yd.covered?' — <span style="color:var(--ok)">Covered by '+this.esc(yd.coveredBy)+'</span>':'')+'</div>'});}
 
           h+='<button class="btn btn-o mt-2 no-print" onclick="window.print()">🖨 Print CRT Pack</button>';
           el.innerHTML=h
