@@ -181,7 +181,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 function isExecLeadership(area) {
   if (!area) return false;
   const a = area.toLowerCase();
-  return a.includes('principal') || a === 'ap' || a === 'assistant principal';
+  return a.includes('principal') || a === 'ap' || a === 'assistant principal' || a === 'leadership';
 }
 
 function wrap(fn) {
