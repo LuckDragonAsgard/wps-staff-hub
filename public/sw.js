@@ -1,5 +1,5 @@
 // WPS Staff Hub Service Worker
-const CACHE_NAME = 'wps-hub-v11.0.0';
+const CACHE_NAME = 'wps-hub-v11.0.1';
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', event => {
@@ -10,7 +10,7 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
+    caches.keys().then(keys =>h
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
