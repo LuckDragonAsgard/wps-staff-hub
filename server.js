@@ -1356,7 +1356,8 @@ app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
         { num: 5, time: '2:30-3:30' }
       ];
       // Get the user's own class from classroom timetable
-      const ownClass = myClasses.find(c => !c.time || c.time === '')?.class || user.area || '';
+      const classroomEntry = myClasses.find(c => !c.time || c.time === '');
+      const ownClass = classroomEntry?.class || '';
 
       // Check specialist timetable to see when this class goes to a specialist
       const specTTs = await dbAll("SELECT * FROM timetables WHERE is_current = 1 AND type = 'specialist'");
@@ -1398,8 +1399,9 @@ app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
           const match = myClasses.find(c => c.time === s.time);
           fullSchedule.push({ session: s.num, time: s.time, activity: match ? match.class : 'NFT / Planning', type: match ? 'teaching' : 'nft' });
         }
-      } else {
+      } else if (ownClass || Object.keys(specSessionMap).length > 0) {
         // Classroom teacher: show own class or specialist lesson
+        // Only build if they actually have a class or specialist sessions
         for (const s of sessions) {
           const spec = specSessionMap[s.time];
           if (spec) {
