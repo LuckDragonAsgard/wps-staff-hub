@@ -1950,12 +1950,14 @@ async function lookupClassesForStaff(staffId, date) {
   const staffName = user.name.toLowerCase();
   const staffFirst = staffName.split(' ')[0];
   const staffLast = staffName.split(' ').slice(1).join(' ');
-  const areaKeywords = user.area ? user.area.toLowerCase().split(/[\s\/,&]+/).filter(w => w.length > 1) : [];
-  // Add known specialist aliases (area term → timetable header)
+  const rawAreaKeywords = user.area ? user.area.toLowerCase().replace(/[()]/g,'').split(/[\s\/,&]+/).filter(w => w.length > 1) : [];
+  // Add known specialist aliases (area term → timetable header) — aliases go FIRST for priority
   const specAliases = {'performing':'music','visual':'art','lote':'french','health':'pe','kitchen':'extra','garden':'extra'};
-  for (const kw of [...areaKeywords]) {
-    if (specAliases[kw]) areaKeywords.push(specAliases[kw]);
+  const aliasKeywords = [];
+  for (const kw of rawAreaKeywords) {
+    if (specAliases[kw]) aliasKeywords.push(specAliases[kw]);
   }
+  const areaKeywords = [...aliasKeywords, ...rawAreaKeywords];
   const classes = []; // Array of {time, class} objects
 
   const skip = ['nft','planning','recess','lunch','assembly','duty','easter','hat parade','good friday','resources',''];
@@ -1976,8 +1978,19 @@ async function lookupClassesForStaff(staffId, date) {
       if (staffFirst.length > 2 && h.includes(staffFirst)) { staffColIndex = ci; break; }
       if (staffLast.length > 2 && h.includes(staffLast)) { staffColIndex = ci; break; }
       if (tt.type === 'specialist' && areaKeywords.length > 0) {
+        // Exact match only in first pass (fuzzy second pass below)
         for (const kw of areaKeywords) {
-          if (h === kw || (kw.length > 2 && (h.includes(kw) || kw.includes(h)))) { staffColIndex = ci; break; }
+          if (h === kw) { staffColIndex = ci; break; }
+        }
+        if (staffColIndex >= 0) break;
+      }
+    }
+    // Second pass: fuzzy match for specialist headers (only if exact match failed)
+    if (staffColIndex < 0 && tt.type === 'specialist' && areaKeywords.length > 0) {
+      for (let ci = 0; ci < headers.length; ci++) {
+        const h = headers[ci].toLowerCase().trim();
+        for (const kw of areaKeywords) {
+          if (kw.length > 2 && (h.includes(kw) || kw.includes(h))) { staffColIndex = ci; break; }
         }
         if (staffColIndex >= 0) break;
       }
