@@ -1343,6 +1343,77 @@ app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
     myClasses = await lookupClassesForStaff(userId, date);
   } catch(e) {}
 
+  // Build full day schedule (all 5 sessions)
+  let fullSchedule = [];
+  try {
+    const user = await dbGet('SELECT id, name, area FROM users WHERE id = ?', userId);
+    if (user && !isExecLeadership(user.area)) {
+      const sessions = [
+        { num: 1, time: '9:00-10:00' },
+        { num: 2, time: '10:00-11:00' },
+        { num: 3, time: '11:30-12:30' },
+        { num: 4, time: '12:30-1:30' },
+        { num: 5, time: '2:30-3:30' }
+      ];
+      // Get the user's own class from classroom timetable
+      const ownClass = myClasses.find(c => !c.time || c.time === '')?.class || user.area || '';
+
+      // Check specialist timetable to see when this class goes to a specialist
+      const specTTs = await dbAll("SELECT * FROM timetables WHERE is_current = 1 AND type = 'specialist'");
+      const specSessionMap = {}; // time -> { specialist, class }
+      for (const tt of specTTs) {
+        let data; try { data = JSON.parse(tt.data); } catch(e) { continue; }
+        if (!data || !data.headers || !data.rows) continue;
+        const headers = data.headers;
+        let inDay = false, dayStarted = false;
+        for (const row of data.rows) {
+          const vals = Array.isArray(row) ? row : headers.map(h2 => row[h2] || '');
+          const fc = String(vals[0] || '').trim().toLowerCase();
+          if (['monday','tuesday','wednesday','thursday','friday'].includes(fc)) {
+            inDay = fc === dayName.toLowerCase(); dayStarted = true; continue;
+          }
+          if (!dayStarted) inDay = true;
+          if (!inDay) continue;
+          const timeSlot = String(vals[0] || '').trim();
+          for (let ci = 1; ci < headers.length; ci++) {
+            const cell = String(vals[ci] || '').trim();
+            if (!cell || cell === '-') continue;
+            // Check if this cell matches the teacher's class
+            const cellLower = cell.toLowerCase();
+            const ownLower = ownClass.toLowerCase().replace(/\s+/g, '');
+            const cellClean = cellLower.replace(/\s+/g, '');
+            if (ownLower.length > 1 && (cellClean === ownLower || cellClean.includes(ownLower) || ownLower.includes(cellClean))) {
+              specSessionMap[timeSlot] = { specialist: headers[ci], class: cell };
+            }
+          }
+        }
+      }
+
+      // Also check if the user IS a specialist (has time-based entries)
+      const isSpecialist = myClasses.some(c => c.time && c.time !== '');
+
+      if (isSpecialist) {
+        // Specialist teacher: show their classes from timetable directly
+        for (const s of sessions) {
+          const match = myClasses.find(c => c.time === s.time);
+          fullSchedule.push({ session: s.num, time: s.time, activity: match ? match.class : 'NFT / Planning', type: match ? 'teaching' : 'nft' });
+        }
+      } else {
+        // Classroom teacher: show own class or specialist lesson
+        for (const s of sessions) {
+          const spec = specSessionMap[s.time];
+          if (spec) {
+            fullSchedule.push({ session: s.num, time: s.time, activity: spec.specialist + ' lesson', type: 'specialist' });
+          } else if (ownClass) {
+            fullSchedule.push({ session: s.num, time: s.time, activity: ownClass, type: 'teaching' });
+          } else {
+            fullSchedule.push({ session: s.num, time: s.time, activity: 'Class', type: 'teaching' });
+          }
+        }
+      }
+    }
+  } catch(e) { console.log('Full schedule build skipped:', e.message); }
+
   // All absences today (for NFT calculation)
   const allAbsToday = await dbAll("SELECT a.*, u.name as staff_name, c.name as crt_name FROM absences a JOIN users u ON a.staff_id = u.id LEFT JOIN crts c ON a.assigned_crt_id = c.id WHERE a.date_start <= ? AND a.date_end >= ? AND a.status != 'cancelled'", date, date);
 
@@ -1392,6 +1463,7 @@ app.get('/api/my-schedule/:date', auth, wrap(async (req, res) => {
     dutyChanges: myDutyChanges,
     coveringDuties,
     classes: myClasses,
+    fullSchedule,
     swaps: mySwaps,
     myCoverage,
     nft: coveredByMe.length > 0 ? coveredByMe.map(a => ({ staffName: a.staff_name, classes: a.classes })) : [],
@@ -1418,6 +1490,11 @@ app.post('/api/daily-zap/:date', auth, leaderOnly, wrap(async (req, res) => {
 
 // Confirm/unconfirm day (leader only)
 app.put('/api/day-confirm/:date', auth, leaderOnly, wrap(async (req, res) => {
+  // Only AP (Assistant Principal) can confirm the day
+  const userArea = (req.user.area || '').toLowerCase();
+  if (!userArea.includes('assistant principal') && !userArea.includes(' ap')) {
+    return res.status(403).json({ error: 'Only the Assistant Principal can confirm the day' });
+  }
   const date = req.params.date;
   const confirm = (req.body.confirm !== false && req.body.confirmed !== false); // default true
   const existing = await dbGet('SELECT id FROM daily_zaps WHERE date = ?', date);

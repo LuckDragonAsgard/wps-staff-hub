@@ -189,7 +189,8 @@
       .st .l{font-size:.74rem}
       .btn{padding:14px 24px;font-size:.92rem}
       .btn-s{padding:10px 16px;font-size:.82rem}
-      .fg input,.fg select,.fg textarea{padding:12px 14px;font-size:.92rem}
+      .fg input,.fg textarea{padding:12px 14px;font-size:.92rem}
+      .fg select{padding:12px 32px 12px 14px;font-size:.92rem}
       .fg label{font-size:.84rem;margin-bottom:5px}
       .cd{padding:22px;margin-bottom:16px;border-radius:16px}
       .cd h3{font-size:1.05rem}
@@ -536,8 +537,8 @@
                 const isAway=absentNames.some(n=>d.staff_name.toLowerCase().includes(n.split(' ')[0]));
                 const change=yd.changes.find(c=>c.time_slot===d.time_slot&&c.location===d.location);
                 h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 8px;font-size:.84rem;background:'+(isAway?'#fff5f5':'#fff')+';border-radius:6px;margin-bottom:2px"><div><span style="font-weight:600">'+this.esc(d.location)+'</span> <span style="color:var(--dim)">'+this.esc(d.staff_name)+'</span></div>';
-                if(change){const repAlsoAway=change.replacement&&absentNames.some(n=>change.replacement.toLowerCase().includes(n.split(' ')[0]));if(repAlsoAway){h+='<span style="color:var(--acc);font-weight:600;font-size:.8rem">⚠ '+this.esc(change.replacement)+' also away — Needs cover</span>'}else{h+='<span style="color:var(--ok);font-weight:600;font-size:.8rem">→ '+this.esc(change.replacement)+'</span>'}}
-                else if(isAway){h+='<span style="color:var(--acc);font-weight:600;font-size:.8rem">⚠ Needs cover</span>'}
+                if(change){h+='<span style="color:var(--ok);font-weight:600;font-size:.8rem">→ '+this.esc(change.replacement)+'</span>'}
+                else if(isAway){h+='<span style="color:var(--dim);font-weight:600;font-size:.8rem;font-style:italic">Away</span>'}
                 h+='</div>'});
               h+='</div>'});
             h+='</div>'}
@@ -920,14 +921,19 @@
 
           // Classes section (staff/leaders)
           if(!isCRT){
-            if(d.classes&&d.classes.length>0){
-              h+='<div style="margin-bottom:10px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">📚 My Classes</div>';
+            if(d.fullSchedule&&d.fullSchedule.length>0){
+              h+='<div style="margin-bottom:10px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">📚 My Day — Full Schedule</div>';
               if(d.absent&&d.myCoverage&&d.myCoverage.covered){
-                h+='<div style="padding:6px 10px;background:#f0fff4;border-radius:8px;font-size:.84rem;border:1px solid #c6f6d5"><span style="color:var(--ok);font-weight:600">✅ Covered by '+this.esc(d.myCoverage.crtName)+'</span></div>';
-                h+='<div style="padding:4px 10px;font-size:.82rem;color:var(--dim)">'+d.classes.map(c=>c.class||c).join(', ')+'</div>';
-              }else{
-                d.classes.forEach(c=>{h+='<div style="padding:4px 10px;background:var(--bg);border-radius:6px;margin-bottom:2px;font-size:.84rem">'+(c.time?'<span style="color:var(--dim);min-width:70px;display:inline-block">'+this.esc(c.time)+'</span>':'')+' <strong>'+this.esc(c.class||c)+'</strong></div>'});
+                h+='<div style="padding:6px 10px;background:#f0fff4;border-radius:8px;font-size:.84rem;border:1px solid #c6f6d5;margin-bottom:6px"><span style="color:var(--ok);font-weight:600">✅ Covered by '+this.esc(d.myCoverage.crtName)+'</span></div>';
               }
+              d.fullSchedule.forEach(s=>{
+                const bg=s.type==='specialist'?'linear-gradient(135deg,#e3f2fd,#e8eaf6)':s.type==='nft'?'#f0fff4':'var(--bg)';
+                const icon=s.type==='specialist'?'🎨':s.type==='nft'?'☕':'📖';
+                h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:'+bg+';border-radius:6px;margin-bottom:2px;font-size:.84rem"><span style="color:var(--dim);min-width:28px;font-weight:700">S'+s.session+'</span><span style="color:var(--dim);min-width:76px;font-size:.78rem">'+this.esc(s.time)+'</span><span>'+icon+' </span><strong>'+this.esc(s.activity)+'</strong></div>'});
+              h+='</div>';
+            }else if(d.classes&&d.classes.length>0){
+              h+='<div style="margin-bottom:10px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">📚 My Classes</div>';
+              d.classes.forEach(c=>{h+='<div style="padding:4px 10px;background:var(--bg);border-radius:6px;margin-bottom:2px;font-size:.84rem">'+(c.time?'<span style="color:var(--dim);min-width:70px;display:inline-block">'+this.esc(c.time)+'</span>':'')+' <strong>'+this.esc(c.class||c)+'</strong></div>'});
               h+='</div>';
             }else if(!d.absent){
               h+='<div style="margin-bottom:10px"><div style="font-weight:700;font-size:.78rem;color:var(--dim);text-transform:uppercase;margin-bottom:4px">📚 My Classes</div><div style="font-size:.84rem;color:var(--dim);padding:4px 10px">No classes scheduled</div></div>';
@@ -961,8 +967,9 @@
             }
           }
 
-          // Confirm Day button (leaders only)
-          if(isL){
+          // Confirm Day button (AP only)
+          const isAP=state.user.area&&state.user.area.toLowerCase().includes('assistant principal');
+          if(isAP){
             if(confirmed){
               h+='<div style="text-align:center;padding:8px;margin-top:6px"><span style="color:var(--ok);font-weight:700;font-size:.84rem">✅ Day confirmed by '+this.esc(d.confirmedBy||'Leadership')+'</span><br><button class="btn btn-o btn-s" style="margin-top:6px" onclick="app.confirmDay(\''+targetDate+'\',false)">Undo Confirmation</button></div>';
             }else{
