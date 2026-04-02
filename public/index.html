@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#1E2A5E">
   <link rel="icon" type="image/png" href="/icons/icon-192.png">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <link rel="manifest" href="/manifest.json">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="WPS Hub">
@@ -727,13 +728,24 @@
 
       // ===== TIMETABLE MANAGER =====
       renderTimetableManager(){
-        return '<div class="cd"><h3>📊 Timetable Manager</h3><p class="text-sm text-dim mb-2">Upload timetables by pasting from a spreadsheet (CSV/tab) or as JSON.</p>'+
-          '<div class="tog mb-1"><button class="'+(state._ttMode!=='json'?'act':'')+'" onclick="state._ttMode=\'csv\';app.render()">📋 Paste from Spreadsheet</button><button class="'+(state._ttMode==='json'?'act':'')+'" onclick="state._ttMode=\'json\';app.render()">{ } JSON</button></div>'+
+        return '<div class="cd"><h3>📊 Timetable Manager</h3><p class="text-sm text-dim mb-2">Upload timetables by pasting from a spreadsheet, uploading a Word doc, or as JSON.</p>'+
+          '<div class="tog mb-1"><button class="'+(state._ttMode!=='json'&&state._ttMode!=='docx'?'act':'')+'" onclick="state._ttMode=\'csv\';app.render()">📋 Paste</button><button class="'+(state._ttMode==='docx'?'act':'')+'" onclick="state._ttMode=\'docx\';app.render()">📄 Word Doc</button><button class="'+(state._ttMode==='json'?'act':'')+'" onclick="state._ttMode=\'json\';app.render()">{ } JSON</button></div>'+
           '<div id="ttAddForm" class="mb-2"><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+
           '<div class="fg"><label>Name</label><input type="text" id="ttName" placeholder="e.g. Specialist Timetable"></div>'+
-          '<div class="fg"><label>Type</label><select id="ttType"><option value="specialist">Specialist</option><option value="es">ES Timetable</option><option value="planning">Planning</option><option value="support">Support Program</option><option value="general">General</option></select></div></div>'+
+          '<div class="fg"><label>Type</label><select id="ttType"><option value="specialist">Specialist</option><option value="classroom">Classroom</option><option value="yard_duty">Yard Duty</option><option value="es">ES Timetable</option><option value="planning">Planning</option><option value="support">Support Program</option><option value="general">General</option></select></div></div>'+
           (state._ttMode==='json'
             ?'<div class="fg"><label>Data (JSON)</label><textarea id="ttData" style="min-height:120px;font-family:monospace;font-size:.75rem" placeholder=\'{"headers":["Time","Paddy","Sarah"],"rows":[{"Time":"9:00","Paddy":"3/4A","Sarah":"Prep B"}]}\'></textarea></div>'
+            :state._ttMode==='docx'
+            ?'<div class="fg"><label>Upload Word Document (.docx)</label>'+
+              '<div id="docxDropZone" style="border:2px dashed var(--bdr);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg)" onclick="document.getElementById(\'docxFile\').click()" ondragover="event.preventDefault();this.style.borderColor=\'var(--navy)\';this.style.background=\'#e8eaf6\'" ondragleave="this.style.borderColor=\'var(--bdr)\';this.style.background=\'var(--bg)\'" ondrop="event.preventDefault();this.style.borderColor=\'var(--bdr)\';this.style.background=\'var(--bg)\';app.handleDocxFile(event.dataTransfer.files[0])">'+
+              '<div style="font-size:2rem;margin-bottom:6px">📄</div>'+
+              '<div style="font-weight:600;font-size:.88rem;color:var(--navy)">Tap to choose file or drag & drop</div>'+
+              '<div style="font-size:.78rem;color:var(--dim);margin-top:4px">Accepts .docx files with tables</div>'+
+              '</div>'+
+              '<input type="file" id="docxFile" accept=".docx" style="display:none" onchange="app.handleDocxFile(this.files[0])">'+
+              '</div>'+
+              '<div id="docxPreview" style="display:none;margin-top:8px"><div style="font-weight:600;font-size:.82rem;color:var(--navy);margin-bottom:4px">📋 Extracted table preview:</div><div id="docxPreviewContent" style="max-height:200px;overflow:auto;border:1px solid var(--bdr);border-radius:8px;font-size:.75rem"></div></div>'+
+              '<textarea id="ttCSV" style="display:none"></textarea>'
             :'<div class="fg"><label>Paste from Excel / Google Sheets (tab or comma separated)</label><textarea id="ttCSV" style="min-height:120px;font-family:monospace;font-size:.75rem" placeholder="Time\tPaddy\tSarah\n9:00\t3/4A\tPrep B\n10:00\tPrep C\t1/2A"></textarea></div><p class="text-sm text-dim mb-1">First row = headers (Time, Staff Names). Copy directly from your spreadsheet.</p>')+
           '<label style="display:flex;align-items:center;gap:6px;font-size:.82rem;margin-bottom:10px"><input type="checkbox" id="ttCurrent" checked> Set as current</label>'+
           '<button class="btn btn-ok btn-s" onclick="app.addTimetable()">+ Upload Timetable</button></div>'+
@@ -764,7 +776,7 @@
             await this.fetchAPI('POST','/timetables',{name,type,term:1,data,is_current:isCurrent});
           }else{
             const csvText=document.getElementById('ttCSV')?.value;
-            if(!csvText){toast('Paste your spreadsheet data','error');return}
+            if(!csvText){toast(state._ttMode==='docx'?'Upload a Word doc first':'Paste your spreadsheet data','error');return}
             const result=await this.fetchAPI('POST','/timetables/from-csv',{name,type,term:1,csvText,is_current:isCurrent});
             toast(result.rowCount+' rows with '+result.headers.length+' columns imported!','info');
           }
@@ -776,6 +788,75 @@
         }catch(e){
           if(e.message.includes('JSON')){toast('Invalid JSON data — check format','error')}
           else toast('Error: '+e.message,'error')}},
+
+      async handleDocxFile(file){
+        if(!file){return}
+        if(!file.name.endsWith('.docx')){toast('Please upload a .docx file','error');return}
+        const dropZone=document.getElementById('docxDropZone');
+        const preview=document.getElementById('docxPreview');
+        const previewContent=document.getElementById('docxPreviewContent');
+        if(dropZone)dropZone.innerHTML='<div style="font-size:1.2rem">⏳</div><div style="font-weight:600;font-size:.88rem;color:var(--navy)">Reading '+this.esc(file.name)+'...</div>';
+        try{
+          const arrayBuffer=await file.arrayBuffer();
+          const result=await mammoth.convertToHtml({arrayBuffer});
+          const html=result.value;
+          // Parse all tables from the HTML
+          const parser=new DOMParser();
+          const doc=parser.parseFromString(html,'text/html');
+          const tables=doc.querySelectorAll('table');
+          if(tables.length===0){
+            // Try to find tab/line separated data in paragraphs
+            const paragraphs=doc.querySelectorAll('p');
+            let plainText='';
+            paragraphs.forEach(p=>{plainText+=p.textContent+'\n'});
+            if(plainText.trim()){
+              const csvEl=document.getElementById('ttCSV');
+              if(csvEl)csvEl.value=plainText.trim();
+              if(dropZone)dropZone.innerHTML='<div style="font-size:2rem">✅</div><div style="font-weight:600;font-size:.88rem;color:var(--ok)">'+this.esc(file.name)+'</div><div style="font-size:.78rem;color:var(--dim);margin-top:4px">No tables found — extracted as plain text. Check the preview below.</div>';
+              if(preview)preview.style.display='block';
+              if(previewContent)previewContent.innerHTML='<pre style="padding:8px;white-space:pre-wrap;font-size:.75rem">'+this.esc(plainText.trim().substring(0,500))+'</pre>';
+              toast('Text extracted from Word doc — no tables found, using plain text','info');
+              return;
+            }
+            toast('No tables found in this Word doc','error');
+            if(dropZone)dropZone.innerHTML='<div style="font-size:2rem">❌</div><div style="font-weight:600;font-size:.88rem;color:var(--acc)">No tables found</div><div style="font-size:.78rem;color:var(--dim);margin-top:4px">This file doesn\'t contain any tables. Try a different document.</div>';
+            return;
+          }
+          // If multiple tables, pick the largest one (most cells)
+          let bestTable=tables[0];let bestCells=0;
+          tables.forEach(t=>{const cells=t.querySelectorAll('td,th').length;if(cells>bestCells){bestCells=cells;bestTable=t}});
+          // Convert table to tab-separated text
+          const tRows=bestTable.querySelectorAll('tr');
+          let csvLines=[];
+          tRows.forEach(tr=>{
+            const cells=tr.querySelectorAll('td,th');
+            const vals=[];
+            cells.forEach(cell=>{vals.push(cell.textContent.trim().replace(/\t/g,' ').replace(/\n/g,' '))});
+            if(vals.some(v=>v))csvLines.push(vals.join('\t'));
+          });
+          const csvText=csvLines.join('\n');
+          const csvEl=document.getElementById('ttCSV');
+          if(csvEl)csvEl.value=csvText;
+          // Show preview
+          if(preview)preview.style.display='block';
+          let previewHtml='<table style="width:100%;border-collapse:collapse;font-size:.72rem">';
+          csvLines.slice(0,8).forEach((line,i)=>{
+            const cells=line.split('\t');
+            previewHtml+='<tr>';
+            cells.forEach(c=>{previewHtml+=(i===0?'<th':'<td')+' style="padding:4px 6px;border:1px solid var(--bdr);'+(i===0?'background:var(--navy);color:#fff;font-weight:700':'')+'">'+this.esc(c)+(i===0?'</th>':'</td>')});
+            previewHtml+='</tr>';
+          });
+          if(csvLines.length>8)previewHtml+='<tr><td colspan="99" style="padding:4px 6px;text-align:center;color:var(--dim);font-style:italic">...and '+(csvLines.length-8)+' more rows</td></tr>';
+          previewHtml+='</table>';
+          if(previewContent)previewContent.innerHTML=previewHtml;
+          if(dropZone)dropZone.innerHTML='<div style="font-size:2rem">✅</div><div style="font-weight:600;font-size:.88rem;color:var(--ok)">'+this.esc(file.name)+'</div><div style="font-size:.78rem;color:var(--dim);margin-top:4px">'+(tables.length>1?tables.length+' tables found — using largest. ':'')+csvLines.length+' rows × '+(csvLines[0]?.split('\\t').length||0)+' columns</div>';
+          toast('Table extracted from Word doc! Review the preview then hit Upload.','success');
+        }catch(e){
+          console.error('Docx parse error:',e);
+          toast('Error reading Word doc: '+e.message,'error');
+          if(dropZone)dropZone.innerHTML='<div style="font-size:2rem">❌</div><div style="font-weight:600;font-size:.88rem;color:var(--acc)">Error reading file</div><div style="font-size:.78rem;color:var(--dim);margin-top:4px">'+this.esc(e.message)+'</div>';
+        }
+      },
 
       async viewTimetable(id){
         try{
