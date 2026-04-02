@@ -3597,6 +3597,29 @@ async function start() {
     }
   } catch(e) { console.log('v7.6 migration skipped:', e.message); }
 
+  // v12.1 migration: add Scott (staff) and Bubbles (CRT)
+  try {
+    const scott = await dbGet("SELECT id FROM users WHERE name = 'Scott'");
+    if (!scott) {
+      const scottHash = bcrypt.hashSync('1234', 10);
+      await dbRun(
+        `INSERT INTO users (name, email, phone, pin_hash, role, area, active) VALUES (?,?,?,?,?,?,1)`,
+        ['Scott', '', '', scottHash, 'staff', '', '']
+      );
+      console.log('v12.1 migration: Scott added as staff');
+    }
+  } catch(e) { console.log('v12.1 Scott migration skipped:', e.message); }
+  try {
+    const bubbles = await dbGet("SELECT id FROM crts WHERE name = 'Bubbles'");
+    if (!bubbles) {
+      await dbRun(
+        `INSERT INTO crts (name, phone, email, specialties, pin_hash, active) VALUES (?,?,?,?,?,1)`,
+        ['Bubbles', '', '', '[]', null]
+      );
+      console.log('v12.1 migration: Bubbles added as CRT');
+    }
+  } catch(e) { console.log('v12.1 Bubbles migration skipped:', e.message); }
+
   if (!USE_TURSO) {
     process.on('SIGINT', () => { saveLocalDbNow(); process.exit(); });
     process.on('SIGTERM', () => { saveLocalDbNow(); process.exit(); });
