@@ -3604,7 +3604,7 @@ async function start() {
       const scottHash = bcrypt.hashSync('1234', 10);
       await dbRun(
         `INSERT INTO users (name, email, phone, pin_hash, role, area, active) VALUES (?,?,?,?,?,?,1)`,
-        ['Scott', '', '', scottHash, 'staff', '', '']
+        ['Scott', '', '', scottHash, 'staff', '']
       );
       console.log('v12.1 migration: Scott added as staff');
     }
