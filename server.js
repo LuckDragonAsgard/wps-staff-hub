@@ -10,7 +10,7 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'wps-dev-secret-change-me';
-const LIVE = process.env.NOTIFICATIONS_LIVEh === 'true';
+const LIVE = process.env.NOTIFICATIONS_LIVE === 'true';
 const DEMO = process.env.DEMO_MODE !== 'false';
 // Turso cloud database credentials (env vars override these defaults)
 const TURSO_URL = process.env.TURSO_URL || 'libsql://wps-staff-hub-paddygallivan.aws-us-east-1.turso.io';
@@ -1176,7 +1176,8 @@ app.post('/api/absences/prebook', auth, wrap(async (req, res) => {
     // Auto-book CRT if enabled
     const autoContact = await getSettingBool('auto_contact_crts', true);
     if (autoContact) {
-      setTimeout(() => autoBookCRT(id), 500);
+      const absRecord = await dbGet('SELECT * FROM absences WHERE id = ?', id);
+      if (absRecord) setTimeout(() => autoBookCRT(absRecord).catch(e => console.error('Auto-book CRT error:', e.message)), 500);
     }
   }
 

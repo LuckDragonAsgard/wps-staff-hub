@@ -849,7 +849,7 @@
           if(csvLines.length>8)previewHtml+='<tr><td colspan="99" style="padding:4px 6px;text-align:center;color:var(--dim);font-style:italic">...and '+(csvLines.length-8)+' more rows</td></tr>';
           previewHtml+='</table>';
           if(previewContent)previewContent.innerHTML=previewHtml;
-          if(dropZone)dropZone.innerHTML='<div style="font-size:2rem">✅</div><div style="font-weight:600;font-size:.88rem;color:var(--ok)">'+this.esc(file.name)+'</div><div style="font-size:.78rem;color:var(--dim);margin-top:4px">'+(tables.length>1?tables.length+' tables found — using largest. ':'')+csvLines.length+' rows × '+(csvLines[0]?.split('\\t').length||0)+' columns</div>';
+          if(dropZone)dropZone.innerHTML='<div style="font-size:2rem">✅</div><div style="font-weight:600;font-size:.88rem;color:var(--ok)">'+this.esc(file.name)+'</div><div style="font-size:.78rem;color:var(--dim);margin-top:4px">'+(tables.length>1?tables.length+' tables found — using largest. ':'')+csvLines.length+' rows × '+(csvLines[0]?.split('\t').length||0)+' columns</div>';
           toast('Table extracted from Word doc! Review the preview then hit Upload.','success');
         }catch(e){
           console.error('Docx parse error:',e);
