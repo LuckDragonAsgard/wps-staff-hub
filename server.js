@@ -3597,18 +3597,25 @@ async function start() {
     }
   } catch(e) { console.log('v7.6 migration skipped:', e.message); }
 
-  // v12.1 migration: add Scott (staff) and Bubbles (CRT)
+  // v12.1 migration: add Scotty Way Too Hotty (staff) and Bubbles (CRT)
   try {
-    const scott = await dbGet("SELECT id FROM users WHERE name = 'Scott'");
-    if (!scott) {
-      const scottHash = bcrypt.hashSync('1234', 10);
-      await dbRun(
-        `INSERT INTO users (name, email, phone, pin_hash, role, area, active) VALUES (?,?,?,?,?,?,1)`,
-        ['Scott', '', '', scottHash, 'staff', '']
-      );
-      console.log('v12.1 migration: Scott added as staff');
+    const scotty = await dbGet("SELECT id FROM users WHERE name = 'Scotty Way Too Hotty'");
+    if (!scotty) {
+      // Rename if old 'Scott' entry exists, otherwise insert fresh
+      const oldScott = await dbGet("SELECT id FROM users WHERE name = 'Scott'");
+      if (oldScott) {
+        await dbRun("UPDATE users SET name = ? WHERE id = ?", ['Scotty Way Too Hotty', oldScott.id]);
+        console.log('v12.2 migration: Scott renamed to Scotty Way Too Hotty');
+      } else {
+        const scottyHash = bcrypt.hashSync('1234', 10);
+        await dbRun(
+          `INSERT INTO users (name, email, phone, pin_hash, role, area, active) VALUES (?,?,?,?,?,?,1)`,
+          ['Scotty Way Too Hotty', '', '', scottyHash, 'staff', '']
+        );
+        console.log('v12.2 migration: Scotty Way Too Hotty added as staff');
+      }
     }
-  } catch(e) { console.log('v12.1 Scott migration skipped:', e.message); }
+  } catch(e) { console.log('v12.2 Scotty migration skipped:', e.message); }
   try {
     const bubbles = await dbGet("SELECT id FROM crts WHERE name = 'Bubbles'");
     if (!bubbles) {
