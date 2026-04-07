@@ -2774,53 +2774,17 @@ h+='<style>@keyframes pulse-help{0%,100%{box-shadow:0 4px 15px rgba(231,76,60,.4
     };
     app.init();
 
-    // Auto-update: check server version on every load, nuke old caches if stale
-    (async function autoUpdate(){
-      try{
-        const resp=await fetch('/api/version',{cache:'no-store'});
-        const data=await resp.json();
-        const serverVer=data.version;
-        const localVer=localStorage.getItem('wps_app_version');
-        if(localVer && localVer!==serverVer){
-          console.log('Version mismatch: local='+localVer+' server='+serverVer+'. Forcing update...');
-          // Unregister all service workers
-          if('serviceWorker' in navigator){
-            const regs=await navigator.serviceWorker.getRegistrations();
-            for(const r of regs) await r.unregister();
-          }
-          // Clear all caches
-          const keys=await caches.keys();
-          for(const k of keys) await caches.delete(k);
-          // Save new version and hard reload
-          localStorage.setItem('wps_app_version',serverVer);
-          window.location.reload(true);
-          return;
-        }
-        localStorage.setItem('wps_app_version',serverVer);
-      }catch(e){console.log('Version check skipped:',e.message)}
-    })();
-
-    // Register service worker for PWA
+    // Auto-update: SW handles caching, this just ensures new SW activates instantly
     if('serviceWorker' in navigator){
       navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).then(reg=>{
-        console.log('SW registered');
-        // Check for updates on every page load
         reg.update();
-        // When a new SW is found, tell it to activate immediately
         reg.addEventListener('updatefound',()=>{
-          const newSW=reg.installing;
-          if(newSW){newSW.addEventListener('statechange',()=>{
-            if(newSW.state==='installed'&&navigator.serviceWorker.controller){
-              newSW.postMessage('SKIP_WAITING');
-            }
-          })}
+          const nw=reg.installing;
+          if(nw) nw.addEventListener('statechange',()=>{
+            if(nw.state==='activated') window.location.reload();
+          });
         });
-      }).catch(e=>console.log('SW failed:',e));
-      // When the new SW takes over, reload to get fresh content
-      let refreshing=false;
-      navigator.serviceWorker.addEventListener('controllerchange',()=>{
-        if(!refreshing){refreshing=true;window.location.reload()}
-      });
+      }).catch(()=>{});
     }
   </script>
 </body>
