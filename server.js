@@ -168,7 +168,7 @@ app.use(cors());
 app.use(express.json());
 // No-cache headers for index.html and sw.js so updates load immediately
 app.use((req, res, next) => {
-  if (req.path === '/' || req.path === '/index.html' || req.path === '/sw.js') {
+  if (req.path === '/' || req.path === '/index.html') {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
@@ -1008,7 +1008,7 @@ app.get('/api/dashboard', auth, wrap(async (req, res) => {
   const weekAbs = await dbGet("SELECT COUNT(*) as c FROM absences WHERE date_start >= ? AND status != 'cancelled'", weekStart);
   const recentNotifs = await dbAll("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 5");
   res.json({
-    version: '7.0.0',
+    version: APP_VERSION,
     demo: DEMO,
     live: LIVE,
     database: USE_TURSO ? 'turso' : 'local',
@@ -1816,7 +1816,7 @@ async function notifySpecialists(absence) {
       }
     }
   }
-h
+
   // Create a single in-app notification summarising the specialist alerts
   if (alertCount > 0) {
     await addNotification(
