@@ -417,7 +417,8 @@ app.post('/api/login/crt', rateLimit, wrap(async (req, res) => {
   const { crtId, pin } = req.body;
   const crt = await dbGet('SELECT * FROM crts WHERE id = ? AND active = 1', crtId);
   if (!crt) return res.status(401).json({ error: 'CRT not found' });
-  if (crt.pin_hash && pin) {
+  if (crt.pin_hash) {
+    if (!pin) return res.status(401).json({ error: 'PIN required' });
     if (!bcrypt.compareSync(pin, crt.pin_hash)) return res.status(401).json({ error: 'Wrong PIN' });
   }
   const token = jwt.sign({ id: crt.id, name: crt.name, role: 'crt', isCrt: true }, JWT_SECRET, { expiresIn: '24h' });
@@ -3665,6 +3666,18 @@ async function start() {
       console.log('v12.1 migration: Bubbles added as CRT');
     }
   } catch(e) { console.log('v12.1 Bubbles migration skipped:', e.message); }
+
+  // v12.3 migration: set default PIN (1234) for all CRTs that don't have one
+  try {
+    const noPinCrts = await dbAll("SELECT id FROM crts WHERE pin_hash IS NULL AND active = 1");
+    if (noPinCrts.length > 0) {
+      const defaultHash = bcrypt.hashSync('1234', 10);
+      for (const c of noPinCrts) {
+        await dbRun("UPDATE crts SET pin_hash = ? WHERE id = ?", [defaultHash, c.id]);
+      }
+      console.log('v12.3 migration: set PIN for ' + noPinCrts.length + ' CRTs');
+    }
+  } catch(e) { console.log('v12.3 CRT PIN migration skipped:', e.message); }
 
   if (!USE_TURSO) {
     process.on('SIGINT', () => { saveLocalDbNow(); process.exit(); });
