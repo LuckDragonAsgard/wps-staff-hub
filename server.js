@@ -349,15 +349,19 @@ app.put('/api/notification-preferences', auth, wrap(async (req, res) => {
 app.get('/api/notification-preferences/all', auth, leaderOnly, wrap(async (req, res) => {
   const users = await dbAll("SELECT id, name, role, area FROM users WHERE active = 1");
   const categories = ['yard_duty','swap_requests','absences','announcements','wellbeing','crt_assignments','timetable_changes','general_updates'];
-  const result = [];
-  for (const u of users) {
-    const prefs = await dbAll('SELECT category, enabled FROM notification_preferences WHERE user_id = ?', u.id);
-    const map = {};
-    prefs.forEach(p => { map[p.category] = p.enabled; });
+  // Single query for all prefs (instead of one per user)
+  const allPrefs = await dbAll('SELECT user_id, category, enabled FROM notification_preferences');
+  const prefsByUser = {};
+  allPrefs.forEach(p => {
+    if (!prefsByUser[p.user_id]) prefsByUser[p.user_id] = {};
+    prefsByUser[p.user_id][p.category] = p.enabled;
+  });
+  const result = users.map(u => {
+    const map = prefsByUser[u.id] || {};
     const p = {};
     categories.forEach(c => { p[c] = map[c] !== undefined ? (map[c] === 1 || map[c] === true) : true; });
-    result.push({ ...u, prefs: p });
-  }
+    return { ...u, prefs: p };
+  });
   res.json(result);
 }));
 
@@ -422,8 +426,18 @@ app.post('/api/login/crt', rateLimit, wrap(async (req, res) => {
 
 // ===== USER ENDPOINTS =====
 app.get('/api/users', wrap(async (req, res) => {
-  const users = await dbAll('SELECT id, name, role, area FROM users WHERE active = 1');
-  res.json(users);
+  // Check if authenticated — return limited fields for login screen, full fields for logged-in users
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  let authenticated = false;
+  if (token) { try { jwt.verify(token, JWT_SECRET); authenticated = true; } catch(e) {} }
+  if (authenticated) {
+    const users = await dbAll('SELECT id, name, role, area FROM users WHERE active = 1');
+    res.json(users);
+  } else {
+    // Login screen only needs id and name
+    const users = await dbAll('SELECT id, name FROM users WHERE active = 1');
+    res.json(users);
+  }
 }));
 
 // ===== STAFF MANAGEMENT (leaders) =====
@@ -494,8 +508,17 @@ app.put('/api/crts/:id', auth, leaderOnly, wrap(async (req, res) => {
 
 // ===== CRT ENDPOINTS =====
 app.get('/api/crts', wrap(async (req, res) => {
-  const crts = await dbAll('SELECT id, name, phone, email, specialties, active FROM crts WHERE active = 1');
-  res.json(crts.map(c => ({ ...c, specialties: JSON.parse(c.specialties || '[]') })));
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  let authenticated = false;
+  if (token) { try { jwt.verify(token, JWT_SECRET); authenticated = true; } catch(e) {} }
+  if (authenticated) {
+    const crts = await dbAll('SELECT id, name, phone, email, specialties, active FROM crts WHERE active = 1');
+    res.json(crts.map(c => ({ ...c, specialties: JSON.parse(c.specialties || '[]') })));
+  } else {
+    // Login screen only needs id and name
+    const crts = await dbAll('SELECT id, name FROM crts WHERE active = 1');
+    res.json(crts);
+  }
 }));
 
 app.get('/api/crts/:id/unavailable', auth, wrap(async (req, res) => {
@@ -586,11 +609,10 @@ app.post('/api/absences', auth, wrap(async (req, res) => {
   const { dateStart, dateEnd, reason, classes, notes, halfDay, staffId } = req.body;
   const isLeader = req.user.role === 'leader' || req.user.role === 'admin';
 
-  let staffUser = req.user;
-  if (staffId && isLeader) {
-    const target = await dbGet('SELECT * FROM users WHERE id = ? AND active = 1', parseInt(staffId));
-    if (target) staffUser = { id: target.id, name: target.name, area: target.area };
-  }
+  // Always fetch fresh user data from DB (JWT area can go stale)
+  const targetId = (staffId && isLeader) ? parseInt(staffId) : req.user.id;
+  const freshUser = await dbGet('SELECT id, name, area FROM users WHERE id = ? AND active = 1', targetId);
+  const staffUser = freshUser || req.user;
 
   if (!dateStart || !reason) return res.status(400).json({ error: 'Date and reason required' });
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStart)) return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
@@ -1501,8 +1523,9 @@ app.post('/api/daily-zap/:date', auth, leaderOnly, wrap(async (req, res) => {
 
 // Confirm/unconfirm day (leader only)
 app.put('/api/day-confirm/:date', auth, leaderOnly, wrap(async (req, res) => {
-  // Only AP (Assistant Principal) can confirm the day
-  const userArea = (req.user.area || '').toLowerCase();
+  // Only AP (Assistant Principal) can confirm the day — fetch fresh area from DB
+  const freshArea = await dbGet('SELECT area FROM users WHERE id = ?', req.user.id);
+  const userArea = (freshArea?.area || req.user.area || '').toLowerCase();
   if (!userArea.includes('assistant principal') && !userArea.includes(' ap')) {
     return res.status(403).json({ error: 'Only the Assistant Principal can confirm the day' });
   }
@@ -2533,15 +2556,20 @@ app.get('/api/nft/summary-all', auth, leaderOnly, wrap(async (req, res) => {
   const thisYear = new Date().getFullYear();
   const startDate = `${thisYear}-01-01`;
   const staff = await dbAll("SELECT id, name FROM users WHERE role != 'crt' AND active = 1 ORDER BY name");
-  const summaries = [];
-  for (const s of staff) {
-    const scheduled = await dbGet("SELECT COALESCE(SUM(minutes),0) as total FROM nft_records WHERE staff_id = ? AND type = 'scheduled' AND date >= ?", s.id, startDate);
-    const extra = await dbGet("SELECT COALESCE(SUM(minutes),0) as total FROM nft_records WHERE staff_id = ? AND type = 'extra' AND date >= ?", s.id, startDate);
-    const lost = await dbGet("SELECT COALESCE(SUM(minutes),0) as total FROM nft_records WHERE staff_id = ? AND type = 'lost' AND date >= ?", s.id, startDate);
-    const covered = await dbGet("SELECT COALESCE(SUM(minutes),0) as total FROM nft_records WHERE staff_id = ? AND type = 'covered_duty' AND date >= ?", s.id, startDate);
-    const net = (scheduled?.total||0) + (extra?.total||0) - (lost?.total||0);
-    summaries.push({ staffId: s.id, name: s.name, scheduled: scheduled?.total||0, extra: extra?.total||0, lost: lost?.total||0, coveredDuty: covered?.total||0, net });
-  }
+  // Single query for all NFT totals by type (instead of 4 queries per staff)
+  const nftTotals = await dbAll(
+    "SELECT staff_id, type, COALESCE(SUM(minutes),0) as total FROM nft_records WHERE date >= ? GROUP BY staff_id, type", startDate
+  );
+  const nftMap = {};
+  nftTotals.forEach(r => {
+    if (!nftMap[r.staff_id]) nftMap[r.staff_id] = {};
+    nftMap[r.staff_id][r.type] = r.total;
+  });
+  const summaries = staff.map(s => {
+    const m = nftMap[s.id] || {};
+    const scheduled = m.scheduled || 0, extra = m.extra || 0, lost = m.lost || 0, covered = m.covered_duty || 0;
+    return { staffId: s.id, name: s.name, scheduled, extra, lost, coveredDuty: covered, net: scheduled + extra - lost };
+  });
   res.json({ year: thisYear, summaries });
 }));
 
@@ -2729,14 +2757,14 @@ app.get('/api/dashboard/leadership', auth, leaderOnly, wrap(async (req, res) => 
 app.get('/api/directory', auth, wrap(async (req, res) => {
   const staff = await dbAll("SELECT id, name, email, phone, role, area, active FROM users ORDER BY name");
   const crts = await dbAll("SELECT id, name, phone, email, specialties, active FROM crts ORDER BY name");
-  // Get absence stats for each staff
   const thisYear = new Date().getFullYear();
-  const enriched = [];
-  for (const s of staff) {
-    const absCount = await dbGet("SELECT COUNT(*) as c FROM absences WHERE staff_id = ? AND status != 'cancelled' AND date_start >= ?", s.id, `${thisYear}-01-01`);
-    const isAway = await dbGet("SELECT id FROM absences WHERE staff_id = ? AND date_start <= date('now') AND date_end >= date('now') AND status != 'cancelled'", s.id);
-    enriched.push({ ...s, absencesThisYear: absCount?.c || 0, isAwayToday: !!isAway });
-  }
+  // Single query for all absence counts (instead of N+1)
+  const absCounts = await dbAll("SELECT staff_id, COUNT(*) as c FROM absences WHERE status != 'cancelled' AND date_start >= ? GROUP BY staff_id", `${thisYear}-01-01`);
+  const absMap = {}; absCounts.forEach(r => { absMap[r.staff_id] = r.c; });
+  // Single query for who's away today
+  const awayToday = await dbAll("SELECT DISTINCT staff_id FROM absences WHERE date_start <= date('now') AND date_end >= date('now') AND status != 'cancelled'");
+  const awaySet = new Set(awayToday.map(r => r.staff_id));
+  const enriched = staff.map(s => ({ ...s, absencesThisYear: absMap[s.id] || 0, isAwayToday: awaySet.has(s.id) }));
   res.json({ staff: enriched, crts });
 }));
 
@@ -3047,6 +3075,9 @@ app.post('/api/chat/groups/:id/messages', auth, wrap(async (req, res) => {
   const userId = req.user.id;
   const { message } = req.body;
   if (!message || !message.trim()) return res.status(400).json({ error: 'Message required' });
+  // Sanitize: strip HTML tags to prevent XSS
+  const cleanMsg = message.trim().replace(/<[^>]*>/g, '');
+  if (!cleanMsg) return res.status(400).json({ error: 'Message required' });
 
   // Verify membership
   const member = await dbGet(
@@ -3057,7 +3088,7 @@ app.post('/api/chat/groups/:id/messages', auth, wrap(async (req, res) => {
 
   await dbRun(
     `INSERT INTO chat_messages (group_id, sender_id, sender_name, message) VALUES (?, ?, ?, ?)`,
-    [groupId, userId, req.user.name, message.trim()]
+    [groupId, userId, req.user.name, cleanMsg]
   );
   const msg = await dbGet(
     `SELECT id, sender_id, sender_name, message, created_at FROM chat_messages WHERE group_id = ? ORDER BY id DESC LIMIT 1`,
@@ -3082,7 +3113,7 @@ app.post('/api/chat/groups/:id/messages', auth, wrap(async (req, res) => {
     const group = await dbGet(`SELECT name FROM chat_groups WHERE id = ?`, groupId);
     const groupName = group ? group.name : 'Chat';
     const members = await dbAll(`SELECT user_id FROM chat_group_members WHERE group_id = ? AND user_id != ?`, groupId, userId);
-    const truncMsg = message.trim().length > 80 ? message.trim().substring(0, 80) + '...' : message.trim();
+    const truncMsg = cleanMsg.length > 80 ? cleanMsg.substring(0, 80) + '...' : cleanMsg;
     for (const m of members) {
       sendPushNotification(m.user_id, 'staff', `💬 ${groupName}`, `${req.user.name}: ${truncMsg}`).catch(() => {});
     }
