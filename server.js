@@ -262,17 +262,25 @@ async function addNotification(message, type, forRoles, absenceId) {
 }
 
 // ===== HEALTH & VERSION =====
+const APP_VERSION = '12.1.0';
+
+// Force no-cache on sw.js so browsers always check for updates
+app.get('/sw.js', (req, res) => {
+  res.set({ 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0' });
+  res.sendFile(path.join(__dirname, 'public', 'sw.js'));
+});
+
 app.get('/api/health', wrap(async (req, res) => {
   try {
     await dbGet('SELECT 1 as ok');
-    res.json({ status: 'ok', version: '7.4.0', database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
+    res.json({ status: 'ok', version: APP_VERSION, database: USE_TURSO ? 'turso' : 'local', uptime: Math.floor(process.uptime()) });
   } catch (e) {
     res.status(503).json({ status: 'error', error: 'Database unreachable' });
   }
 }));
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: '7.0.0', features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard', 'lessonlab', 'crt-portal', 'yard-duty-swaps', 'nft-tracking', 'specialist-alerts', 'analytics', 'school-info', 'staff-directory', 'announcements', 'wellbeing', 'incidents', 'quick-status', 'pd-log', 'cover-summary', 'csv-timetable-upload', 'lesson-plan-edit'] });
+  res.json({ version: APP_VERSION, features: ['daily-zap', 'yard-duty', 'calendar', 'timetables', 'push-notifications', 'crt-auto-booking', 'staff-management', 'dashboard', 'lessonlab', 'crt-portal', 'yard-duty-swaps', 'nft-tracking', 'specialist-alerts', 'analytics', 'school-info', 'staff-directory', 'announcements', 'wellbeing', 'incidents', 'quick-status', 'pd-log', 'cover-summary', 'csv-timetable-upload', 'lesson-plan-edit'] });
 });
 
 // ===== STAFF PROFILE =====

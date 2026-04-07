@@ -2773,6 +2773,33 @@ h+='<style>@keyframes pulse-help{0%,100%{box-shadow:0 4px 15px rgba(231,76,60,.4
       logout(){localStorage.removeItem('wps_token');localStorage.removeItem('wps_user');state.token=null;state.user=null;if(this._poll)clearInterval(this._poll);if(this._chatPoll)clearInterval(this._chatPoll);this.showLoginView()}
     };
     app.init();
+
+    // Auto-update: check server version on every load, nuke old caches if stale
+    (async function autoUpdate(){
+      try{
+        const resp=await fetch('/api/version',{cache:'no-store'});
+        const data=await resp.json();
+        const serverVer=data.version;
+        const localVer=localStorage.getItem('wps_app_version');
+        if(localVer && localVer!==serverVer){
+          console.log('Version mismatch: local='+localVer+' server='+serverVer+'. Forcing update...');
+          // Unregister all service workers
+          if('serviceWorker' in navigator){
+            const regs=await navigator.serviceWorker.getRegistrations();
+            for(const r of regs) await r.unregister();
+          }
+          // Clear all caches
+          const keys=await caches.keys();
+          for(const k of keys) await caches.delete(k);
+          // Save new version and hard reload
+          localStorage.setItem('wps_app_version',serverVer);
+          window.location.reload(true);
+          return;
+        }
+        localStorage.setItem('wps_app_version',serverVer);
+      }catch(e){console.log('Version check skipped:',e.message)}
+    })();
+
     // Register service worker for PWA
     if('serviceWorker' in navigator){
       navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).then(reg=>{
