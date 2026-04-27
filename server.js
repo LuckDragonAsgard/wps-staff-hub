@@ -14,7 +14,7 @@ const LIVE = process.env.NOTIFICATIONS_LIVE === 'true';
 const DEMO = process.env.DEMO_MODE !== 'false';
 // Turso cloud database credentials (env vars override these defaults)
 const TURSO_URL = process.env.TURSO_URL || 'libsql://wps-staff-hub-paddygallivan.aws-us-east-1.turso.io';
-const TURSO_TOKEN = process.env.TURSO_TOKEN || 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzQ0ODQ2MTUsImlkIjoiMDE5ZDI3ODYtNTQwMS03MzM4LWFhZTQtOWI5NThkMjNjYjYyIiwicmlkIjoiYjZmYjczYWYtYmE2MC00YjhmLTkyZDMtZGY4YmI0YzQzNWEzIn0.HbLxuuJ-xkOGrfZ_thQvU3njT499Ng2-GXtz1pwuwUQVexVydvWFaGah5bt5i65VAFUI74b0p4U2Ix6gXiX5DQ';
+const TURSO_TOKEN = process.env.TURSO_TOKEN || '';
 const USE_TURSO = !!(TURSO_URL && TURSO_TOKEN);
 
 // ===== DATABASE ABSTRACTION =====
